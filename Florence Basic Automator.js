@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.1.0
+// @version 2.2.0
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @run-at document-idle
@@ -8068,6 +8068,89 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
     }
 
+    function tryBatchSelect(targets, callback) {
+        addLogMessage('tryBatchSelect: attempting batch selection for ' + targets.length + ' targets', 'log');
+        var batchClickCount = 0;
+        var skippedAlready = 0;
+        var skippedStrike = 0;
+        var batchTargets = [];
+        for (var i = 0; i < targets.length; i++) {
+            var t = targets[i];
+            if (t.status !== CB_SELECT_LABELS.statusPending && t.status !== CB_SELECT_LABELS.statusNotInTable) {
+                continue;
+            }
+            if (t.status === CB_SELECT_LABELS.statusNotInTable || !t.checkboxEl || !t.checkboxEl.isConnected) {
+                continue;
+            }
+            if (t.rowEl && t.rowEl.querySelector('.log-entry--struckThrough')) {
+                t.status = CB_SELECT_LABELS.statusStrikethrough;
+                cbSelectState.counters.strikethrough++;
+                cbSelectState.counters.pending--;
+                cbUpdateRightPanelStatus(t.pairKey, CB_SELECT_LABELS.statusStrikethrough);
+                skippedStrike++;
+                continue;
+            }
+            var ariaChecked = t.checkboxEl.getAttribute('aria-checked');
+            if (ariaChecked === 'true' || t.checked) {
+                t.status = CB_SELECT_LABELS.statusAlready;
+                cbSelectState.counters.alreadyChecked++;
+                cbSelectState.counters.pending--;
+                cbUpdateRightPanelStatus(t.pairKey, CB_SELECT_LABELS.statusAlready);
+                skippedAlready++;
+                continue;
+            }
+            batchTargets.push(t);
+        }
+        addLogMessage('tryBatchSelect: skipped already=' + skippedAlready + ' strikethrough=' + skippedStrike + ' clickable=' + batchTargets.length, 'log');
+        cbUpdateRightPanelSummary();
+        if (batchTargets.length === 0) {
+            addLogMessage('tryBatchSelect: nothing to click', 'log');
+            callback([]);
+            return;
+        }
+        for (var ci = 0; ci < batchTargets.length; ci++) {
+            try {
+                if (!batchTargets[ci].checkboxEl.disabled && batchTargets[ci].checkboxEl.getAttribute('aria-disabled') !== 'true') {
+                    batchTargets[ci].checkboxEl.click();
+                    batchClickCount++;
+                }
+            } catch (err) {
+                addLogMessage('tryBatchSelect: click error on index ' + ci + ': ' + err, 'warn');
+            }
+        }
+        addLogMessage('tryBatchSelect: clicked ' + batchClickCount + ' checkboxes, waiting for settle', 'log');
+        var settleTid = setTimeout(function() {
+            var successCount = 0;
+            var failedTargets = [];
+            for (var vi = 0; vi < batchTargets.length; vi++) {
+                var bt = batchTargets[vi];
+                var nowChecked = false;
+                if (bt.checkboxEl && bt.checkboxEl.isConnected) {
+                    var ac = bt.checkboxEl.getAttribute('aria-checked');
+                    if (ac === 'true') {
+                        nowChecked = true;
+                    } else if (bt.checkboxEl.classList && bt.checkboxEl.classList.contains('checkbox-icon--selected')) {
+                        nowChecked = true;
+                    }
+                }
+                if (nowChecked) {
+                    bt.status = CB_SELECT_LABELS.statusSelected;
+                    cbSelectState.counters.selected++;
+                    cbSelectState.counters.pending--;
+                    cbUpdateRightPanelStatus(bt.pairKey, CB_SELECT_LABELS.statusSelected);
+                    successCount++;
+                } else {
+                    bt.status = CB_SELECT_LABELS.statusPending;
+                    failedTargets.push(bt);
+                }
+            }
+            cbUpdateRightPanelSummary();
+            addLogMessage('tryBatchSelect: batch result - success=' + successCount + ' failed=' + failedTargets.length, 'log');
+            callback(failedTargets);
+        }, 600);
+        cbSelectState.timeouts.push(settleTid);
+    }
+    
     function beginCheckboxSelectionRun() {
         addLogMessage('beginCheckboxSelectionRun: starting scan', 'log');
         openCheckboxSelectProgressPanel();
@@ -8237,9 +8320,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 cbSelectState.scrollContainer.scrollTo({ top: cbSelectState.prevScrollTop, behavior: 'auto' });
             }
             if (pendingCount > 0) {
-                addLogMessage('beginCheckboxSelectionRun: starting selection for ' + pendingCount + ' entries', 'log');
-                cbUpdateAriaLive('Starting checkbox selection for ' + pendingCount + ' entries');
-                processNextCheckboxTarget();
+                addLogMessage('beginCheckboxSelectionRun: starting batch selection for ' + pendingCount + ' entries', 'log');
+                cbUpdateAriaLive('Attempting batch checkbox selection for ' + pendingCount + ' entries');
+                tryBatchSelect(targets, function(failedTargets) {
+                    if (failedTargets.length === 0) {
+                        addLogMessage('beginCheckboxSelectionRun: batch selection succeeded for all', 'log');
+                        cbUpdateAriaLive('Batch selection complete');
+                        finishRun();
+                    } else {
+                        addLogMessage('beginCheckboxSelectionRun: batch had ' + failedTargets.length + ' failures, falling back to one-at-a-time', 'log');
+                        cbUpdateAriaLive('Batch partial: ' + failedTargets.length + ' remaining, selecting one-at-a-time');
+                        cbSelectState.targetIndex = 0;
+                        processNextCheckboxTarget();
+                    }
+                });
             } else {
                 finishRun();
             }
