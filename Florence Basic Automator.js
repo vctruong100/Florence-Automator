@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.0
+// @version 2.2.1
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @run-at document-idle
@@ -2741,6 +2741,7 @@
         { keyword: 'laboratory', role: 'Laboratory Technician' },
         { keyword: 'patient', role: 'Dietary Aide' },
         { keyword: 'lab tech', role: 'Laboratory Technician' },
+        { keyword: 'labtech', role: 'Laboratory Technician' },
         { keyword: 'data', role: 'Data Entry' },
         { keyword: 'regulatory', role: 'Regulatory Coordinator' },
         { keyword: 'dietary', role: 'Dietary Aide' },
@@ -3824,6 +3825,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         });
     }
 
+    function triggerAngularInputOpen(inputEl) {
+        if (document.activeElement && document.activeElement !== inputEl) {
+            document.activeElement.blur();
+        }
+        inputEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        inputEl.focus();
+        inputEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+        inputEl.click();
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('focus', { bubbles: true }));
+    }
+
     function ensureRoleListOpenForColumn(columnEl) {
         addLogMessage('ensureRoleListOpenForColumn: ensuring open in target column', 'log');
         return dismissRoleListDropdown(columnEl).then(function() {
@@ -3852,9 +3865,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     }
                 }
                 if (inputEl) {
-                    addLogMessage('ensureRoleListOpenForColumn: clicking input in column', 'log');
-                    inputEl.click();
-                    inputEl.focus();
+                    addLogMessage('ensureRoleListOpenForColumn: triggering input open in column (attempt ' + (retries + 1) + ')', 'log');
+                    triggerAngularInputOpen(inputEl);
                 } else {
                     addLogMessage('ensureRoleListOpenForColumn: no input found in column, clicking column itself', 'warn');
                     columnEl.click();
@@ -3876,8 +3888,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     if (Date.now() - waitStart > RESP_TIMEOUTS.waitListOpenMs) {
                         retries++;
                         if (retries < RESP_RETRY.openListRetries) {
-                            var tid = setTimeout(tryOpen, 300);
-                            respState.timeouts.push(tid);
+                            addLogMessage('ensureRoleListOpenForColumn: retry ' + retries + '/' + RESP_RETRY.openListRetries + ', dismissing stale state first', 'log');
+                            dismissRoleListDropdown(columnEl).then(function() {
+                                var tid = setTimeout(tryOpen, 500);
+                                respState.timeouts.push(tid);
+                            });
                         } else {
                             reject(new Error('Could not open role list in column'));
                         }
@@ -4519,19 +4534,40 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     role.status = RESP_LABELS.statusStopped;
                     updateRespRoleStatus(role.key, RESP_LABELS.statusStopped, '');
                     respState.counters.pending--;
+                    updateRespSummary();
+                    dismissRoleListDropdown(currentColumnEl).then(function() {
+                        roleIndex++;
+                        var et = setTimeout(processNextRole, 300);
+                        respState.timeouts.push(et);
+                    });
+                    return;
+                }
+                var isOpenListError = err.message && err.message.indexOf('Could not open role list') !== -1;
+                var retryAttempt = role._retryCount || 0;
+                if (isOpenListError && retryAttempt < 1) {
+                    role._retryCount = retryAttempt + 1;
+                    addLogMessage('processRolesWorkflow: retrying ' + role.displayRole + ' (attempt ' + role._retryCount + ') after dismissing stale state', 'warn');
+                    updateRespRoleStatus(role.key, RESP_LABELS.statusPending, 'Retrying...');
+                    dismissRoleListDropdown(currentColumnEl).then(function() {
+                        if (document.activeElement) {
+                            document.activeElement.blur();
+                        }
+                        var retryTid = setTimeout(processNextRole, 1000);
+                        respState.timeouts.push(retryTid);
+                    });
                 } else {
                     role.status = RESP_LABELS.statusFailed;
                     role.reason = err.message;
                     respState.counters.failed++;
                     respState.counters.pending--;
                     updateRespRoleStatus(role.key, RESP_LABELS.statusFailed, err.message);
+                    updateRespSummary();
+                    dismissRoleListDropdown(currentColumnEl).then(function() {
+                        roleIndex++;
+                        var et = setTimeout(processNextRole, 300);
+                        respState.timeouts.push(et);
+                    });
                 }
-                updateRespSummary();
-                dismissRoleListDropdown(currentColumnEl).then(function() {
-                    roleIndex++;
-                    var et = setTimeout(processNextRole, 300);
-                    respState.timeouts.push(et);
-                });
             });
         }
         processNextRole();
@@ -4665,7 +4701,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 rawText: text
             });
         }
-        addLogMessage('splitRawIntoItems: extracted ' + items.length + ' items', 'log');
+        items.sort(function(a, b) {
+            return parseInt(a.number, 10) - parseInt(b.number, 10);
+        });
+        addLogMessage('splitRawIntoItems: extracted ' + items.length + ' items (sorted by number)', 'log');
         return items;
     }
 
