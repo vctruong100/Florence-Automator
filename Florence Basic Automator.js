@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.0.0
+// @version 2.1.0
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @run-at document-idle
@@ -69,7 +69,7 @@
 
     const ELOG_FORM_SELECTORS = {
         addEntryBtn: '.test-createLogEntryBtn',
-        memberInput: '#filtered-select-input.filtered-select__input',
+        memberInput: 'input.filtered-select__input[placeholder*="Team Member"]',
         listContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list, cdk-virtual-scroll-viewport',
         virtualViewport: 'cdk-virtual-scroll-viewport, .cdk-virtual-scroll-viewport',
         optionItem: 'cdk-virtual-scroll-viewport li.filtered-select__list__item, cdk-virtual-scroll-viewport li, .filtered-select__list li, cdk-virtual-scroll-viewport [role="option"], .filtered-select__list [role="option"]',
@@ -108,12 +108,12 @@
 
     const DOA_SELECTORS = {
         addEntryBtn: '.test-createLogEntryBtn',
-        memberInput: '#filtered-select-input.filtered-select__input[placeholder*="Team Member"]',
+        memberInput: 'input.filtered-select__input[placeholder*="Team Member"]',
         listContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list, cdk-virtual-scroll-viewport',
         virtualViewport: 'cdk-virtual-scroll-viewport, .cdk-virtual-scroll-viewport',
         optionItem: 'cdk-virtual-scroll-viewport li.filtered-select__list__item, cdk-virtual-scroll-viewport li, .filtered-select__list li, cdk-virtual-scroll-viewport [role="option"], .filtered-select__list [role="option"]',
         roleClearBtn: 'i.fa-times.test-clearBtn',
-        roleSearchInput: '#filtered-select-input.filtered-select__input[placeholder*="Search"]',
+        roleSearchInput: 'input.filtered-select__input[placeholder*="Search"]',
         roleOptionItem: '.filtered-select__list__item, [role="option"], .cdk-virtual-scroll-viewport .filtered-select__list__item',
         roleOptionText: '.filtered-select__list__item__text',
         tasksToggleBtn: 'button.dropdown-toggle.log-entry-form__select-options-dropdown-button',
@@ -2153,7 +2153,7 @@
                 rowTexts.push(name);
                 var pk = normalizeFirstLastPair(name);
                 if (addedPairKeys.has(pk) && !checkedPairKeys.has(pk)) {
-                    var checkbox = row.querySelector('i[role="checkbox"]');
+                    var checkbox = row.querySelector('[role="checkbox"]');
                     if (checkbox && checkbox.getAttribute('aria-checked') === 'false') {
                         addLogMessage('selectCheckboxesForAddedNames: clicking checkbox for ' + name, 'log');
                         checkbox.click();
@@ -2652,7 +2652,7 @@
         pageStepRoot: 'doa-log-template-study-roles-step',
         dropListContainer: '.cdk-drop-list.doa-log-form-step__drop-list-container',
         roleColumns: '.doa-log-form-step__column.roles__column',
-        roleSearchInput: '#filtered-select-input.filtered-select__input[placeholder*="Search"]',
+        roleSearchInput: 'input.filtered-select__input[placeholder*="Search"]',
         roleListContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list',
         virtualViewport: 'cdk-virtual-scroll-viewport.cdk-virtual-scroll-viewport, .filtered-select__list',
         roleOptionItem: '.filtered-select__list__item, [role="option"], .cdk-virtual-scroll-viewport .filtered-select__list__item',
@@ -6482,14 +6482,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function clickDoASaveAndAddAnother() {
-        addLogMessage('clickDoASaveAndAddAnother: looking for Save & Add Another button', 'log');
+        addLogMessage('clickDoASaveAndAddAnother: looking for Save button', 'log');
         return new Promise(function(resolve) {
-            var buttons = document.querySelectorAll(DOA_SELECTORS.saveAndAddAnotherBtn);
-            var saveBtn = null;
-            for (var bi = 0; bi < buttons.length; bi++) {
-                if (buttons[bi].textContent.trim().indexOf('Save') !== -1 && buttons[bi].textContent.trim().indexOf('Add Another') !== -1) {
-                    saveBtn = buttons[bi];
-                    break;
+            var saveBtn = document.querySelector('button.btn.btn-primary.test-submitBtn');
+            if (!saveBtn) {
+                var buttons = document.querySelectorAll(DOA_SELECTORS.saveAndAddAnotherBtn);
+                for (var bi = 0; bi < buttons.length; bi++) {
+                    var btnText = buttons[bi].textContent.trim();
+                    if (btnText.indexOf('Save') !== -1) {
+                        saveBtn = buttons[bi];
+                        break;
+                    }
                 }
             }
             if (!saveBtn) {
@@ -9665,7 +9668,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         toastContainer: '.toast, .toastr, .alert',
         toastSuccess: '.toast-success, .alert-success, .toast.toast-success',
         editContextRoot: '.log-entry-form, form.log-entry-form, .document-log-entry-edit, .modal.show, body',
-        memberDisplayInEdit: '.filtered-select__input[readonly], .filtered-select__display, [data-test="member-display"], .log-entry-form__member .form-control[readonly]',
+        memberDisplayInEdit: 'input.filtered-select__input[placeholder*="Team Member"], .filtered-select__input[readonly], .filtered-select__display, [data-test="member-display"], .log-entry-form__member .form-control[readonly]',
         startDateReadonlyInGrid: '.test-date-time-picker-3[placeholder*="Start Date"], input[placeholder="Start Date"]',
         gridDateCellText: '.u-text-overflow-ellipsis, span, div',
         overlayOrSpinner: '.loading, .spinner, .overlay, .cdk-overlay-container',
@@ -11495,20 +11498,31 @@ function showResponsibilitiesProgressPanel(rolesData) {
         try {
             var memberEls = document.querySelectorAll(STARTDATE_SELECTORS.memberDisplayInEdit);
             for (var mi = 0; mi < memberEls.length; mi++) {
-                var memberText = memberEls[mi].value || memberEls[mi].textContent || '';
+                var el = memberEls[mi];
+                var memberText = '';
+                if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                    memberText = el.value || '';
+                }
+                if (!memberText) {
+                    memberText = el.textContent || '';
+                }
+                if (!memberText && el.getAttribute('aria-label')) {
+                    memberText = el.getAttribute('aria-label');
+                }
                 memberText = memberText.trim();
                 if (!memberText) {
                     continue;
                 }
                 var memberPairKey = normalizeFirstLastPair(memberText);
+                addLogMessage('ensureCorrectEditContextForCandidate: found member text="' + memberText + '" pairKey=' + memberPairKey + ' expected=' + candidate.pairKey, 'log');
                 if (memberPairKey === candidate.pairKey) {
                     addLogMessage('ensureCorrectEditContextForCandidate: matched for ' + candidate.display, 'log');
                     return true;
                 }
             }
             if (memberEls.length === 0) {
-                addLogMessage('ensureCorrectEditContextForCandidate: no member display found, proceeding with post-save guard', 'log');
-                return true;
+                addLogMessage('ensureCorrectEditContextForCandidate: no member display found, returning false', 'warn');
+                return false;
             }
             addLogMessage('ensureCorrectEditContextForCandidate: mismatch for ' + candidate.pairKey, 'error');
             return false;
@@ -11897,8 +11911,23 @@ function showResponsibilitiesProgressPanel(rolesData) {
         });
     }
 
-    function processRowEditAndSave(candidate, rowEl, resolve) {
-        addLogMessage('processRowEditAndSave: processing ' + candidate.display, 'log');
+    function clickCancelButton() {
+        var cancelBtns = document.querySelectorAll('button.btn.btn-default, button.btn.btn-secondary');
+        for (var ci = 0; ci < cancelBtns.length; ci++) {
+            var btnText = cancelBtns[ci].textContent.trim().toLowerCase();
+            if (btnText === 'cancel') {
+                addLogMessage('clickCancelButton: found Cancel button, clicking', 'log');
+                cancelBtns[ci].click();
+                return true;
+            }
+        }
+        addLogMessage('clickCancelButton: Cancel button not found', 'warn');
+        return false;
+    }
+
+    function processRowEditAndSave(candidate, rowEl, resolve, _retryAfterCancel) {
+        var isRetry = !!_retryAfterCancel;
+        addLogMessage('processRowEditAndSave: processing ' + candidate.display + (isRetry ? ' (retry after cancel)' : ''), 'log');
         if (startDateState.stopRequested) {
             candidate.status = STARTDATE_LABELS.statusStopped;
             updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusStopped);
@@ -11914,13 +11943,44 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             addLogMessage('processRowEditAndSave: edit form opened for ' + candidate.display, 'log');
             if (!ensureCorrectEditContextForCandidate(candidate)) {
-                addLogMessage('processRowEditAndSave: edit context mismatch for ' + candidate.display, 'error');
-                candidate.status = STARTDATE_LABELS.statusEditFailed;
-                updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusEditFailed, 'Edit context mismatch');
-                startDateState.counters.failures++;
-                startDateState.counters.pending--;
-                updateStartDateRightPanelSummary(startDateState.counters);
-                resolve();
+                addLogMessage('processRowEditAndSave: edit context mismatch for ' + candidate.display + ', clicking Cancel', 'warn');
+                clickCancelButton();
+                if (isRetry) {
+                    addLogMessage('processRowEditAndSave: mismatch on retry, marking as failed for ' + candidate.display, 'error');
+                    candidate.status = STARTDATE_LABELS.statusEditFailed;
+                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusEditFailed, 'Edit context mismatch after retry');
+                    startDateState.counters.failures++;
+                    startDateState.counters.pending--;
+                    updateStartDateRightPanelSummary(startDateState.counters);
+                    resolve();
+                    return;
+                }
+                addLogMessage('processRowEditAndSave: will retry finding correct row for ' + candidate.display, 'log');
+                var cancelWaitTid = setTimeout(function() {
+                    waitForOverlayToClear().then(function() {
+                        var correctRow = findRowByNamePairKey(candidate.pairKey);
+                        if (correctRow) {
+                            addLogMessage('processRowEditAndSave: found correct row after cancel, retrying for ' + candidate.display, 'log');
+                            processRowEditAndSave(candidate, correctRow, resolve, true);
+                        } else {
+                            addLogMessage('processRowEditAndSave: scrolling to find correct row after cancel for ' + candidate.display, 'log');
+                            scrollToFindRow(candidate, function(foundRow) {
+                                if (!foundRow) {
+                                    addLogMessage('processRowEditAndSave: row not found after cancel for ' + candidate.display, 'error');
+                                    candidate.status = STARTDATE_LABELS.statusNotFound;
+                                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusNotFound, 'Row not found after cancel');
+                                    startDateState.counters.notFound++;
+                                    startDateState.counters.pending--;
+                                    updateStartDateRightPanelSummary(startDateState.counters);
+                                    resolve();
+                                    return;
+                                }
+                                processRowEditAndSave(candidate, foundRow, resolve, true);
+                            });
+                        }
+                    });
+                }, 1000);
+                startDateState.timeouts.push(cancelWaitTid);
                 return;
             }
             var existingDate = readStartDateFromEditOrGrid(rowEl);
@@ -12456,7 +12516,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function canonicalizeKeyEvent(e) {
-        addLogMessage('canonicalizeKeyEvent: code=' + e.code + ' key=' + e.key, 'log');
         var code = '';
         var label = '';
         if (e.code && e.code !== 'Unidentified' && e.code !== '') {
@@ -12517,7 +12576,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
         } else {
             label = code || e.key || 'Unknown';
         }
-        addLogMessage('canonicalizeKeyEvent: resolved code=' + code + ' label=' + label, 'log');
         return { code: code, label: label };
     }
 
@@ -14066,7 +14124,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
 
         try {
-            const searchInput = document.getElementById('filtered-select-input');
+            const searchInput = document.querySelector('input.filtered-select__input[placeholder*="Search Signer"], input.filtered-select__input[placeholder*="Search"]');
             if (searchInput) {
                 addLogMessage('selectSigners: search input found, clicking to open list', 'log');
                 searchInput.click();
@@ -14076,7 +14134,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     processSignerList(names);
                 }, 400);
             } else {
-                addLogMessage('selectSigners: Search input not found with id="filtered-select-input"', 'error');
+                addLogMessage('selectSigners: Search input not found', 'error');
                 updateSignatureStatus('System', 'Search input not found', '#ff6b6b');
             }
         } catch (error) {
@@ -14232,7 +14290,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
                 try {
                     attemptSelectByScrolling(parts, function(success, matchType) {
-                        const searchInput = document.getElementById('filtered-select-input');
+                        const searchInput = document.querySelector('input.filtered-select__input[placeholder*="Search Signer"], input.filtered-select__input[placeholder*="Search"]');
                         if (searchInput) {
                             clearSearchInput(searchInput);
                             setTimeout(() => {
