@@ -9773,6 +9773,1419 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('stopSelectSignedCheckbox: cleanup complete', 'log');
     }
 
+    const TLOG_SELECTORS = {
+        virtualScrollWrapper: '.cdk-virtual-scroll-content-wrapper',
+        trainingRow: '[role="row"]',
+        trainingLink: 'a[class*="test-itemNameLink"]',
+        pageTable: 'table, [role="table"], .table',
+        pageTableRow: 'tbody tr, [role="row"]',
+        pageTableCell: 'td, [role="cell"]',
+        staffNameCellIndex: 3,
+        signatureCellIndex: 4
+    };
+
+    const TLOG_TIMEOUTS = {
+        scrollStepMs: 360,
+        scrollSettleMs: 100,
+        maxScanDurationMs: 50000,
+        pageLoadWaitMs: 7500,
+        pageTableWaitMs: 7500,
+        pageRetryDelayMs: 1000,
+        pageRetryAttempts: 3,
+        tabOpenDelayMs: 800,
+        batchSettleMs: 500
+    };
+
+    const TLOG_SCROLL = {
+        stepPx: 600,
+        maxNoProgressIterations: 10
+    };
+
+    const TLOG_LABELS = {
+        featureButton: 'Get Training Log',
+        progressTitle: 'Scanning Training Items',
+        selectionTitle: 'Select Training Items',
+        processingTitle: 'Processing Training Logs',
+        finalTitle: 'Training Log Summary',
+        statusSigned: 'Signed',
+        statusPending: 'Pending',
+        statusUnrequested: 'Unrequested'
+    };
+
+    let tlogState = {
+        isRunning: false,
+        stopRequested: false,
+        observers: [],
+        timeouts: [],
+        intervals: [],
+        eventListeners: [],
+        idleCallbackIds: [],
+        discoveredItems: [],
+        seenAriaLabels: new Set(),
+        selectedItems: [],
+        collectedData: [],
+        openTabs: [],
+        focusReturnElement: null
+    };
+
+    function resetTlogState() {
+        addLogMessage('resetTlogState: resetting state', 'log');
+        tlogState.isRunning = false;
+        tlogState.stopRequested = false;
+        tlogState.observers = [];
+        tlogState.timeouts = [];
+        tlogState.intervals = [];
+        tlogState.eventListeners = [];
+        tlogState.idleCallbackIds = [];
+        tlogState.discoveredItems = [];
+        tlogState.seenAriaLabels = new Set();
+        tlogState.selectedItems = [];
+        tlogState.collectedData = [];
+        tlogState.openTabs = [];
+        tlogState.reuseTab = null;
+    }
+
+    function stopTlog() {
+        addLogMessage('stopTlog: stopping', 'log');
+        tlogState.isRunning = false;
+        tlogState.stopRequested = true;
+        for (var i = 0; i < tlogState.idleCallbackIds.length; i++) {
+            if (typeof cancelIdleCallback === 'function') {
+                cancelIdleCallback(tlogState.idleCallbackIds[i]);
+            }
+        }
+        tlogState.idleCallbackIds = [];
+        for (var i2 = 0; i2 < tlogState.observers.length; i2++) {
+            try { tlogState.observers[i2].disconnect(); } catch (e) {}
+        }
+        tlogState.observers = [];
+        for (var i3 = 0; i3 < tlogState.timeouts.length; i3++) {
+            try { clearTimeout(tlogState.timeouts[i3]); } catch (e2) {}
+        }
+        tlogState.timeouts = [];
+        for (var i4 = 0; i4 < tlogState.intervals.length; i4++) {
+            try { clearInterval(tlogState.intervals[i4]); } catch (e3) {}
+        }
+        tlogState.intervals = [];
+        for (var i5 = 0; i5 < tlogState.eventListeners.length; i5++) {
+            try {
+                var l = tlogState.eventListeners[i5];
+                l.element.removeEventListener(l.type, l.handler);
+            } catch (e4) {}
+        }
+        tlogState.eventListeners = [];
+        for (var i6 = 0; i6 < tlogState.openTabs.length; i6++) {
+            try {
+                if (tlogState.openTabs[i6] && !tlogState.openTabs[i6].closed) {
+                    tlogState.openTabs[i6].close();
+                }
+            } catch (e5) {}
+        }
+        tlogState.openTabs = [];
+        var modals = document.querySelectorAll('#tlog-scan-modal, #tlog-selection-modal, #tlog-processing-modal, #tlog-final-modal');
+        for (var m = 0; m < modals.length; m++) {
+            if (modals[m].parentNode) modals[m].parentNode.removeChild(modals[m]);
+        }
+        if (tlogState.focusReturnElement) {
+            tlogState.focusReturnElement.focus();
+        }
+        resetTlogState();
+        addLogMessage('stopTlog: cleanup complete', 'log');
+    }
+
+    function tlogDelay(ms) {
+        return new Promise(function(resolve) {
+            var tid = setTimeout(resolve, ms);
+            tlogState.timeouts.push(tid);
+        });
+    }
+
+    function getTrainingLogInit() {
+        addLogMessage('getTrainingLogInit: starting feature', 'log');
+        tlogState.focusReturnElement = document.getElementById('tlog-btn');
+        resetTlogState();
+        tlogState.isRunning = true;
+        var wrapper = document.querySelector(TLOG_SELECTORS.virtualScrollWrapper);
+        if (!wrapper) {
+            addLogMessage('getTrainingLogInit: virtual scroll wrapper not found, showing warning', 'warn');
+            tlogShowWarning('Training list not found. Please navigate to a page with the training items list before using this feature.');
+            return;
+        }
+        tlogShowScanProgress();
+        tlogScanVirtualScroll(wrapper);
+    }
+
+    function tlogShowWarning(message) {
+        var modal = document.createElement('div');
+        modal.id = 'tlog-scan-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'alertdialog');
+        container.setAttribute('aria-modal', 'true');
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        var title = document.createElement('h3');
+        title.textContent = 'Training List Not Found';
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '\u2715';
+        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        var closeWarning = function() {
+            if (modal.parentNode) document.body.removeChild(modal);
+            stopTlog();
+        };
+        closeBtn.onclick = closeWarning;
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        var msgP = document.createElement('p');
+        msgP.textContent = message;
+        msgP.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        var okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okBtn.onmouseover = function() { okBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        okBtn.onmouseout = function() { okBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okBtn.onclick = closeWarning;
+        container.appendChild(header);
+        container.appendChild(msgP);
+        container.appendChild(okBtn);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        okBtn.focus();
+    }
+
+    function tlogShowScanProgress() {
+        addLogMessage('tlogShowScanProgress: creating scan progress panel', 'log');
+        var modal = document.createElement('div');
+        modal.id = 'tlog-scan-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 36px 48px; max-width: 480px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); text-align: center;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        var spinner = document.createElement('div');
+        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: white; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
+        var styleTag = document.getElementById('collecting-spinner-style');
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'collecting-spinner-style';
+            styleTag.textContent = '@keyframes collectingSpin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(styleTag);
+        }
+        var title = document.createElement('h3');
+        title.textContent = TLOG_LABELS.progressTitle;
+        title.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;';
+        var countLabel = document.createElement('p');
+        countLabel.id = 'tlog-scan-count';
+        countLabel.textContent = 'Discovered: 0 items';
+        countLabel.style.cssText = 'margin: 0; color: rgba(255, 255, 255, 0.85); font-size: 15px; font-weight: 400;';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease; margin-top: 18px;';
+        cancelBtn.onmouseover = function() { cancelBtn.style.background = 'rgba(255, 67, 54, 0.6)'; };
+        cancelBtn.onmouseout = function() { cancelBtn.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        cancelBtn.onclick = function() { stopTlog(); };
+        container.appendChild(spinner);
+        container.appendChild(title);
+        container.appendChild(countLabel);
+        container.appendChild(cancelBtn);
+        modal.appendChild(container);
+        document.body.appendChild(modal);
+    }
+
+    function tlogUpdateScanCount(count) {
+        var el = document.getElementById('tlog-scan-count');
+        if (el) el.textContent = 'Discovered: ' + count + ' items';
+    }
+
+    function tlogScanVirtualScroll(wrapper) {
+        addLogMessage('tlogScanVirtualScroll: starting virtual scroll scan', 'log');
+        var viewport = wrapper.closest('cdk-virtual-scroll-viewport') || wrapper.parentElement;
+        if (!viewport) {
+            addLogMessage('tlogScanVirtualScroll: no viewport found, using wrapper parent', 'warn');
+            viewport = wrapper.parentElement || wrapper;
+        }
+        var startTime = Date.now();
+        var noProgress = 0;
+        var prevLastLabel = '';
+        function scanVisible() {
+            var rows = wrapper.querySelectorAll(TLOG_SELECTORS.trainingRow);
+            var newCount = 0;
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var ariaLabel = row.getAttribute('aria-label');
+                if (!ariaLabel || !ariaLabel.trim()) continue;
+                ariaLabel = ariaLabel.trim();
+                if (tlogState.seenAriaLabels.has(ariaLabel)) continue;
+                tlogState.seenAriaLabels.add(ariaLabel);
+                var href = '';
+                var linkEl = row.querySelector(TLOG_SELECTORS.trainingLink);
+                if (linkEl) {
+                    href = linkEl.href || linkEl.getAttribute('href') || '';
+                }
+                tlogState.discoveredItems.push({ ariaLabel: ariaLabel, href: href });
+                newCount++;
+            }
+            if (newCount > 0) {
+                tlogUpdateScanCount(tlogState.discoveredItems.length);
+            }
+            return newCount;
+        }
+        function getLastRowLabel() {
+            var rows = wrapper.querySelectorAll(TLOG_SELECTORS.trainingRow);
+            for (var i = rows.length - 1; i >= 0; i--) {
+                var lbl = rows[i].getAttribute('aria-label');
+                if (lbl && lbl.trim()) return lbl.trim();
+            }
+            return '';
+        }
+        scanVisible();
+        prevLastLabel = getLastRowLabel();
+        function scrollLoop() {
+            if (tlogState.stopRequested || !tlogState.isRunning) {
+                finishScan('stopped');
+                return;
+            }
+            if (Date.now() - startTime > TLOG_TIMEOUTS.maxScanDurationMs) {
+                finishScan('timeout');
+                return;
+            }
+            var currentTransform = wrapper.style.transform || '';
+            var currentY = 0;
+            var match = currentTransform.match(/translateY\((\d+)px\)/);
+            if (match) currentY = parseInt(match[1], 10);
+            var newY = currentY + TLOG_SCROLL.stepPx;
+            wrapper.style.transform = 'translateY(' + newY + 'px)';
+            viewport.scrollTop = newY;
+            var tid = setTimeout(function() {
+                var found = scanVisible();
+                var currLastLabel = getLastRowLabel();
+                if (currLastLabel === prevLastLabel && found === 0) {
+                    noProgress++;
+                } else {
+                    noProgress = 0;
+                    prevLastLabel = currLastLabel;
+                }
+                if (noProgress >= TLOG_SCROLL.maxNoProgressIterations) {
+                    finishScan('endReached');
+                    return;
+                }
+                if (typeof requestIdleCallback === 'function') {
+                    var icbId = requestIdleCallback(function() {
+                        var idx = tlogState.idleCallbackIds.indexOf(icbId);
+                        if (idx > -1) tlogState.idleCallbackIds.splice(idx, 1);
+                        scrollLoop();
+                    }, { timeout: TLOG_TIMEOUTS.scrollStepMs * 2 });
+                    tlogState.idleCallbackIds.push(icbId);
+                } else {
+                    var t2 = setTimeout(scrollLoop, TLOG_TIMEOUTS.scrollStepMs);
+                    tlogState.timeouts.push(t2);
+                }
+            }, TLOG_TIMEOUTS.scrollSettleMs);
+            tlogState.timeouts.push(tid);
+        }
+        var initTid = setTimeout(scrollLoop, TLOG_TIMEOUTS.scrollStepMs);
+        tlogState.timeouts.push(initTid);
+        function finishScan(reason) {
+            addLogMessage('tlogScanVirtualScroll: scan done reason=' + reason + ' items=' + tlogState.discoveredItems.length, 'log');
+            var scanModal = document.getElementById('tlog-scan-modal');
+            if (scanModal && scanModal.parentNode) scanModal.parentNode.removeChild(scanModal);
+            if (tlogState.discoveredItems.length === 0) {
+                tlogShowWarning('No training items were found. Please make sure training items are visible on this page.');
+                return;
+            }
+            tlogShowSelectionGUI();
+        }
+    }
+
+    function tlogShowSelectionGUI() {
+        addLogMessage('tlogShowSelectionGUI: showing selection panel with ' + tlogState.discoveredItems.length + ' items', 'log');
+        var modal = document.createElement('div');
+        modal.id = 'tlog-selection-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 700px; max-width: 95%; max-height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
+        var title = document.createElement('h3');
+        title.textContent = TLOG_LABELS.selectionTitle + ' (' + tlogState.discoveredItems.length + ')';
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '\u2715';
+        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeBtn.onclick = function() { stopTlog(); };
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        var selectAllContainer = document.createElement('div');
+        selectAllContainer.style.cssText = 'display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-shrink: 0;';
+        var selectAllCb = document.createElement('input');
+        selectAllCb.type = 'checkbox';
+        selectAllCb.id = 'tlog-select-all';
+        selectAllCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #6bcf7f;';
+        var selectAllLabel = document.createElement('label');
+        selectAllLabel.htmlFor = 'tlog-select-all';
+        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.style.cssText = 'color: white; font-size: 14px; font-weight: 500; cursor: pointer;';
+        var selectedCount = document.createElement('span');
+        selectedCount.id = 'tlog-selected-count';
+        selectedCount.textContent = '(0 selected)';
+        selectedCount.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 13px; margin-left: auto;';
+        selectAllContainer.appendChild(selectAllCb);
+        selectAllContainer.appendChild(selectAllLabel);
+        selectAllContainer.appendChild(selectedCount);
+        var listContainer = document.createElement('div');
+        listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 200px; max-height: 50vh; background: rgba(0, 0, 0, 0.15); border-radius: 8px; padding: 8px;';
+        var checkboxes = [];
+        for (var i = 0; i < tlogState.discoveredItems.length; i++) {
+            var item = tlogState.discoveredItems[i];
+            var row = document.createElement('div');
+            row.style.cssText = 'display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 3px 0; background: rgba(255, 255, 255, 0.06); border-radius: 6px; transition: background 0.2s ease; cursor: pointer;';
+            row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.12)'; };
+            row.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.06)'; };
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.setAttribute('data-tlog-index', String(i));
+            cb.style.cssText = 'width: 16px; height: 16px; cursor: pointer; accent-color: #6bcf7f; flex-shrink: 0; margin-top: 2px;';
+            checkboxes.push(cb);
+            var labelSpan = document.createElement('span');
+            labelSpan.textContent = item.ariaLabel;
+            labelSpan.style.cssText = 'color: white; font-size: 13px; line-height: 1.4; word-break: break-word;';
+            row.appendChild(cb);
+            row.appendChild(labelSpan);
+            row.onclick = (function(checkbox) {
+                return function(e) {
+                    if (e.target !== checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                };
+            })(cb);
+            listContainer.appendChild(row);
+        }
+        var continueBtn = document.createElement('button');
+        continueBtn.textContent = 'Continue';
+        continueBtn.disabled = true;
+        continueBtn.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 600; transition: all 0.25s ease; opacity: 0.5; margin-top: 16px; flex-shrink: 0;';
+        function updateSelectionState() {
+            var count = 0;
+            for (var ci = 0; ci < checkboxes.length; ci++) {
+                if (checkboxes[ci].checked) count++;
+            }
+            var countEl = document.getElementById('tlog-selected-count');
+            if (countEl) countEl.textContent = '(' + count + ' selected)';
+            if (count > 0) {
+                continueBtn.disabled = false;
+                continueBtn.style.opacity = '1';
+                continueBtn.style.cursor = 'pointer';
+            } else {
+                continueBtn.disabled = true;
+                continueBtn.style.opacity = '0.5';
+                continueBtn.style.cursor = 'not-allowed';
+            }
+            var allChecked = count === checkboxes.length;
+            selectAllCb.checked = allChecked;
+            selectAllCb.indeterminate = count > 0 && !allChecked;
+        }
+        for (var ci = 0; ci < checkboxes.length; ci++) {
+            checkboxes[ci].addEventListener('change', updateSelectionState);
+        }
+        selectAllCb.addEventListener('change', function() {
+            var val = selectAllCb.checked;
+            for (var j = 0; j < checkboxes.length; j++) {
+                checkboxes[j].checked = val;
+            }
+            updateSelectionState();
+        });
+        continueBtn.onmouseover = function() { if (!continueBtn.disabled) continueBtn.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; };
+        continueBtn.onmouseout = function() { continueBtn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueBtn.onclick = function() {
+            addLogMessage('tlogShowSelectionGUI: Continue clicked', 'log');
+            var selected = [];
+            for (var si = 0; si < checkboxes.length; si++) {
+                if (checkboxes[si].checked) {
+                    var idx = parseInt(checkboxes[si].getAttribute('data-tlog-index'), 10);
+                    selected.push(tlogState.discoveredItems[idx]);
+                }
+            }
+            if (selected.length === 0) return;
+            tlogState.selectedItems = selected;
+            addLogMessage('tlogShowSelectionGUI: selected ' + selected.length + ' items', 'log');
+            if (modal.parentNode) modal.parentNode.removeChild(modal);
+            tlogProcessSelectedItems();
+        };
+        container.appendChild(header);
+        container.appendChild(selectAllContainer);
+        container.appendChild(listContainer);
+        container.appendChild(continueBtn);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        closeBtn.focus();
+    }
+
+    function tlogProcessSelectedItems() {
+        addLogMessage('tlogProcessSelectedItems: opening ' + tlogState.selectedItems.length + ' pages', 'log');
+        tlogShowProcessingProgress();
+        tlogState.collectedData = [];
+        var items = tlogState.selectedItems;
+        var currentIndex = 0;
+        function processNext() {
+            if (tlogState.stopRequested || !tlogState.isRunning) {
+                finishProcessing();
+                return;
+            }
+            if (currentIndex >= items.length) {
+                finishProcessing();
+                return;
+            }
+            var item = items[currentIndex];
+            tlogUpdateProcessingStatus(currentIndex + 1, items.length, item.ariaLabel);
+            if (!item.href) {
+                addLogMessage('tlogProcessSelectedItems: no href for item ' + currentIndex + ', skipping', 'warn');
+                currentIndex++;
+                var t = setTimeout(processNext, 100);
+                tlogState.timeouts.push(t);
+                return;
+            }
+            var fullHref = item.href;
+            if (fullHref.indexOf('http') !== 0) {
+                fullHref = window.location.origin + (fullHref.charAt(0) === '/' ? '' : '/') + fullHref;
+            }
+            addLogMessage('tlogProcessSelectedItems: fetching page ' + (currentIndex + 1) + ': ' + fullHref, 'log');
+            tlogOpenTabAndCollect(fullHref, item.ariaLabel, function(records) {
+                addLogMessage('tlogProcessSelectedItems: got ' + records.length + ' records from page ' + (currentIndex + 1), 'log');
+                for (var r = 0; r < records.length; r++) {
+                    tlogState.collectedData.push(records[r]);
+                }
+                currentIndex++;
+                var t2 = setTimeout(processNext, TLOG_TIMEOUTS.tabOpenDelayMs);
+                tlogState.timeouts.push(t2);
+            });
+        }
+        processNext();
+        function finishProcessing() {
+            addLogMessage('tlogProcessSelectedItems: all done, collected ' + tlogState.collectedData.length + ' total records', 'log');
+            if (tlogState.reuseTab && !tlogState.reuseTab.closed) {
+                tlogState.reuseTab.close();
+                tlogState.reuseTab = null;
+            }
+            var procModal = document.getElementById('tlog-processing-modal');
+            if (procModal && procModal.parentNode) procModal.parentNode.removeChild(procModal);
+            if (tlogState.collectedData.length === 0 && !tlogState.stopRequested) {
+                tlogShowWarning('No data was collected from the selected training items. The pages may not contain the expected table format.');
+                return;
+            }
+            if (!tlogState.stopRequested) {
+                tlogShowFinalGUI();
+            }
+        }
+    }
+
+    function tlogShowProcessingProgress() {
+        var modal = document.createElement('div');
+        modal.id = 'tlog-processing-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 36px 48px; max-width: 520px; width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); text-align: center;';
+        var spinner = document.createElement('div');
+        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: white; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
+        var styleTag = document.getElementById('collecting-spinner-style');
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'collecting-spinner-style';
+            styleTag.textContent = '@keyframes collectingSpin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(styleTag);
+        }
+        var title = document.createElement('h3');
+        title.textContent = TLOG_LABELS.processingTitle;
+        title.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;';
+        var statusLabel = document.createElement('p');
+        statusLabel.id = 'tlog-processing-status';
+        statusLabel.textContent = 'Processing page 1 of ' + tlogState.selectedItems.length + '...';
+        statusLabel.style.cssText = 'margin: 0 0 6px 0; color: rgba(255, 255, 255, 0.85); font-size: 14px;';
+        var itemLabel = document.createElement('p');
+        itemLabel.id = 'tlog-processing-item';
+        itemLabel.textContent = '';
+        itemLabel.style.cssText = 'margin: 0 0 10px 0; color: rgba(255, 255, 255, 0.6); font-size: 12px; word-break: break-word;';
+        var collectionLabel = document.createElement('p');
+        collectionLabel.id = 'tlog-collection-count';
+        collectionLabel.textContent = 'Waiting for page to load...';
+        collectionLabel.style.cssText = 'margin: 0 0 4px 0; color: rgba(255, 255, 255, 0.75); font-size: 13px; font-weight: 500;';
+        var progressBarOuter = document.createElement('div');
+        progressBarOuter.style.cssText = 'width: 100%; height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; margin: 0 0 6px 0; overflow: hidden;';
+        var progressBarInner = document.createElement('div');
+        progressBarInner.id = 'tlog-collection-bar';
+        progressBarInner.style.cssText = 'width: 0%; height: 100%; background: linear-gradient(90deg, #6bcf7f, #4ecdc4); border-radius: 3px; transition: width 0.3s ease;';
+        progressBarOuter.appendChild(progressBarInner);
+        var totalLabel = document.createElement('p');
+        totalLabel.id = 'tlog-collection-total';
+        totalLabel.textContent = 'Total collected: 0 rows';
+        totalLabel.style.cssText = 'margin: 0; color: rgba(255, 255, 255, 0.55); font-size: 11px;';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease; margin-top: 18px;';
+        cancelBtn.onmouseover = function() { cancelBtn.style.background = 'rgba(255, 67, 54, 0.6)'; };
+        cancelBtn.onmouseout = function() { cancelBtn.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        cancelBtn.onclick = function() { stopTlog(); };
+        container.appendChild(spinner);
+        container.appendChild(title);
+        container.appendChild(statusLabel);
+        container.appendChild(itemLabel);
+        container.appendChild(collectionLabel);
+        container.appendChild(progressBarOuter);
+        container.appendChild(totalLabel);
+        container.appendChild(cancelBtn);
+        modal.appendChild(container);
+        document.body.appendChild(modal);
+    }
+
+    function tlogUpdateProcessingStatus(current, total, itemName) {
+        var el = document.getElementById('tlog-processing-status');
+        if (el) el.textContent = 'Processing page ' + current + ' of ' + total + '...';
+        var el2 = document.getElementById('tlog-processing-item');
+        if (el2) el2.textContent = itemName || '';
+        var countEl = document.getElementById('tlog-collection-count');
+        if (countEl) countEl.textContent = 'Waiting for page to load...';
+        var barEl = document.getElementById('tlog-collection-bar');
+        if (barEl) barEl.style.width = '0%';
+    }
+
+    function tlogFetchPageData(url, itemLabel, callback) {
+        addLogMessage('tlogFetchPageData: fetching ' + url, 'log');
+        if (typeof GM !== 'undefined' && GM.xmlHttpRequest) {
+            GM.xmlHttpRequest({
+                method: 'GET',
+                url: url,
+                timeout: TLOG_TIMEOUTS.pageLoadWaitMs,
+                onload: function(response) {
+                    addLogMessage('tlogFetchPageData: response status=' + response.status, 'log');
+                    if (response.status >= 200 && response.status < 400) {
+                        var records = tlogParsePageHTML(response.responseText, itemLabel);
+                        callback(records);
+                    } else {
+                        addLogMessage('tlogFetchPageData: bad status ' + response.status, 'warn');
+                        callback([]);
+                    }
+                },
+                onerror: function(err) {
+                    addLogMessage('tlogFetchPageData: error: ' + (err.error || err), 'error');
+                    callback([]);
+                },
+                ontimeout: function() {
+                    addLogMessage('tlogFetchPageData: timeout', 'warn');
+                    callback([]);
+                }
+            });
+        } else {
+            addLogMessage('tlogFetchPageData: GM.xmlHttpRequest not available, using fetch fallback', 'warn');
+            fetch(url, { credentials: 'include' })
+                .then(function(resp) {
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    return resp.text();
+                })
+                .then(function(html) {
+                    var records = tlogParsePageHTML(html, itemLabel);
+                    callback(records);
+                })
+                .catch(function(err) {
+                    addLogMessage('tlogFetchPageData: fetch error: ' + err, 'error');
+                    callback([]);
+                });
+        }
+    }
+
+    function tlogParsePageHTML(html, itemLabel) {
+        addLogMessage('tlogParsePageHTML: parsing HTML for item: ' + itemLabel, 'log');
+        var records = [];
+        try {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            var tables = doc.querySelectorAll('table');
+            var targetTable = null;
+            for (var ti = 0; ti < tables.length; ti++) {
+                var rows = tables[ti].querySelectorAll('tbody tr');
+                if (rows.length > 0) {
+                    targetTable = tables[ti];
+                    break;
+                }
+            }
+            if (!targetTable) {
+                var allRows = doc.querySelectorAll('[role="row"]');
+                if (allRows.length > 1) {
+                    targetTable = allRows[0].parentElement;
+                }
+            }
+            if (!targetTable) {
+                addLogMessage('tlogParsePageHTML: no table found', 'warn');
+                return records;
+            }
+            var trows = targetTable.querySelectorAll('tbody tr, [role="row"]');
+            for (var ri = 0; ri < trows.length; ri++) {
+                var cells = trows[ri].querySelectorAll('td, [role="cell"]');
+                if (cells.length < 5) continue;
+                var staffCell = cells[TLOG_SELECTORS.staffNameCellIndex];
+                var sigCell = cells[TLOG_SELECTORS.signatureCellIndex];
+                if (!staffCell || !sigCell) continue;
+                var rawStaffText = staffCell.textContent.trim().replace(/\s+/g, ' ');
+                var staffName = rawStaffText.replace(/\S+@\S+\.\S+/g, '').trim().replace(/\s+/g, ' ');
+                if (!staffName) continue;
+                var sigText = sigCell.textContent.trim().replace(/\s+/g, ' ');
+                var status = '';
+                var dateSigned = '';
+                if (sigText && sigText.toLowerCase().indexOf('unrequested') !== -1) {
+                    status = TLOG_LABELS.statusUnrequested;
+                    dateSigned = '';
+                } else if (sigText && sigText.toLowerCase().indexOf('pending other user') !== -1) {
+                    status = TLOG_LABELS.statusPending;
+                    dateSigned = '';
+                } else if (sigText && sigText.toLowerCase().indexOf('pending') !== -1) {
+                    status = TLOG_LABELS.statusPending;
+                    dateSigned = '';
+                } else if (sigText && sigText.trim()) {
+                    status = TLOG_LABELS.statusSigned;
+                    var dateMatch = sigText.match(/(\d{1,2}[A-Za-z]{3}\d{4}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
+                    dateSigned = dateMatch ? dateMatch[1] : sigText;
+                } else {
+                    status = TLOG_LABELS.statusUnrequested;
+                    dateSigned = '';
+                }
+                records.push({
+                    staffName: staffName,
+                    status: status,
+                    dateSigned: dateSigned,
+                    trainingItem: itemLabel
+                });
+            }
+        } catch (err) {
+            addLogMessage('tlogParsePageHTML: error: ' + err, 'error');
+        }
+        addLogMessage('tlogParsePageHTML: parsed ' + records.length + ' records', 'log');
+        return records;
+    }
+
+    function tlogOpenTabAndCollect(url, itemLabel, callback) {
+        addLogMessage('tlogOpenTabAndCollect: loading ' + url, 'log');
+        var isReuse = !!(tlogState.reuseTab && !tlogState.reuseTab.closed);
+        var staleFingerprint = '';
+        if (isReuse) {
+            try {
+                var oldRows = tlogState.reuseTab.document.querySelectorAll('[role="row"]');
+                var parts = [];
+                for (var sr = 0; sr < oldRows.length && sr < 3; sr++) {
+                    parts.push(oldRows[sr].textContent.trim().substring(0, 80));
+                }
+                staleFingerprint = parts.join('||');
+            } catch (e) { staleFingerprint = ''; }
+            addLogMessage('tlogOpenTabAndCollect: reusing tab via named window for ' + url, 'log');
+        }
+        var tabWin = null;
+        try {
+            tabWin = window.open(url, '_tlog_scan');
+        } catch (err) {
+            addLogMessage('tlogOpenTabAndCollect: window.open failed: ' + err, 'error');
+            callback([]);
+            return;
+        }
+        if (!tabWin) {
+            addLogMessage('tlogOpenTabAndCollect: popup blocked or window.open returned null', 'error');
+            callback([]);
+            return;
+        }
+        tlogState.reuseTab = tabWin;
+        if (tlogState.openTabs.indexOf(tabWin) === -1) {
+            tlogState.openTabs.push(tabWin);
+        }
+        window.focus();
+        var pollStart = Date.now();
+        var pollInterval = 800;
+        var maxWait = TLOG_TIMEOUTS.pageLoadWaitMs + TLOG_TIMEOUTS.pageTableWaitMs;
+        var staleCleared = !isReuse;
+        function pollForContent() {
+            if (tlogState.stopRequested || !tlogState.isRunning) {
+                callback([]);
+                return;
+            }
+            if (tabWin.closed) {
+                addLogMessage('tlogOpenTabAndCollect: tab closed externally', 'warn');
+                callback([]);
+                return;
+            }
+            if (Date.now() - pollStart > maxWait) {
+                addLogMessage('tlogOpenTabAndCollect: timeout waiting for content in tab', 'warn');
+                callback([]);
+                return;
+            }
+            var tabDoc = null;
+            try {
+                tabDoc = tabWin.document;
+            } catch (accessErr) {
+                staleCleared = true;
+                var t1 = setTimeout(pollForContent, pollInterval);
+                tlogState.timeouts.push(t1);
+                return;
+            }
+            if (!tabDoc) {
+                var t2 = setTimeout(pollForContent, pollInterval);
+                tlogState.timeouts.push(t2);
+                return;
+            }
+            if (!staleCleared && staleFingerprint) {
+                var curRows = tabDoc.querySelectorAll('[role="row"]');
+                var curParts = [];
+                for (var cr = 0; cr < curRows.length && cr < 3; cr++) {
+                    curParts.push(curRows[cr].textContent.trim().substring(0, 80));
+                }
+                var curFp = curParts.join('||');
+                if (curFp === staleFingerprint && curRows.length > 0) {
+                    var ts = setTimeout(pollForContent, pollInterval);
+                    tlogState.timeouts.push(ts);
+                    return;
+                }
+                staleCleared = true;
+                addLogMessage('tlogOpenTabAndCollect: stale content cleared, waiting for new rows', 'log');
+            }
+            var wrapper = tabDoc.querySelector(TLOG_SELECTORS.virtualScrollWrapper);
+            if (!wrapper) {
+                var rows = tabDoc.querySelectorAll('[role="row"]');
+                if (rows.length > 1) {
+                    addLogMessage('tlogOpenTabAndCollect: found ' + rows.length + ' role=row elements, scanning', 'log');
+                    tlogScanTabRows(tabWin, tabDoc, null, itemLabel, callback);
+                    return;
+                }
+                var t3 = setTimeout(pollForContent, pollInterval);
+                tlogState.timeouts.push(t3);
+                return;
+            }
+            addLogMessage('tlogOpenTabAndCollect: virtual scroll wrapper found, starting tab scan', 'log');
+            tlogScanTabRows(tabWin, tabDoc, wrapper, itemLabel, callback);
+        }
+        var initDelay = setTimeout(pollForContent, isReuse ? 3000 : 2000);
+        tlogState.timeouts.push(initDelay);
+    }
+
+    function tlogScanTabRows(tabWin, tabDoc, wrapper, itemLabel, callback) {
+        var records = [];
+        var seenKeys = new Set();
+        var viewport = null;
+        if (wrapper) {
+            viewport = wrapper.closest('cdk-virtual-scroll-viewport') || wrapper.parentElement;
+            if (!viewport) viewport = wrapper.parentElement || wrapper;
+        } else {
+            var firstRow = tabDoc.querySelector('[role="row"]');
+            if (firstRow) {
+                var el = firstRow.parentElement;
+                while (el && el !== tabDoc.body && el !== tabDoc.documentElement) {
+                    try {
+                        var cs = tabWin.getComputedStyle(el);
+                        var ov = (cs.overflow || '') + (cs.overflowY || '');
+                        if ((ov.indexOf('auto') !== -1 || ov.indexOf('scroll') !== -1) && el.scrollHeight > el.clientHeight + 10) {
+                            viewport = el;
+                            break;
+                        }
+                    } catch (e) {}
+                    el = el.parentElement;
+                }
+            }
+            if (!viewport) {
+                viewport = tabDoc.scrollingElement || tabDoc.documentElement;
+            }
+            addLogMessage('tlogScanTabRows: no CDK wrapper, using fallback scrollable: ' + (viewport.tagName || 'unknown'), 'log');
+        }
+        var noProgress = 0;
+        var scanStartTime = Date.now();
+        var maxScanTime = TLOG_TIMEOUTS.maxScanDurationMs;
+        var SETTLE_MS = 80;
+        var MAX_STALLS = 4;
+        function collectVisibleRows() {
+            var rowContainer = wrapper || tabDoc;
+            var rows = rowContainer.querySelectorAll('[role="row"]');
+            var newCount = 0;
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var cells = row.querySelectorAll('[role="cell"]');
+                if (cells.length < 3) continue;
+                var cellTexts = [];
+                for (var c = 0; c < cells.length; c++) {
+                    cellTexts.push(cells[c].textContent.trim().replace(/\s+/g, ' '));
+                }
+                var rowKey = cellTexts.join('||');
+                if (seenKeys.has(rowKey)) continue;
+                seenKeys.add(rowKey);
+                var staffCell = cells.length > TLOG_SELECTORS.staffNameCellIndex ? cells[TLOG_SELECTORS.staffNameCellIndex] : null;
+                var sigCell = cells.length > TLOG_SELECTORS.signatureCellIndex ? cells[TLOG_SELECTORS.signatureCellIndex] : null;
+                if (!staffCell) continue;
+                var rawStaffText = staffCell.textContent.trim().replace(/\s+/g, ' ');
+                var staffName = rawStaffText.replace(/\S+@\S+\.\S+/g, '').trim().replace(/\s+/g, ' ');
+                if (!staffName) continue;
+                var sigText = sigCell ? sigCell.textContent.trim().replace(/\s+/g, ' ') : '';
+                var status = '';
+                var dateSigned = '';
+                if (sigText && sigText.toLowerCase().indexOf('unrequested') !== -1) {
+                    status = TLOG_LABELS.statusUnrequested;
+                } else if (sigText && sigText.toLowerCase().indexOf('pending other user') !== -1) {
+                    status = TLOG_LABELS.statusPending;
+                } else if (sigText && sigText.toLowerCase().indexOf('pending') !== -1) {
+                    status = TLOG_LABELS.statusPending;
+                } else if (sigText && sigText.trim()) {
+                    status = TLOG_LABELS.statusSigned;
+                    var dateMatch = sigText.match(/(\d{1,2}[A-Za-z]{3}\d{4}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
+                    dateSigned = dateMatch ? dateMatch[1] : sigText;
+                } else {
+                    status = TLOG_LABELS.statusUnrequested;
+                }
+                records.push({
+                    staffName: staffName,
+                    status: status,
+                    dateSigned: dateSigned,
+                    trainingItem: itemLabel
+                });
+                newCount++;
+            }
+            return newCount;
+        }
+        function updateProgressUI() {
+            var countEl = document.getElementById('tlog-collection-count');
+            if (countEl) countEl.textContent = 'Scrolling table... ' + records.length + ' rows found';
+            var totalEl = document.getElementById('tlog-collection-total');
+            if (totalEl) totalEl.textContent = 'Total collected: ' + (tlogState.collectedData.length + records.length) + ' rows';
+        }
+        collectVisibleRows();
+        updateProgressUI();
+        function scrollStep() {
+            if (tlogState.stopRequested || !tlogState.isRunning) { callback(records); return; }
+            if (tabWin.closed) { addLogMessage('tlogScanTabRows: tab closed', 'warn'); callback(records); return; }
+            if (Date.now() - scanStartTime > maxScanTime) { addLogMessage('tlogScanTabRows: timeout, ' + records.length + ' records', 'warn'); callback(records); return; }
+            var prevCount = records.length;
+            viewport.scrollTop += TLOG_SCROLL.stepPx;
+            var tid = setTimeout(function() {
+                collectVisibleRows();
+                updateProgressUI();
+                if (records.length > prevCount) {
+                    noProgress = 0;
+                    scrollStep();
+                } else {
+                    noProgress++;
+                    if (noProgress >= MAX_STALLS) {
+                        addLogMessage('tlogScanTabRows: end reached, ' + records.length + ' records', 'log');
+                        callback(records);
+                    } else {
+                        scrollStep();
+                    }
+                }
+            }, SETTLE_MS);
+            tlogState.timeouts.push(tid);
+        }
+        if (viewport.scrollHeight > viewport.clientHeight + 10) {
+            scrollStep();
+        } else {
+            addLogMessage('tlogScanTabRows: no scroll needed, ' + records.length + ' records', 'log');
+            callback(records);
+        }
+    }
+
+    function tlogShowFinalGUI() {
+        addLogMessage('tlogShowFinalGUI: building final GUI with ' + tlogState.collectedData.length + ' records', 'log');
+        var data = tlogState.collectedData;
+        var items = tlogState.selectedItems;
+        var modal = document.createElement('div');
+        modal.id = 'tlog-final-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.id = 'tlog-final-container';
+        container.style.cssText = 'background: linear-gradient(135deg, #1e2a3a 0%, #2d1b4e 100%); border-radius: 12px; padding: 20px; width: 95vw; max-width: 1400px; height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; position: relative;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        var isFullscreen = false;
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-shrink: 0;';
+        var titleEl = document.createElement('h3');
+        titleEl.textContent = TLOG_LABELS.finalTitle;
+        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var headerBtns = document.createElement('div');
+        headerBtns.style.cssText = 'display: flex; gap: 6px;';
+        var fullscreenBtn = document.createElement('button');
+        fullscreenBtn.innerHTML = '\u26F6';
+        fullscreenBtn.title = 'Toggle fullscreen';
+        fullscreenBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        fullscreenBtn.onmouseover = function() { fullscreenBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        fullscreenBtn.onmouseout = function() { fullscreenBtn.style.background = 'rgba(255, 255, 255, 0.15)'; };
+        fullscreenBtn.onclick = function() {
+            isFullscreen = !isFullscreen;
+            if (isFullscreen) {
+                container.style.width = '100vw';
+                container.style.height = '100vh';
+                container.style.maxWidth = '100vw';
+                container.style.borderRadius = '0';
+            } else {
+                container.style.width = '95vw';
+                container.style.height = '85vh';
+                container.style.maxWidth = '1400px';
+                container.style.borderRadius = '12px';
+            }
+        };
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '\u2715';
+        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.15)'; };
+        closeBtn.onclick = function() { stopTlog(); };
+        headerBtns.appendChild(fullscreenBtn);
+        headerBtns.appendChild(closeBtn);
+        header.appendChild(titleEl);
+        header.appendChild(headerBtns);
+        var panelsRow = document.createElement('div');
+        panelsRow.style.cssText = 'display: flex; flex: 1; gap: 0; min-height: 0; overflow: hidden;';
+        var panel1 = tlogBuildPanel1(data, items);
+        var divider1 = tlogCreateDivider();
+        var panel2 = tlogBuildPanel2();
+        var divider2 = tlogCreateDivider();
+        var panel3 = tlogBuildPanel3();
+        panelsRow.appendChild(panel1);
+        panelsRow.appendChild(divider1);
+        panelsRow.appendChild(panel2);
+        panelsRow.appendChild(divider2);
+        panelsRow.appendChild(panel3);
+        container.appendChild(header);
+        container.appendChild(panelsRow);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        tlogRefreshPanel1Table(data, items);
+    }
+
+    function tlogCreateDivider() {
+        var divider = document.createElement('div');
+        divider.style.cssText = 'width: 6px; background: rgba(255, 255, 255, 0.08); cursor: col-resize; flex-shrink: 0; border-radius: 3px; transition: background 0.2s;';
+        divider.onmouseover = function() { divider.style.background = 'rgba(255, 255, 255, 0.25)'; };
+        divider.onmouseout = function() { divider.style.background = 'rgba(255, 255, 255, 0.08)'; };
+        divider.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            var prev = divider.previousElementSibling;
+            var next = divider.nextElementSibling;
+            if (!prev || !next) return;
+            var startX = e.clientX;
+            var prevWidth = prev.offsetWidth;
+            var nextWidth = next.offsetWidth;
+            function onMove(me) {
+                var dx = me.clientX - startX;
+                var newPrev = Math.max(150, prevWidth + dx);
+                var newNext = Math.max(150, nextWidth - dx);
+                prev.style.flex = '0 0 ' + newPrev + 'px';
+                next.style.flex = '0 0 ' + newNext + 'px';
+            }
+            function onUp() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+        return divider;
+    }
+
+    function tlogBuildPanel1(data, items) {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'flex: 2; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
+        var panelTitle = document.createElement('div');
+        panelTitle.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;';
+        var h4 = document.createElement('h4');
+        h4.textContent = 'Combined Training Data';
+        h4.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600;';
+        panelTitle.appendChild(h4);
+        var filterDropdown = document.createElement('div');
+        filterDropdown.style.cssText = 'position: relative;';
+        var filterBtn = document.createElement('button');
+        filterBtn.textContent = 'Filter Items \u25BC';
+        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 500;';
+        var filterMenu = document.createElement('div');
+        filterMenu.id = 'tlog-filter-menu';
+        filterMenu.style.cssText = 'display: none; position: absolute; top: 100%; right: 0; background: #2a2a3e; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px; z-index: 10; max-height: 250px; overflow-y: auto; min-width: 280px; box-shadow: 0 8px 20px rgba(0,0,0,0.4);';
+        for (var fi = 0; fi < items.length; fi++) {
+            var frow = document.createElement('label');
+            frow.style.cssText = 'display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; cursor: pointer; border-radius: 4px;';
+            frow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.06)'; };
+            frow.onmouseout = function() { this.style.background = 'transparent'; };
+            var fcb = document.createElement('input');
+            fcb.type = 'checkbox';
+            fcb.checked = true;
+            fcb.setAttribute('data-tlog-filter', items[fi].ariaLabel);
+            fcb.style.cssText = 'width: 14px; height: 14px; accent-color: #6bcf7f; flex-shrink: 0; margin-top: 2px;';
+            var ftext = document.createElement('span');
+            ftext.textContent = items[fi].ariaLabel;
+            ftext.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 11px; line-height: 1.3; word-break: break-word;';
+            fcb.addEventListener('change', function() {
+                tlogRefreshPanel1Table(data, items);
+            });
+            frow.appendChild(fcb);
+            frow.appendChild(ftext);
+            filterMenu.appendChild(frow);
+        }
+        filterBtn.onclick = function() {
+            filterMenu.style.display = filterMenu.style.display === 'none' ? 'block' : 'none';
+        };
+        filterDropdown.appendChild(filterBtn);
+        filterDropdown.appendChild(filterMenu);
+        panelTitle.appendChild(filterDropdown);
+        panel.appendChild(panelTitle);
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.id = 'tlog-panel1-search';
+        searchInput.placeholder = 'Search by name, status, or date...';
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 12px; outline: none; box-sizing: border-box; margin-bottom: 6px; flex-shrink: 0;';
+        searchInput.onfocus = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
+        searchInput.onblur = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.15)'; };
+        searchInput.addEventListener('input', function() {
+            tlogRefreshPanel1Table(data, items);
+        });
+        panel.appendChild(searchInput);
+        var tableHeader = document.createElement('div');
+        tableHeader.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; flex-shrink: 0;';
+        var headers = ['Staff Name', 'Status', 'Date Signed'];
+        var sortState = { col: -1, asc: true };
+        for (var hi = 0; hi < headers.length; hi++) {
+            var th = document.createElement('div');
+            th.textContent = headers[hi] + ' \u2195';
+            th.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+            th.setAttribute('data-tlog-sort-col', String(hi));
+            th.onclick = (function(colIdx, thEl) {
+                return function() {
+                    if (sortState.col === colIdx) {
+                        sortState.asc = !sortState.asc;
+                    } else {
+                        sortState.col = colIdx;
+                        sortState.asc = true;
+                    }
+                    tlogRefreshPanel1Table(data, items, sortState);
+                    var allThs = tableHeader.querySelectorAll('div');
+                    for (var ati = 0; ati < allThs.length; ati++) {
+                        var base = headers[ati];
+                        allThs[ati].textContent = base + ' \u2195';
+                    }
+                    thEl.textContent = headers[colIdx] + (sortState.asc ? ' \u25B2' : ' \u25BC');
+                };
+            })(hi, th);
+            tableHeader.appendChild(th);
+        }
+        panel.appendChild(tableHeader);
+        var tableBody = document.createElement('div');
+        tableBody.id = 'tlog-panel1-body';
+        tableBody.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
+        panel.appendChild(tableBody);
+        var summaryBar = document.createElement('div');
+        summaryBar.id = 'tlog-panel1-summary';
+        summaryBar.style.cssText = 'display: flex; justify-content: space-around; padding: 8px 10px; background: rgba(0, 0, 0, 0.2); border-radius: 0 0 6px 6px; flex-shrink: 0; flex-wrap: wrap; gap: 4px;';
+        panel.appendChild(summaryBar);
+        return panel;
+    }
+
+    function tlogRefreshPanel1Table(data, items, sortState) {
+        var body = document.getElementById('tlog-panel1-body');
+        if (!body) return;
+        var filterCbs = document.querySelectorAll('#tlog-filter-menu input[data-tlog-filter]');
+        var visibleItems = new Set();
+        for (var fi = 0; fi < filterCbs.length; fi++) {
+            if (filterCbs[fi].checked) {
+                visibleItems.add(filterCbs[fi].getAttribute('data-tlog-filter'));
+            }
+        }
+        if (visibleItems.size === 0) {
+            for (var ai = 0; ai < items.length; ai++) {
+                visibleItems.add(items[ai].ariaLabel);
+            }
+        }
+        var searchEl = document.getElementById('tlog-panel1-search');
+        var searchTerm = searchEl ? searchEl.value.toLowerCase().trim() : '';
+        var filtered = [];
+        for (var di = 0; di < data.length; di++) {
+            if (!visibleItems.has(data[di].trainingItem)) continue;
+            if (searchTerm) {
+                var nameHit = data[di].staffName.toLowerCase().indexOf(searchTerm) !== -1;
+                var statusHit = data[di].status.toLowerCase().indexOf(searchTerm) !== -1;
+                var dateHit = data[di].dateSigned.toLowerCase().indexOf(searchTerm) !== -1;
+                if (!nameHit && !statusHit && !dateHit) continue;
+            }
+            filtered.push(data[di]);
+        }
+        if (sortState && sortState.col >= 0) {
+            filtered.sort(function(a, b) {
+                var valA, valB;
+                if (sortState.col === 0) { valA = a.staffName.toLowerCase(); valB = b.staffName.toLowerCase(); }
+                else if (sortState.col === 1) { valA = a.status.toLowerCase(); valB = b.status.toLowerCase(); }
+                else { valA = a.dateSigned.toLowerCase(); valB = b.dateSigned.toLowerCase(); }
+                var cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
+                return sortState.asc ? cmp : -cmp;
+            });
+        }
+        body.innerHTML = '';
+        var fragment = document.createDocumentFragment();
+        for (var ri = 0; ri < filtered.length; ri++) {
+            var rec = filtered[ri];
+            var row = document.createElement('div');
+            row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: start;';
+            row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
+            row.onmouseout = function() { this.style.background = 'transparent'; };
+            var nameDiv = document.createElement('div');
+            var nameSpan = document.createElement('div');
+            nameSpan.textContent = rec.staffName;
+            nameSpan.style.cssText = 'color: white; font-size: 12px; font-weight: 500;';
+            var itemSpan = document.createElement('div');
+            itemSpan.textContent = rec.trainingItem;
+            itemSpan.style.cssText = 'color: rgba(255, 255, 255, 0.4); font-size: 10px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;';
+            nameDiv.appendChild(nameSpan);
+            nameDiv.appendChild(itemSpan);
+            var statusSpan = document.createElement('div');
+            statusSpan.textContent = rec.status;
+            var sColor = rec.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : rec.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+            statusSpan.style.cssText = 'color: ' + sColor + '; font-size: 12px; font-weight: 600;';
+            var dateSpan = document.createElement('div');
+            dateSpan.textContent = rec.dateSigned || '';
+            dateSpan.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+            row.appendChild(nameDiv);
+            row.appendChild(statusSpan);
+            row.appendChild(dateSpan);
+            fragment.appendChild(row);
+        }
+        body.appendChild(fragment);
+        var uniqueNames = {};
+        var signedNames = new Set();
+        var pendingNames = new Set();
+        var unrequestedNames = new Set();
+        for (var si = 0; si < filtered.length; si++) {
+            var nm = filtered[si].staffName.toLowerCase();
+            uniqueNames[nm] = true;
+            if (filtered[si].status === TLOG_LABELS.statusSigned) signedNames.add(nm);
+            else if (filtered[si].status === TLOG_LABELS.statusPending) pendingNames.add(nm);
+            else unrequestedNames.add(nm);
+        }
+        var summaryEl = document.getElementById('tlog-panel1-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = '';
+            var stats = [
+                { label: 'Total Unique', value: Object.keys(uniqueNames).length },
+                { label: 'Signed', value: signedNames.size },
+                { label: 'Pending', value: pendingNames.size },
+                { label: 'Unrequested', value: unrequestedNames.size },
+                { label: 'Total Rows', value: filtered.length }
+            ];
+            for (var sti = 0; sti < stats.length; sti++) {
+                var sDiv = document.createElement('div');
+                sDiv.style.cssText = 'text-align: center;';
+                var sv = document.createElement('div');
+                sv.textContent = String(stats[sti].value);
+                sv.style.cssText = 'color: white; font-size: 15px; font-weight: 700;';
+                var sl = document.createElement('div');
+                sl.textContent = stats[sti].label;
+                sl.style.cssText = 'color: rgba(255, 255, 255, 0.5); font-size: 10px; font-weight: 500; margin-top: 1px;';
+                sDiv.appendChild(sv);
+                sDiv.appendChild(sl);
+                summaryEl.appendChild(sDiv);
+            }
+        }
+    }
+
+    function tlogBuildPanel2() {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'flex: 1; display: flex; flex-direction: column; min-width: 150px; overflow: hidden;';
+        var h4 = document.createElement('h4');
+        h4.textContent = 'Paste Staff Names';
+        h4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+        panel.appendChild(h4);
+        var textarea = document.createElement('textarea');
+        textarea.id = 'tlog-panel2-textarea';
+        textarea.placeholder = 'Paste names here, one per line...';
+        textarea.style.cssText = 'flex: 1; width: 100%; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 13px; font-family: Segoe UI, sans-serif; resize: none; outline: none; box-sizing: border-box;';
+        textarea.onfocus = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
+        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.2)'; };
+        panel.appendChild(textarea);
+        var combineBtn = document.createElement('button');
+        combineBtn.id = 'tlog-combine-btn';
+        combineBtn.textContent = 'Combined';
+        combineBtn.disabled = true;
+        combineBtn.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px; border-radius: 8px; cursor: not-allowed; font-size: 13px; font-weight: 600; opacity: 0.5; margin-top: 10px; flex-shrink: 0; transition: all 0.25s ease;';
+        textarea.addEventListener('input', function() {
+            var val = textarea.value.trim();
+            if (val.length > 0) {
+                combineBtn.disabled = false;
+                combineBtn.style.opacity = '1';
+                combineBtn.style.cursor = 'pointer';
+            } else {
+                combineBtn.disabled = true;
+                combineBtn.style.opacity = '0.5';
+                combineBtn.style.cursor = 'not-allowed';
+            }
+        });
+        combineBtn.onmouseover = function() { if (!combineBtn.disabled) combineBtn.style.background = 'linear-gradient(135deg, #5a6fd6 0%, #6a4299 100%)'; };
+        combineBtn.onmouseout = function() { combineBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; };
+        combineBtn.onclick = function() {
+            var text = textarea.value.trim();
+            if (!text) return;
+            var names = text.split('\n').map(function(n) { return n.trim(); }).filter(function(n) { return n.length > 0; });
+            if (names.length === 0) return;
+            tlogGeneratePanel3(names);
+        };
+        panel.appendChild(combineBtn);
+        return panel;
+    }
+
+    function tlogBuildPanel3() {
+        var panel = document.createElement('div');
+        panel.id = 'tlog-panel3';
+        panel.style.cssText = 'flex: 1.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
+        var h4 = document.createElement('h4');
+        h4.textContent = 'Combined Results';
+        h4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+        panel.appendChild(h4);
+        var placeholder = document.createElement('div');
+        placeholder.id = 'tlog-panel3-placeholder';
+        placeholder.textContent = 'Paste staff names in the middle panel and click "Combined" to generate results.';
+        placeholder.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.35); font-size: 13px; text-align: center; padding: 20px;';
+        panel.appendChild(placeholder);
+        return panel;
+    }
+
+    function tlogGeneratePanel3(pastedNames) {
+        addLogMessage('tlogGeneratePanel3: generating for ' + pastedNames.length + ' names', 'log');
+        var panel = document.getElementById('tlog-panel3');
+        if (!panel) return;
+        var h4 = panel.querySelector('h4');
+        panel.innerHTML = '';
+        if (h4) panel.appendChild(h4);
+        else {
+            var newH4 = document.createElement('h4');
+            newH4.textContent = 'Combined Results';
+            newH4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+            panel.appendChild(newH4);
+        }
+        var searchRow = document.createElement('div');
+        searchRow.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; margin-bottom: 6px; flex-shrink: 0;';
+        var nameSearch = document.createElement('input');
+        nameSearch.type = 'text';
+        nameSearch.placeholder = 'Search name...';
+        nameSearch.style.cssText = 'padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
+        var spacer = document.createElement('div');
+        var dateSearch = document.createElement('input');
+        dateSearch.type = 'text';
+        dateSearch.placeholder = 'Search date...';
+        dateSearch.style.cssText = 'padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
+        searchRow.appendChild(nameSearch);
+        searchRow.appendChild(spacer);
+        searchRow.appendChild(dateSearch);
+        panel.appendChild(searchRow);
+        var colHeader = document.createElement('div');
+        colHeader.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px 4px 0 0; flex-shrink: 0;';
+        var ch1 = document.createElement('div');
+        ch1.textContent = 'Name \u2195';
+        ch1.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+        var ch2 = document.createElement('div');
+        ch2.textContent = 'Status \u2195';
+        ch2.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+        var ch3 = document.createElement('div');
+        ch3.textContent = 'Date Signed \u2195';
+        ch3.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+        var p3Sort = { col: -1, asc: true };
+        var p3Heads = [ch1, ch2, ch3];
+        var p3Labels = ['Name', 'Status', 'Date Signed'];
+        function p3SortClick(ci) { if (p3Sort.col === ci) { p3Sort.asc = !p3Sort.asc; } else { p3Sort.col = ci; p3Sort.asc = true; } for (var u = 0; u < 3; u++) { p3Heads[u].textContent = p3Labels[u] + ' \u2195'; } p3Heads[ci].textContent = p3Labels[ci] + (p3Sort.asc ? ' \u25B2' : ' \u25BC'); renderPanel3(nameSearch.value, dateSearch.value); }
+        ch1.onclick = function() { p3SortClick(0); };
+        ch2.onclick = function() { p3SortClick(1); };
+        ch3.onclick = function() { p3SortClick(2); };
+        colHeader.appendChild(ch1);
+        colHeader.appendChild(ch2);
+        colHeader.appendChild(ch3);
+        panel.appendChild(colHeader);
+        var resultBody = document.createElement('div');
+        resultBody.id = 'tlog-panel3-body';
+        resultBody.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
+        panel.appendChild(resultBody);
+        var dataMap = {};
+        for (var ci = 0; ci < tlogState.collectedData.length; ci++) {
+            var rec = tlogState.collectedData[ci];
+            var key = rec.staffName.toLowerCase().trim();
+            if (!dataMap[key]) dataMap[key] = [];
+            dataMap[key].push(rec);
+        }
+        var results = [];
+        for (var ni = 0; ni < pastedNames.length; ni++) {
+            var inputName = pastedNames[ni];
+            var lookupKey = inputName.toLowerCase().trim();
+            var entries = dataMap[lookupKey] || [];
+            var resolvedStatus = TLOG_LABELS.statusUnrequested;
+            var resolvedDate = '';
+            for (var ei = 0; ei < entries.length; ei++) {
+                if (entries[ei].status === TLOG_LABELS.statusSigned) {
+                    resolvedStatus = TLOG_LABELS.statusSigned;
+                    resolvedDate = entries[ei].dateSigned;
+                    break;
+                }
+                if (entries[ei].status === TLOG_LABELS.statusPending) {
+                    resolvedStatus = TLOG_LABELS.statusPending;
+                }
+            }
+            results.push({ name: inputName, status: resolvedStatus, date: resolvedDate });
+        }
+        function renderPanel3(filter1, filter2) {
+            resultBody.innerHTML = '';
+            var frag = document.createDocumentFragment();
+            var f1 = (filter1 || '').toLowerCase();
+            var f2 = (filter2 || '').toLowerCase();
+            var sorted = results.slice();
+            if (p3Sort.col >= 0) { sorted.sort(function(a, b) { var vA, vB; if (p3Sort.col === 0) { vA = a.name.toLowerCase(); vB = b.name.toLowerCase(); } else if (p3Sort.col === 1) { vA = a.status.toLowerCase(); vB = b.status.toLowerCase(); } else { vA = a.date.toLowerCase(); vB = b.date.toLowerCase(); } var c = vA < vB ? -1 : vA > vB ? 1 : 0; return p3Sort.asc ? c : -c; }); }
+            for (var ri = 0; ri < sorted.length; ri++) {
+                var r = sorted[ri];
+                if (f1 && r.name.toLowerCase().indexOf(f1) === -1) continue;
+                if (f2 && r.date.toLowerCase().indexOf(f2) === -1) continue;
+                var row = document.createElement('div');
+                row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); align-items: center;';
+                row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
+                row.onmouseout = function() { this.style.background = 'transparent'; };
+                var c1 = document.createElement('div');
+                c1.textContent = r.name;
+                c1.style.cssText = 'color: white; font-size: 12px;';
+                var c2 = document.createElement('div');
+                c2.textContent = r.status;
+                var sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                c2.style.cssText = 'color: ' + sc + '; font-size: 12px; font-weight: 600;';
+                var c3 = document.createElement('div');
+                c3.textContent = r.date || '';
+                c3.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                row.appendChild(c1);
+                row.appendChild(c2);
+                row.appendChild(c3);
+                frag.appendChild(row);
+            }
+            resultBody.appendChild(frag);
+        }
+        nameSearch.addEventListener('input', function() { renderPanel3(nameSearch.value, dateSearch.value); });
+        dateSearch.addEventListener('input', function() { renderPanel3(nameSearch.value, dateSearch.value); });
+        renderPanel3('', '');
+    }
+
     const STARTDATE_SELECTORS = {
         mainTableContainer: '.document-log-entries.document-log-entries__table',
         mainGridTable: '.document-log-entries__grid-table[role="table"]',
@@ -13555,7 +14968,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         background: rgba(255, 255, 255, 0.05);
     `;
 
-        for (let i = 1; i <= 8; i++) {
+        for (let i = 1; i <= 9; i++) {
             const button = document.createElement('button');
             if (i === 1) {
                 button.textContent = 'Add Signatures';
@@ -13580,7 +14993,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
             } else if (i === 8) {
                 button.textContent = 'Select Signed Checkbox';
                 button.id = 'ssig-select-btn';
+            } else if (i === 9) {
+                button.textContent = 'Get Training Log';
+                button.id = 'tlog-btn';
             }
+
             button.style.cssText = `
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -13593,6 +15010,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         `;
+
             button.onmouseover = () => {
                 button.style.transform = 'translateY(-2px)';
                 button.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
@@ -13642,11 +15060,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     console.log('Select Signed Checkbox button clicked');
                     selectSignedCheckboxInit();
                 };
+            } else if (i === 9) {
+                button.onclick = () => {
+                    console.log('Get Training Log button clicked');
+                    getTrainingLogInit();
+                };
             }
 
             buttonsContainer.appendChild(button);
         }
-
         const scaleContainer = document.createElement('div');
         scaleContainer.style.cssText = `
         padding: 12px 16px;
