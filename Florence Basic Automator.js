@@ -106,6 +106,30 @@
         statusStopped: 'Stopped'
     };
 
+    const VERIFY_LABELS = {
+        statusPending: 'Pending',
+        statusExistsInDropdown: 'Exists in Dropdown',
+        statusNotInDropdown: 'Not In Dropdown',
+        statusAlreadyInTable: 'Already In Table',
+        statusDuplicate: 'Duplicate',
+        statusStopped: 'Stopped'
+    };
+
+    const VERIFY_CSS_CLASSNAMES = {
+        panelOverlay: 'verify-panel-overlay',
+        inputPanel: 'verify-input-panel',
+        progressPanel: 'verify-progress-panel',
+        warningPanel: 'verify-warning-panel',
+        subpanelLeft: 'verify-subpanel-left',
+        subpanelRight: 'verify-subpanel-right',
+        searchInput: 'verify-search-input',
+        listItem: 'elog-list-item',
+        statusPending: 'verify-status-pending',
+        statusFound: 'verify-status-found',
+        statusNotFound: 'verify-status-notfound',
+        statusDuplicate: 'verify-status-duplicate'
+    };
+
     const DOA_SELECTORS = {
         addEntryBtn: '.test-createLogEntryBtn',
         memberInput: 'input.filtered-select__input[placeholder*="Team Member"]',
@@ -226,6 +250,36 @@
         activeDropdown: null
     };
 
+    let verifyState = {
+        isRunning: false,
+        observers: [],
+        timeouts: [],
+        intervals: [],
+        eventListeners: [],
+        parsedNames: [],
+        normalizedNames: new Map(),
+        scannedNames: [],
+        focusReturnElement: null,
+        abortController: null,
+        seenNormalizedNames: new Set(),
+        prevAriaBusy: null,
+        scrollContainer: null,
+        prevScrollTop: 0,
+        userScrollHandler: null,
+        userScrollPaused: false,
+        idleCallbackId: null,
+        leftPanelRowIndex: 0,
+        lastAutoScrollTime: 0,
+        verifyQueue: [],
+        verifyQueueIndex: 0,
+        existingPairs: new Set(),
+        counters: { total: 0, verified: 0, notFound: 0, alreadyInTable: 0, duplicates: 0, pending: 0 },
+        listScrollTop: 0,
+        isVerifying: false,
+        isPaused: false,
+        activeDropdown: null
+    };
+
     function addELogStaffEntriesInit() {
         addLogMessage('addELogStaffEntriesInit: starting feature', 'log');
         elogState.focusReturnElement = document.getElementById('elog-staff-entries-btn');
@@ -237,7 +291,7 @@
             addLogMessage('addELogStaffEntriesInit: main table not found, showing warning', 'warn');
             showELogWarning();
             return;
-        }
+        }   
         addLogMessage('addELogStaffEntriesInit: main table found, showing input panel', 'log');
         showELogInputPanel();
     }
@@ -2646,6 +2700,1322 @@
         removeCollectingDataPanel('elog');
         resetELogState();
         addLogMessage('stopELog: cleanup complete', 'log');
+    }
+
+    function verifyNamesInit() {
+        addLogMessage('verifyNamesInit: starting feature', 'log');
+        verifyState.focusReturnElement = document.getElementById('verify-names-btn');
+        verifyState.abortController = new AbortController();
+        resetVerifyState();
+        const mainTable = document.querySelector(ELOG_SELECTORS.mainTable);
+        addLogMessage('verifyNamesInit: checking for main table selector', 'log');
+        if (!mainTable) {
+            addLogMessage('verifyNamesInit: main table not found, showing warning', 'warn');
+            showVerifyWarning();
+            return;
+        }
+        addLogMessage('verifyNamesInit: main table found, showing input panel', 'log');
+        showVerifyInputPanel();
+    }
+
+    function resetVerifyState() {
+        addLogMessage('resetVerifyState: resetting state', 'log');
+        verifyState.isRunning = false;
+        verifyState.parsedNames = [];
+        verifyState.normalizedNames = new Map();
+        verifyState.scannedNames = [];
+        verifyState.seenNormalizedNames = new Set();
+        verifyState.prevAriaBusy = null;
+        verifyState.scrollContainer = null;
+        verifyState.prevScrollTop = 0;
+        verifyState.userScrollHandler = null;
+        verifyState.userScrollPaused = false;
+        verifyState.idleCallbackId = null;
+        verifyState.leftPanelRowIndex = 0;
+        verifyState.lastAutoScrollTime = 0;
+        verifyState.verifyQueue = [];
+        verifyState.verifyQueueIndex = 0;
+        verifyState.existingPairs = new Set();
+        verifyState.counters = { total: 0, verified: 0, notFound: 0, alreadyInTable: 0, duplicates: 0, pending: 0 };
+        verifyState.listScrollTop = 0;
+        verifyState.isVerifying = false;
+        verifyState.isPaused = false;
+        verifyState.activeDropdown = null;
+    }
+
+    function showVerifyWarning() {
+        addLogMessage('showVerifyWarning: creating warning popup', 'log');
+        const modal = document.createElement('div');
+        modal.className = VERIFY_CSS_CLASSNAMES.warningPanel;
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        const container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'alertdialog');
+        container.setAttribute('aria-modal', 'true');
+        container.setAttribute('aria-labelledby', 'verify-warning-title');
+        container.setAttribute('aria-describedby', 'verify-warning-message');
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        const title = document.createElement('h3');
+        title.id = 'verify-warning-title';
+        title.textContent = 'Document Log Not Found';
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.setAttribute('aria-label', 'Close warning');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        const closeWarning = function() {
+            addLogMessage('showVerifyWarning: closing warning', 'log');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            stopVerify();
+            if (verifyState.focusReturnElement) { verifyState.focusReturnElement.focus(); }
+        };
+        closeButton.onclick = closeWarning;
+        header.appendChild(title);
+        header.appendChild(closeButton);
+        const messageDiv = document.createElement('p');
+        messageDiv.id = 'verify-warning-message';
+        messageDiv.textContent = 'The current page does not contain the Document Log Entries table. Please navigate to a page with the Document Log Entries grid before using this feature.';
+        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        const okButton = document.createElement('button');
+        okButton.textContent = 'OK';
+        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.onclick = closeWarning;
+        const keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
+        document.addEventListener('keydown', keyHandler);
+        verifyState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
+        container.appendChild(header);
+        container.appendChild(messageDiv);
+        container.appendChild(okButton);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        okButton.focus();
+        addLogMessage('showVerifyWarning: warning displayed', 'log');
+    }
+
+    function parseVerifyNamesInput(input) {
+        addLogMessage('parseVerifyNamesInput: parsing input', 'log');
+        if (!input || !input.trim()) { addLogMessage('parseVerifyNamesInput: empty input', 'warn'); return []; }
+        const results = [];
+        const seenNormalized = new Set();
+        verifyState.normalizedNames = new Map();
+        const lines = input.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const parts = line.split(',');
+            for (let j = 0; j < parts.length; j++) {
+                let name = parts[j].trim();
+                name = name.replace(/,+$/, '').trim();
+                if (!name) { continue; }
+                const normalized = elogNormalizeName(name);
+                if (!normalized) { continue; }
+                if (seenNormalized.has(normalized)) { addLogMessage('parseVerifyNamesInput: duplicate detected (ignored): ' + name, 'log'); continue; }
+                seenNormalized.add(normalized);
+                verifyState.normalizedNames.set(normalized, name);
+                results.push({ display: name, normalized: normalized, status: 'Pending' });
+            }
+        }
+        addLogMessage('parseVerifyNamesInput: parsed ' + results.length + ' unique names', 'log');
+        return results;
+    }
+
+    function showVerifyInputPanel() {
+        addLogMessage('showVerifyInputPanel: creating input panel', 'log');
+        const modal = document.createElement('div');
+        modal.className = VERIFY_CSS_CLASSNAMES.inputPanel;
+        modal.id = 'verify-input-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        const container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        container.setAttribute('aria-labelledby', 'verify-input-title');
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
+        const title = document.createElement('h3');
+        title.id = 'verify-input-title';
+        title.textContent = 'Verify Names';
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.setAttribute('aria-label', 'Close panel');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() {
+            addLogMessage('showVerifyInputPanel: closed by user', 'warn');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            stopVerify();
+            if (verifyState.focusReturnElement) { verifyState.focusReturnElement.focus(); }
+        };
+        header.appendChild(title);
+        header.appendChild(closeButton);
+        var description = document.createElement('p');
+        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.append("Rules:");
+        description.appendChild(document.createElement('br'));
+        var lines = [
+            'Enter staff names to verify against the Document Log and the member dropdown. Separate names with commas or place each name on a new line.',
+            'After clicking Confirm, do not click anywhere else on the page, as this will impact the process.',
+            'This feature only checks whether names exist — it does not add or modify any entries.'
+        ];
+        for (var i = 0; i < lines.length; i++) {
+            description.appendChild(document.createTextNode('• ' + lines[i]));
+            if (i < lines.length - 1) {
+                description.appendChild(document.createElement('br'));
+            }
+        }
+        const textarea = document.createElement('textarea');
+        textarea.id = 'verify-names-input';
+        textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
+        textarea.setAttribute('aria-label', 'Staff names input for verification');
+        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
+        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        const confirmButton = document.createElement('button');
+        confirmButton.textContent = 'Confirm';
+        confirmButton.disabled = true;
+        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        const updateConfirmState = function() {
+            const parsed = parseVerifyNamesInput(textarea.value);
+            if (parsed.length > 0) { confirmButton.disabled = false; confirmButton.style.opacity = '1'; confirmButton.style.cursor = 'pointer'; }
+            else { confirmButton.disabled = true; confirmButton.style.opacity = '0.5'; confirmButton.style.cursor = 'not-allowed'; }
+        };
+        textarea.oninput = updateConfirmState;
+        confirmButton.onmouseover = function() { if (!confirmButton.disabled) { confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
+        confirmButton.onmouseout = function() { confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        confirmButton.onclick = function() {
+            addLogMessage('showVerifyInputPanel: Confirm clicked', 'log');
+            const parsed = parseVerifyNamesInput(textarea.value);
+            if (parsed.length === 0) { addLogMessage('showVerifyInputPanel: no valid names parsed', 'warn'); return; }
+            verifyState.parsedNames = parsed;
+            addLogMessage('showVerifyInputPanel: parsed ' + parsed.length + ' unique names', 'log');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            verifyState.isRunning = true;
+            showCollectingDataPanel('verify', 'Verify Names');
+            startVerifyScan();
+        };
+        const clearButton = document.createElement('button');
+        clearButton.textContent = 'Clear All';
+        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
+        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
+        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.onclick = function() {
+            addLogMessage('showVerifyInputPanel: Clear All clicked', 'log');
+            textarea.value = '';
+            verifyState.parsedNames = [];
+            verifyState.normalizedNames = new Map();
+            confirmButton.disabled = true;
+            confirmButton.style.opacity = '0.5';
+            confirmButton.style.cursor = 'not-allowed';
+        };
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;';
+        buttonContainer.appendChild(clearButton);
+        buttonContainer.appendChild(confirmButton);
+        container.appendChild(header);
+        container.appendChild(description);
+        container.appendChild(textarea);
+        container.appendChild(buttonContainer);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        textarea.focus();
+        addLogMessage('showVerifyInputPanel: input panel displayed', 'log');
+    }
+
+    function verifyScanVisibleRowsOnce(onRow) {
+        const gridTable = document.querySelector(ELOG_SELECTORS.gridTable);
+        if (!gridTable) {
+            addLogMessage('verifyScanVisibleRowsOnce: grid not found', 'warn');
+            return 0;
+        }
+        const rows = gridTable.querySelectorAll(ELOG_SELECTORS.row);
+        let newCount = 0;
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            if (row.getAttribute('role') === 'columnheader') {
+                continue;
+            }
+            const extractedName = extractNameFromRow(row, i + 1);
+            if (!extractedName) {
+                continue;
+            }
+            const normalized = elogNormalizeName(extractedName);
+            if (verifyState.seenNormalizedNames.has(normalized)) {
+                continue;
+            }
+            verifyState.seenNormalizedNames.add(normalized);
+            verifyState.scannedNames.push(extractedName);
+            newCount++;
+            if (onRow) {
+                onRow(extractedName, normalized);
+            }
+        }
+        return newCount;
+    }
+
+    function verifyObserveUserScrollPause(container) {
+        addLogMessage('verifyObserveUserScrollPause: setup', 'log');
+        if (!container || verifyState.userScrollHandler) {
+            return;
+        }
+        verifyState.userScrollHandler = function() {
+            const timeSinceAuto = Date.now() - verifyState.lastAutoScrollTime;
+            if (timeSinceAuto > 50 && !verifyState.userScrollPaused) {
+                verifyState.userScrollPaused = true;
+                const resumeTimeout = setTimeout(function() {
+                    verifyState.userScrollPaused = false;
+                }, ELOG_SCROLL.userScrollPauseMs);
+                verifyState.timeouts.push(resumeTimeout);
+            }
+        };
+        container.addEventListener('scroll', verifyState.userScrollHandler);
+        verifyState.eventListeners.push({ element: container, type: 'scroll', handler: verifyState.userScrollHandler });
+    }
+
+    function verifyAutoScrollScan(options) {
+        addLogMessage('verifyAutoScrollScan: starting', 'log');
+        const onRow = options.onRow || function() {};
+        const onProgress = options.onProgress || function() {};
+        const onDone = options.onDone || function() {};
+        const onError = options.onError || function() {};
+        const gridTable = document.querySelector(ELOG_SELECTORS.gridTable);
+        if (!gridTable) {
+            addLogMessage('verifyAutoScrollScan: grid not found', 'error');
+            onError(new Error('Grid table not found'));
+            return;
+        }
+        const container = findScrollableContainer(gridTable);
+        if (!container) {
+            addLogMessage('verifyAutoScrollScan: container not found', 'error');
+            onError(new Error('Container not found'));
+            return;
+        }
+        verifyState.scrollContainer = container;
+        verifyState.prevScrollTop = container.scrollTop;
+        verifyState.seenNormalizedNames = new Set();
+        verifyState.leftPanelRowIndex = 0;
+        setAriaBusyOn();
+        verifyObserveUserScrollPause(container);
+        addLogMessage('verifyAutoScrollScan: scrolling to top before scan', 'log');
+        container.scrollTo({ top: 0, behavior: 'auto' });
+        const startTime = Date.now();
+        let noProgress = 0;
+        let prevScrollHeight = container.scrollHeight;
+        function initialScan() {
+            verifyScanVisibleRowsOnce(function(name) {
+                verifyState.leftPanelRowIndex++;
+            });
+            onProgress({ scanned: verifyState.scannedNames.length });
+            prevScrollHeight = container.scrollHeight;
+            const initScrollTimeout = setTimeout(scrollLoop, ELOG_SCROLL.idleDelayMs);
+            verifyState.timeouts.push(initScrollTimeout);
+        }
+        function scrollLoop() {
+            if (!verifyState.isRunning) {
+                updateVerifyAriaLiveRegion(ELOG_LABELS.progressStopped);
+                finishScan(ELOG_LABELS.progressStopped, 'stopped');
+                return;
+            }
+            if (Date.now() - startTime > ELOG_SCROLL.maxDurationMs) {
+                finishScan(ELOG_LABELS.progressComplete, 'timeout');
+                return;
+            }
+            if (verifyState.userScrollPaused) {
+                const pt = setTimeout(scrollLoop, 100);
+                verifyState.timeouts.push(pt);
+                return;
+            }
+            const currentScrollHeight = container.scrollHeight;
+            if (currentScrollHeight > prevScrollHeight) {
+                addLogMessage('verifyAutoScrollScan: scrollHeight grew from ' + prevScrollHeight + ' to ' + currentScrollHeight + ', resetting noProgress', 'log');
+                noProgress = 0;
+                prevScrollHeight = currentScrollHeight;
+            }
+            const priorKey = getRenderedLastRowKey();
+            const priorCount = getRenderedRowCount();
+            const currTop = container.scrollTop;
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            const newTop = Math.min(currTop + ELOG_SCROLL.stepPx, maxScroll);
+            verifyState.lastAutoScrollTime = Date.now();
+            container.scrollTo({ top: newTop, behavior: 'auto' });
+            awaitSettle(container).then(function() {
+                let attempts = 0;
+                function attemptScan() {
+                    const rc = getRenderedRowCount();
+                    if (rc === 0 && attempts < ELOG_SCROLL.retryScanAttempts) {
+                        attempts++;
+                        const rt = setTimeout(attemptScan, ELOG_SCROLL.retryScanDelayMs);
+                        verifyState.timeouts.push(rt);
+                        return;
+                    }
+                    verifyScanVisibleRowsOnce(function(name) {
+                        verifyState.leftPanelRowIndex++;
+                    });
+                    onProgress({ scanned: verifyState.scannedNames.length });
+                    const currKey = getRenderedLastRowKey();
+                    const currCount = getRenderedRowCount();
+                    const postScrollHeight = container.scrollHeight;
+                    if (postScrollHeight > prevScrollHeight) {
+                        addLogMessage('verifyAutoScrollScan: scrollHeight grew after scan from ' + prevScrollHeight + ' to ' + postScrollHeight + ', resetting noProgress', 'log');
+                        noProgress = 0;
+                        prevScrollHeight = postScrollHeight;
+                    } else if (currKey === priorKey && currCount === priorCount) {
+                        noProgress++;
+                    } else {
+                        noProgress = 0;
+                    }
+                    if (computeEndReached(container, noProgress)) {
+                        finishScan(ELOG_LABELS.progressNoMore, 'endReached');
+                        return;
+                    }
+                    if (noProgress >= ELOG_SCROLL.maxNoProgressIterations) {
+                        finishScan(ELOG_LABELS.progressNoMore, 'noProgress');
+                        return;
+                    }
+                    if (typeof requestIdleCallback === 'function') {
+                        verifyState.idleCallbackId = requestIdleCallback(function() {
+                            verifyState.idleCallbackId = null;
+                            scrollLoop();
+                        }, { timeout: ELOG_SCROLL.idleDelayMs * 2 });
+                    } else {
+                        const it = setTimeout(scrollLoop, ELOG_SCROLL.idleDelayMs);
+                        verifyState.timeouts.push(it);
+                    }
+                }
+                attemptScan();
+            });
+        }
+        function finishScan(label, reason) {
+            addLogMessage('verifyAutoScrollScan: done reason=' + reason + ' total=' + verifyState.scannedNames.length, 'log');
+            setAriaBusyOff();
+            onDone({ total: verifyState.scannedNames.length, reason: reason });
+        }
+        function waitForStableScrollHeight(callback) {
+            var checks = 0;
+            var maxChecks = 5;
+            var lastHeight = container.scrollHeight;
+            var stableCount = 0;
+            function checkHeight() {
+                if (!verifyState.isRunning) { return; }
+                var currentHeight = container.scrollHeight;
+                if (currentHeight === lastHeight) {
+                    stableCount++;
+                } else {
+                    addLogMessage('verifyAutoScrollScan: scrollHeight changed from ' + lastHeight + ' to ' + currentHeight + ' during stabilization', 'log');
+                    stableCount = 0;
+                    lastHeight = currentHeight;
+                }
+                checks++;
+                if (stableCount >= 2 || checks >= maxChecks) {
+                    addLogMessage('verifyAutoScrollScan: scrollHeight stabilized at ' + currentHeight + ' after ' + checks + ' checks', 'log');
+                    callback();
+                    return;
+                }
+                var tid = setTimeout(checkHeight, 500);
+                verifyState.timeouts.push(tid);
+            }
+            var tid = setTimeout(checkHeight, 500);
+            verifyState.timeouts.push(tid);
+        }
+        awaitSettle(container).then(function() {
+            waitForStableScrollHeight(function() {
+                initialScan();
+            });
+        });
+    }
+
+    function verifyWaitForElement(selector, timeout) {
+        addLogMessage('verifyWaitForElement: waiting for ' + selector, 'log');
+        return new Promise(function(resolve, reject) {
+            const element = document.querySelector(selector);
+            if (element) { addLogMessage('verifyWaitForElement: element found immediately', 'log'); resolve(element); return; }
+            const observer = new MutationObserver(function(mutations, obs) {
+                const el = document.querySelector(selector);
+                if (el) {
+                    addLogMessage('verifyWaitForElement: element found via observer', 'log');
+                    obs.disconnect();
+                    const idx = verifyState.observers.indexOf(obs);
+                    if (idx > -1) { verifyState.observers.splice(idx, 1); }
+                    resolve(el);
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            verifyState.observers.push(observer);
+            const timeoutId = setTimeout(function() {
+                observer.disconnect();
+                const idx = verifyState.observers.indexOf(observer);
+                if (idx > -1) { verifyState.observers.splice(idx, 1); }
+                addLogMessage('verifyWaitForElement: timeout waiting for ' + selector, 'warn');
+                reject(new Error('Timeout waiting for ' + selector));
+            }, timeout);
+            verifyState.timeouts.push(timeoutId);
+        });
+    }
+
+    function verifyEnsureAddEntryFormOpen() {
+        addLogMessage('verifyEnsureAddEntryFormOpen: checking form state', 'log');
+        return new Promise(function(resolve, reject) {
+            const memberInput = document.querySelector(ELOG_FORM_SELECTORS.memberInput);
+            if (memberInput) {
+                addLogMessage('verifyEnsureAddEntryFormOpen: member input already present', 'log');
+                resolve(memberInput);
+                return;
+            }
+            const addBtn = document.querySelector(ELOG_FORM_SELECTORS.addEntryBtn);
+            if (addBtn) {
+                addLogMessage('verifyEnsureAddEntryFormOpen: clicking Add Entry button', 'log');
+                addBtn.click();
+            } else {
+                addLogMessage('verifyEnsureAddEntryFormOpen: Add Entry button not found, waiting for input', 'warn');
+            }
+            verifyWaitForElement(ELOG_FORM_SELECTORS.memberInput, ELOG_FORM_TIMEOUTS.waitOpenMs)
+                .then(function(el) {
+                addLogMessage('verifyEnsureAddEntryFormOpen: member input found', 'log');
+                resolve(el);
+            })
+                .catch(function(err) {
+                addLogMessage('verifyEnsureAddEntryFormOpen: timeout waiting for member input: ' + err, 'error');
+                reject(err);
+            });
+        });
+    }
+
+    function verifyEnsureMemberDropdownOpen() {
+        addLogMessage('verifyEnsureMemberDropdownOpen: checking dropdown', 'log');
+        return new Promise(function(resolve, reject) {
+            let retries = 0;
+            function tryOpen() {
+                addLogMessage('verifyEnsureMemberDropdownOpen: attempt ' + (retries + 1), 'log');
+                const listEl = document.querySelector(ELOG_FORM_SELECTORS.listContainer);
+                if (listEl) {
+                    addLogMessage('verifyEnsureMemberDropdownOpen: list already open', 'log');
+                    verifyState.activeDropdown = { inputSelector: ELOG_FORM_SELECTORS.memberInput, listSelector: ELOG_FORM_SELECTORS.listContainer };
+                    resolve(listEl);
+                    return;
+                }
+                const inputEl = document.querySelector(ELOG_FORM_SELECTORS.memberInput);
+                if (inputEl) {
+                    addLogMessage('verifyEnsureMemberDropdownOpen: clicking input to open list', 'log');
+                    inputEl.click();
+                    inputEl.focus();
+                }
+                verifyWaitForElement(ELOG_FORM_SELECTORS.listContainer, ELOG_FORM_TIMEOUTS.waitListMs)
+                    .then(function(el) {
+                    addLogMessage('verifyEnsureMemberDropdownOpen: list opened', 'log');
+                    verifyState.activeDropdown = { inputSelector: ELOG_FORM_SELECTORS.memberInput, listSelector: ELOG_FORM_SELECTORS.listContainer };
+                    resolve(el);
+                })
+                    .catch(function(err) {
+                    retries++;
+                    if (retries < ELOG_FORM_RETRY.openListRetries) {
+                        addLogMessage('verifyEnsureMemberDropdownOpen: retry ' + retries, 'warn');
+                        const tid = setTimeout(tryOpen, 300);
+                        verifyState.timeouts.push(tid);
+                    } else {
+                        addLogMessage('verifyEnsureMemberDropdownOpen: exhausted retries', 'error');
+                        reject(err);
+                    }
+                });
+            }
+            tryOpen();
+        });
+    }
+
+    function startVerifyScan() {
+        addLogMessage('startVerifyScan: beginning scan with auto-scroll', 'log');
+        verifyState.scannedNames = [];
+        verifyState.seenNormalizedNames = new Set();
+        verifyWaitForElement(ELOG_SELECTORS.mainTable, ELOG_TIMEOUTS.waitTableMs)
+            .then(function(mainTable) {
+            addLogMessage('startVerifyScan: main table found', 'log');
+            return verifyWaitForElement(ELOG_SELECTORS.gridTable, ELOG_TIMEOUTS.waitGridMs);
+        })
+            .then(function(gridTable) {
+            addLogMessage('startVerifyScan: grid table found, starting auto-scroll scan', 'log');
+            verifyAutoScrollScan({
+                onRow: function(name, normalized) {
+                    addLogMessage('startVerifyScan: onRow callback for ' + name, 'log');
+                },
+                onProgress: function(data) {
+                    addLogMessage('startVerifyScan: progress - scanned ' + data.scanned, 'log');
+                },
+                onDone: function(data) {
+                    addLogMessage('startVerifyScan: done - total=' + data.total + ' reason=' + data.reason, 'log');
+                    removeCollectingDataPanel('verify');
+                    if (data.reason !== 'stopped' && verifyState.isRunning) {
+                        addLogMessage('startVerifyScan: scan complete, showing progress panel', 'log');
+                        showVerifyProgressPanel();
+                    }
+                },
+                onError: function(error) {
+                    addLogMessage('startVerifyScan: error - ' + error.message, 'error');
+                    removeCollectingDataPanel('verify');
+                    showVerifyProgressPanel();
+                    updateVerifyScanStatus('Error', 'error');
+                    showVerifyInlineNotice('Error during auto-scroll scan: ' + error.message);
+                }
+            });
+        })
+            .catch(function(error) {
+            addLogMessage('startVerifyScan: error during scan: ' + error, 'error');
+            removeCollectingDataPanel('verify');
+            showVerifyProgressPanel();
+            updateVerifyScanStatus('Error', 'error');
+            showVerifyInlineNotice('An error occurred during scanning. The table may not be fully loaded.');
+        });
+    }
+
+    function updateVerifyScanStatus(statusText, statusType) {
+        addLogMessage('updateVerifyScanStatus: ' + statusText, 'log');
+        const badge = document.getElementById('verify-status-badge');
+        const title = document.getElementById('verify-progress-title');
+        if (badge) {
+            badge.textContent = statusText;
+            if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; }
+            else if (statusType === 'error') { badge.style.background = 'rgba(255, 107, 107, 0.3)'; badge.style.color = '#ff6b6b'; }
+            else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; }
+        }
+        if (title && statusType === 'complete') { title.textContent = 'Verify Names - Complete'; }
+    }
+
+    function updateVerifyAriaLiveRegion(message) {
+        const liveRegion = document.getElementById('verify-aria-live');
+        if (liveRegion) {
+            liveRegion.textContent = message;
+        }
+    }
+
+    function showVerifyInlineNotice(message) {
+        addLogMessage('showVerifyInlineNotice: ' + message, 'warn');
+        const container = document.getElementById('verify-progress-container');
+        if (!container) { return; }
+        const existingNotice = container.querySelector('.verify-inline-notice');
+        if (existingNotice) { existingNotice.remove(); }
+        const notice = document.createElement('div');
+        notice.className = 'verify-inline-notice';
+        notice.style.cssText = 'background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: white; font-size: 13px; line-height: 1.4;';
+        notice.textContent = message;
+        container.appendChild(notice);
+    }
+
+    function initializeVerifyRightPanel() {
+        addLogMessage('initializeVerifyRightPanel: initializing with parsed names', 'log');
+        const rightPanel = document.getElementById('verify-right-panel');
+        if (!rightPanel) { addLogMessage('initializeVerifyRightPanel: right panel not found', 'error'); return; }
+        rightPanel.innerHTML = '';
+        for (let i = 0; i < verifyState.parsedNames.length; i++) {
+            const nameObj = verifyState.parsedNames[i];
+            const item = createListItem(nameObj.display, 'Pending', 'pending', i + 1);
+            item.setAttribute('data-normalized', nameObj.normalized);
+            item.setAttribute('data-pairkey', normalizeFirstLastPair(nameObj.display));
+            item.setAttribute('data-input-order', String(i + 1));
+            item.setAttribute('data-sort-name', nameObj.display);
+            rightPanel.appendChild(item);
+        }
+        addLogMessage('initializeVerifyRightPanel: added ' + verifyState.parsedNames.length + ' items', 'log');
+    }
+
+    function populateVerifyLeftPanel() {
+        addLogMessage('populateVerifyLeftPanel: populating with ' + verifyState.scannedNames.length + ' names', 'log');
+        var leftPanel = document.getElementById('verify-left-panel');
+        if (!leftPanel) {
+            addLogMessage('populateVerifyLeftPanel: left panel not found', 'error');
+            return;
+        }
+        leftPanel.innerHTML = '';
+        for (var i = 0; i < verifyState.scannedNames.length; i++) {
+            var item = createListItem(verifyState.scannedNames[i], null, null, i + 1);
+            leftPanel.appendChild(item);
+        }
+        addLogMessage('populateVerifyLeftPanel: populated ' + verifyState.scannedNames.length + ' items', 'log');
+    }
+
+    function finalizeVerifyRightPanelAfterScan() {
+        addLogMessage('finalizeVerifyRightPanelAfterScan: updating right panel statuses', 'log');
+        var scannedNormSet = new Set();
+        for (var si = 0; si < verifyState.scannedNames.length; si++) {
+            scannedNormSet.add(elogNormalizeName(verifyState.scannedNames[si]));
+        }
+        for (var i = 0; i < verifyState.parsedNames.length; i++) {
+            var nameObj = verifyState.parsedNames[i];
+            if (scannedNormSet.has(nameObj.normalized)) {
+                nameObj.status = 'Found';
+                updateVerifyRightPanelItemStatus(nameObj.normalized, 'Found', 'found');
+            } else {
+                nameObj.status = 'Not Found';
+                updateVerifyRightPanelItemStatus(nameObj.normalized, 'Not Found', 'notfound');
+            }
+        }
+        addLogMessage('finalizeVerifyRightPanelAfterScan: completed', 'log');
+    }
+
+    function updateVerifyRightPanelItemStatus(normalized, statusText, statusType) {
+        const rightPanel = document.getElementById('verify-right-panel');
+        if (!rightPanel) { return; }
+        const items = rightPanel.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.getAttribute('data-normalized') === normalized) {
+                const badge = item.querySelector('.elog-status-badge');
+                if (badge) {
+                    badge.textContent = statusText;
+                    let badgeColor = 'rgba(255, 255, 255, 0.7)';
+                    let badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    if (statusType === 'found') { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
+                    else if (statusType === 'notfound') { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
+                    else if (statusType === 'pending') { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                    badge.style.color = badgeColor;
+                    badge.style.background = badgeBg;
+                }
+                break;
+            }
+        }
+    }
+
+    function updateVerifyRightPanelStatus(pairKey, newStatus) {
+        addLogMessage('updateVerifyRightPanelStatus: pairKey=' + pairKey + ' status=' + newStatus, 'log');
+        const rightPanel = document.getElementById('verify-right-panel');
+        if (!rightPanel) {
+            addLogMessage('updateVerifyRightPanelStatus: right panel not found', 'error');
+            return;
+        }
+        const items = rightPanel.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const itemPairKey = item.getAttribute('data-pairkey');
+            if (!itemPairKey) {
+                continue;
+            }
+            if (itemPairKey === pairKey) {
+                const badge = item.querySelector('.elog-status-badge');
+                if (badge) {
+                    badge.textContent = newStatus;
+                    let badgeColor = 'rgba(255, 255, 255, 0.7)';
+                    let badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    if (newStatus === VERIFY_LABELS.statusExistsInDropdown) {
+                        badgeColor = '#6bcf7f';
+                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                    }
+                    else if (newStatus === VERIFY_LABELS.statusAlreadyInTable) {
+                        badgeColor = '#ffa500';
+                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                    }
+                    else if (newStatus === VERIFY_LABELS.statusNotInDropdown) {
+                        badgeColor = '#ff6b6b';
+                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                    }
+                    else if (newStatus === VERIFY_LABELS.statusStopped) {
+                        badgeColor = '#aaa';
+                        badgeBg = 'rgba(170, 170, 170, 0.2)';
+                    }
+                    else if (newStatus === VERIFY_LABELS.statusPending) {
+                        badgeColor = '#ffd93d';
+                        badgeBg = 'rgba(255, 217, 61, 0.2)';
+                    }
+                    badge.style.color = badgeColor;
+                    badge.style.background = badgeBg;
+                }
+                addLogMessage('updateVerifyRightPanelStatus: updated item for pairKey=' + pairKey, 'log');
+                break;
+            }
+        }
+    }
+
+    function updateVerifyRightPanelSummary(counters) {
+        addLogMessage('updateVerifyRightPanelSummary: total=' + counters.total + ' verified=' + counters.verified + ' notFound=' + counters.notFound + ' alreadyInTable=' + counters.alreadyInTable + ' dup=' + counters.duplicates + ' pending=' + counters.pending, 'log');
+        const totalEl = document.getElementById('verify-summary-total');
+        const verifiedEl = document.getElementById('verify-summary-verified');
+        const notFoundEl = document.getElementById('verify-summary-notfound');
+        const alreadyEl = document.getElementById('verify-summary-already');
+        const dupEl = document.getElementById('verify-summary-duplicates');
+        const pendingEl = document.getElementById('verify-summary-pending');
+        const percentEl = document.getElementById('verify-summary-percent');
+        if (totalEl) { totalEl.textContent = String(counters.total); }
+        if (verifiedEl) { verifiedEl.textContent = String(counters.verified); }
+        if (notFoundEl) { notFoundEl.textContent = String(counters.notFound); }
+        if (alreadyEl) { alreadyEl.textContent = String(counters.alreadyInTable); }
+        if (dupEl) { dupEl.textContent = String(counters.duplicates); }
+        if (pendingEl) { pendingEl.textContent = String(counters.pending); }
+        if (percentEl) {
+            const processed = counters.total - counters.pending;
+            const pct = counters.total > 0 ? Math.round((processed / counters.total) * 100) : 0;
+            percentEl.textContent = pct + '%';
+        }
+        updateVerifyAriaLiveRegion('Verified: ' + counters.verified + ', Not Found: ' + counters.notFound + ', Already In Table: ' + counters.alreadyInTable + ', Pending: ' + counters.pending);
+    }
+
+    function showVerifyProgressPanel() {
+        addLogMessage('showVerifyProgressPanel: creating progress panel', 'log');
+        verifyState.isRunning = true;
+        const modal = document.createElement('div');
+        modal.className = VERIFY_CSS_CLASSNAMES.progressPanel;
+        modal.id = 'verify-progress-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        const container = document.createElement('div');
+        container.id = 'verify-progress-container';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        container.setAttribute('aria-labelledby', 'verify-progress-title');
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
+        const titleContainer = document.createElement('div');
+        titleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        const title = document.createElement('h3');
+        title.id = 'verify-progress-title';
+        title.textContent = 'Verify Names - Review';
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        const statusBadge = document.createElement('span');
+        statusBadge.id = 'verify-status-badge';
+        statusBadge.textContent = 'In Progress';
+        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        titleContainer.appendChild(title);
+        titleContainer.appendChild(statusBadge);
+        const headerButtons = document.createElement('div');
+        headerButtons.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+        const rescanButton = document.createElement('button');
+        rescanButton.textContent = 'Re-scan';
+        rescanButton.id = 'verify-rescan-btn';
+        rescanButton.setAttribute('aria-label', 'Re-scan document log');
+        rescanButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
+        rescanButton.onmouseover = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        rescanButton.onmouseout = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        rescanButton.onclick = function() { addLogMessage('showVerifyProgressPanel: Re-scan clicked', 'log'); performVerifyRescan(); };
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.setAttribute('aria-label', 'Close and stop verification');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() {
+            addLogMessage('showVerifyProgressPanel: closed by user', 'warn');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            stopVerify();
+            if (verifyState.focusReturnElement) { verifyState.focusReturnElement.focus(); }
+        };
+        const pauseButton = document.createElement('button');
+        pauseButton.textContent = 'Pause';
+        pauseButton.id = 'verify-pause-btn';
+        pauseButton.setAttribute('aria-label', 'Pause or resume verification');
+        pauseButton.style.cssText = 'background: rgba(255, 193, 7, 0.25); border: 2px solid rgba(255, 193, 7, 0.5); color: #ffd93d; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
+        pauseButton.onmouseover = function() { pauseButton.style.background = 'rgba(255, 193, 7, 0.4)'; };
+        pauseButton.onmouseout = function() {
+            if (verifyState.isPaused) {
+                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
+            } else {
+                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
+            }
+        };
+        pauseButton.onclick = function() {
+            if (verifyState.isPaused) {
+                addLogMessage('showVerifyProgressPanel: Resume clicked', 'log');
+                verifyState.isPaused = false;
+                pauseButton.textContent = 'Pause';
+                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
+                pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
+                pauseButton.style.color = '#ffd93d';
+                updateVerifyScanStatus('Verifying Names', 'progress');
+                var titleEl = document.getElementById('verify-progress-title');
+                if (titleEl) {
+                    titleEl.textContent = 'Verify Names - Verifying';
+                }
+                processNextVerifyName();
+            } else {
+                addLogMessage('showVerifyProgressPanel: Pause clicked', 'log');
+                verifyState.isPaused = true;
+                pauseButton.textContent = 'Resume';
+                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
+                pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+                pauseButton.style.color = '#6bcf7f';
+                updateVerifyScanStatus('Paused', 'paused');
+                var titleEl2 = document.getElementById('verify-progress-title');
+                if (titleEl2) {
+                    titleEl2.textContent = 'Verify Names - Paused';
+                }
+            }
+        };
+        headerButtons.appendChild(rescanButton);
+        headerButtons.appendChild(pauseButton);
+        headerButtons.appendChild(closeButton);
+        header.appendChild(titleContainer);
+        header.appendChild(headerButtons);
+        const panelsContainer = document.createElement('div');
+        panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
+        const leftPanel = createSubpanel('Scanned Log Entries', 'verify-left-panel', 'verify-left-search');
+        const rightPanel = createSubpanel('User Names Status', 'verify-right-panel', 'verify-right-search');
+        addSortToggleToSubpanel(rightPanel, 'verify-right-panel', 'verify-sort-toggle', 'verify-failure-filter', [VERIFY_LABELS.statusNotInDropdown]);
+        panelsContainer.appendChild(leftPanel);
+        panelsContainer.appendChild(rightPanel);
+        const summaryFooter = document.createElement('div');
+        summaryFooter.id = 'verify-summary-footer';
+        summaryFooter.setAttribute('aria-label', 'Verification summary');
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        const summaryItems = [
+            { id: 'verify-summary-total', label: 'Total', value: '0' },
+            { id: 'verify-summary-verified', label: 'Verified', value: '0' },
+            { id: 'verify-summary-notfound', label: 'Not Found', value: '0' },
+            { id: 'verify-summary-already', label: 'In Table', value: '0' },
+            { id: 'verify-summary-duplicates', label: 'Duplicates', value: '0' },
+            { id: 'verify-summary-pending', label: 'Pending', value: '0' },
+            { id: 'verify-summary-percent', label: 'Progress', value: '0%' }
+        ];
+        for (let si = 0; si < summaryItems.length; si++) {
+            const summaryItem = document.createElement('div');
+            summaryItem.style.cssText = 'text-align: center;';
+            const valSpan = document.createElement('span');
+            valSpan.id = summaryItems[si].id;
+            valSpan.textContent = summaryItems[si].value;
+            valSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = summaryItems[si].label;
+            labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            summaryItem.appendChild(valSpan);
+            summaryItem.appendChild(labelSpan);
+            summaryFooter.appendChild(summaryItem);
+        }
+        const ariaLiveRegion = document.createElement('div');
+        ariaLiveRegion.id = 'verify-aria-live';
+        ariaLiveRegion.setAttribute('aria-live', 'polite');
+        ariaLiveRegion.setAttribute('aria-atomic', 'true');
+        ariaLiveRegion.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;';
+        container.appendChild(header);
+        container.appendChild(panelsContainer);
+        container.appendChild(summaryFooter);
+        container.appendChild(ariaLiveRegion);
+        modal.appendChild(container);
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+        document.body.appendChild(modal);
+        initializeVerifyRightPanel();
+        populateVerifyLeftPanel();
+        finalizeVerifyRightPanelAfterScan();
+        rescanButton.focus();
+        addLogMessage('showVerifyProgressPanel: progress panel displayed with all data populated', 'log');
+        updateVerifyScanStatus('Scan Complete', 'complete');
+        var progressTitle = document.getElementById('verify-progress-title');
+        if (progressTitle) {
+            progressTitle.textContent = 'Verify Names - Verifying';
+        }
+        beginVerifyNames();
+    }
+
+    function buildVerifyQueue(userNamesArray) {
+        addLogMessage('buildVerifyQueue: building from ' + userNamesArray.length + ' names', 'log');
+        const seenPairKeys = new Set();
+        const unique = [];
+        const duplicateIndices = [];
+        for (let i = 0; i < userNamesArray.length; i++) {
+            const nameObj = userNamesArray[i];
+            const pk = normalizeFirstLastPair(nameObj.display);
+            if (seenPairKeys.has(pk)) {
+                addLogMessage('buildVerifyQueue: input duplicate pairKey=' + pk + ' display=' + nameObj.display, 'log');
+                duplicateIndices.push(i);
+                continue;
+            }
+            seenPairKeys.add(pk);
+            var candidates = buildCandidatePairKeys(nameObj.display);
+            unique.push({
+                display: nameObj.display,
+                normalized: nameObj.normalized,
+                pairKey: pk,
+                candidatePairKeys: candidates.pairKeys,
+                status: VERIFY_LABELS.statusPending
+            });
+        }
+        addLogMessage('buildVerifyQueue: unique=' + unique.length + ' duplicates=' + duplicateIndices.length, 'log');
+        return { queue: unique, duplicateIndices: duplicateIndices };
+    }
+
+    function beginVerifyNames() {
+        addLogMessage('beginVerifyNames: starting', 'log');
+        verifyState.existingPairs = buildExistingPairsFromScan(verifyState.scannedNames);
+        addLogMessage('beginVerifyNames: existingPairs count=' + verifyState.existingPairs.size, 'log');
+        var result = buildVerifyQueue(verifyState.parsedNames);
+        verifyState.verifyQueue = result.queue;
+        verifyState.verifyQueueIndex = 0;
+        verifyState.listScrollTop = 0;
+        verifyState.isVerifying = true;
+        for (var di = 0; di < result.duplicateIndices.length; di++) {
+            var dupIdx = result.duplicateIndices[di];
+            var dupName = verifyState.parsedNames[dupIdx];
+            if (dupName) {
+                var dupPk = normalizeFirstLastPair(dupName.display);
+                updateVerifyRightPanelStatus(dupPk, VERIFY_LABELS.statusDuplicate);
+            }
+        }
+        verifyState.counters = {
+            total: verifyState.verifyQueue.length,
+            verified: 0,
+            notFound: 0,
+            alreadyInTable: 0,
+            duplicates: 0,
+            pending: verifyState.verifyQueue.length
+        };
+        updateVerifyRightPanelSummary(verifyState.counters);
+        updateVerifyScanStatus('Verifying Names', 'progress');
+        var title = document.getElementById('verify-progress-title');
+        if (title) {
+            title.textContent = 'Verify Names - Verifying';
+        }
+        updateVerifyAriaLiveRegion('Starting to verify ' + verifyState.verifyQueue.length + ' names');
+        addLogMessage('beginVerifyNames: queue size=' + verifyState.verifyQueue.length + ', starting processing', 'log');
+        processNextVerifyName();
+    }
+
+    function tryVerifyNameSearchTermsSequentially(searchTerms, termIndex, inputEl, targetPairKey, selectors, timeouts, state, candidates, logPrefix, resolve) {
+        if (termIndex >= searchTerms.length) {
+            addLogMessage(logPrefix + ': all ' + searchTerms.length + ' search terms exhausted, marking as not found', 'log');
+            clearFilteredInput(inputEl);
+            resolve(false);
+            return;
+        }
+        var term = searchTerms[termIndex];
+        var stepLabel = logPrefix + '[term ' + (termIndex + 1) + '/' + searchTerms.length + ' "' + term + '"]';
+        if (termIndex === 0) {
+            typeIntoFilteredInput(inputEl, term);
+            var tid = setTimeout(function() {
+                if (!state.isRunning) {
+                    clearFilteredInput(inputEl);
+                    resolve(false);
+                    return;
+                }
+                reopenDropdownIfClosed(state).then(function() {
+                    var match = scanFilteredOptionsForMatch(targetPairKey, selectors, candidates);
+                    if (match) {
+                        addLogMessage(stepLabel + ': found (' + match.matchType + ') - verify only, not clicking', 'log');
+                        clearFilteredInput(inputEl);
+                        var verifyTid = setTimeout(function() {
+                            resolve(true);
+                        }, timeouts.settleMs);
+                        state.timeouts.push(verifyTid);
+                        return;
+                    }
+                    addLogMessage(stepLabel + ': not found, trying next term', 'log');
+                    tryVerifyNameSearchTermsSequentially(searchTerms, termIndex + 1, inputEl, targetPairKey, selectors, timeouts, state, candidates, logPrefix, resolve);
+                });
+            }, timeouts.waitFilterMs);
+            state.timeouts.push(tid);
+        } else {
+            clearFilteredInput(inputEl);
+            var clearTid = setTimeout(function() {
+                typeIntoFilteredInput(inputEl, term);
+                var filterTid = setTimeout(function() {
+                    if (!state.isRunning) {
+                        clearFilteredInput(inputEl);
+                        resolve(false);
+                        return;
+                    }
+                    reopenDropdownIfClosed(state).then(function() {
+                        var match = scanFilteredOptionsForMatch(targetPairKey, selectors, candidates);
+                        if (match) {
+                            addLogMessage(stepLabel + ': found (' + match.matchType + ') - verify only, not clicking', 'log');
+                            clearFilteredInput(inputEl);
+                            var verifyTid = setTimeout(function() {
+                                resolve(true);
+                            }, timeouts.settleMs);
+                            state.timeouts.push(verifyTid);
+                            return;
+                        }
+                        addLogMessage(stepLabel + ': not found, trying next term', 'log');
+                        tryVerifyNameSearchTermsSequentially(searchTerms, termIndex + 1, inputEl, targetPairKey, selectors, timeouts, state, candidates, logPrefix, resolve);
+                    });
+                }, timeouts.waitLastNameFilterMs);
+                state.timeouts.push(filterTid);
+            }, timeouts.settleMs);
+            state.timeouts.push(clearTid);
+        }
+    }
+
+    function verifyNameExistsInDropdown(targetDisplay, targetPairKey, candidatePairKeys) {
+        var searchInfo = buildCandidatePairKeys(targetDisplay);
+        var candidates = candidatePairKeys && candidatePairKeys.length > 0 ? candidatePairKeys : searchInfo.pairKeys;
+        var searchTerms = searchInfo.searchTerms;
+        addLogMessage('verifyNameExistsInDropdown: target=' + targetDisplay + ' searchTerms=[' + searchTerms.join(', ') + '] candidates=[' + candidates.join(', ') + ']', 'log');
+        return new Promise(function(resolve) {
+            var inputEl = document.querySelector(ELOG_FORM_SELECTORS.memberInput);
+            if (!inputEl) {
+                addLogMessage('verifyNameExistsInDropdown: member input not found', 'error');
+                resolve(false);
+                return;
+            }
+            tryVerifyNameSearchTermsSequentially(searchTerms, 0, inputEl, targetPairKey, ELOG_FORM_SELECTORS, ELOG_FORM_TIMEOUTS, verifyState, candidates, 'verifyNameExistsInDropdown', resolve);
+        });
+    }
+
+    function processNextVerifyName() {
+        addLogMessage('processNextVerifyName: index=' + verifyState.verifyQueueIndex + ' of ' + verifyState.verifyQueue.length, 'log');
+        if (verifyState.isPaused) {
+            addLogMessage('processNextVerifyName: paused, waiting for resume', 'log');
+            return;
+        }
+        if (!verifyState.isRunning) {
+            addLogMessage('processNextVerifyName: stopped, marking remaining as Stopped', 'warn');
+            for (var si = verifyState.verifyQueueIndex; si < verifyState.verifyQueue.length; si++) {
+                if (verifyState.verifyQueue[si].status === VERIFY_LABELS.statusPending) {
+                    verifyState.verifyQueue[si].status = VERIFY_LABELS.statusStopped;
+                    updateVerifyRightPanelStatus(verifyState.verifyQueue[si].pairKey, VERIFY_LABELS.statusStopped);
+                    verifyState.counters.pending--;
+                }
+            }
+            updateVerifyRightPanelSummary(verifyState.counters);
+            verifyState.isVerifying = false;
+            updateVerifyScanStatus('Stopped', 'stopped');
+            var title = document.getElementById('verify-progress-title');
+            if (title) {
+                title.textContent = 'Verify Names - Stopped';
+            }
+            var pauseBtn = document.getElementById('verify-pause-btn');
+            if (pauseBtn) { pauseBtn.disabled = true; pauseBtn.style.opacity = '0.4'; pauseBtn.style.cursor = 'default'; }
+            if (verifyState.focusReturnElement) {
+                verifyState.focusReturnElement.focus();
+            }
+            return;
+        }
+        if (verifyState.verifyQueueIndex >= verifyState.verifyQueue.length) {
+            addLogMessage('processNextVerifyName: all candidates processed', 'log');
+            verifyState.isVerifying = false;
+            updateVerifyScanStatus('Complete', 'complete');
+            var titleEl = document.getElementById('verify-progress-title');
+            if (titleEl) {
+                titleEl.textContent = 'Verify Names - Complete';
+            }
+            var pauseBtnDone = document.getElementById('verify-pause-btn');
+            if (pauseBtnDone) { pauseBtnDone.disabled = true; pauseBtnDone.style.opacity = '0.4'; pauseBtnDone.style.cursor = 'default'; }
+            updateVerifyRightPanelSummary(verifyState.counters);
+            updateVerifyAriaLiveRegion('Verification complete. Verified: ' + verifyState.counters.verified + ', Not Found: ' + verifyState.counters.notFound + ', Already In Table: ' + verifyState.counters.alreadyInTable);
+            var memberInput = document.querySelector(ELOG_FORM_SELECTORS.memberInput);
+            if (memberInput) {
+                clearFilteredInput(memberInput);
+            }
+            if (verifyState.focusReturnElement) {
+                verifyState.focusReturnElement.focus();
+            }
+            return;
+        }
+        var candidate = verifyState.verifyQueue[verifyState.verifyQueueIndex];
+        addLogMessage('processNextVerifyName: processing ' + candidate.display + ' pairKey=' + candidate.pairKey, 'log');
+        if (verifyState.existingPairs.has(candidate.pairKey)) {
+            addLogMessage('processNextVerifyName: already exists in table', 'log');
+            candidate.status = VERIFY_LABELS.statusAlreadyInTable;
+            verifyState.counters.alreadyInTable++;
+            verifyState.counters.pending--;
+            updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusAlreadyInTable);
+            updateVerifyRightPanelSummary(verifyState.counters);
+            verifyState.verifyQueueIndex++;
+            var tid1 = setTimeout(processNextVerifyName, 50);
+            verifyState.timeouts.push(tid1);
+            return;
+        }
+        verifyEnsureAddEntryFormOpen()
+            .then(function() {
+            if (verifyState.isPaused) { addLogMessage('processNextVerifyName: paused after form open', 'log'); return Promise.reject('__paused__'); }
+            addLogMessage('processNextVerifyName: form open, opening dropdown', 'log');
+            return verifyEnsureMemberDropdownOpen();
+        })
+            .then(function() {
+            if (verifyState.isPaused) { addLogMessage('processNextVerifyName: paused after dropdown open', 'log'); return Promise.reject('__paused__'); }
+            addLogMessage('processNextVerifyName: dropdown open, checking name existence', 'log');
+            return verifyNameExistsInDropdown(candidate.display, candidate.pairKey, candidate.candidatePairKeys);
+        })
+            .then(function(existsInDropdown) {
+            if (verifyState.isPaused) { addLogMessage('processNextVerifyName: paused after name check', 'log'); return; }
+            if (existsInDropdown) {
+                addLogMessage('processNextVerifyName: exists in dropdown', 'log');
+                candidate.status = VERIFY_LABELS.statusExistsInDropdown;
+                verifyState.counters.verified++;
+                verifyState.counters.pending--;
+                updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusExistsInDropdown);
+            } else {
+                addLogMessage('processNextVerifyName: not found in dropdown', 'warn');
+                candidate.status = VERIFY_LABELS.statusNotInDropdown;
+                verifyState.counters.notFound++;
+                verifyState.counters.pending--;
+                updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusNotInDropdown);
+            }
+            updateVerifyRightPanelSummary(verifyState.counters);
+            verifyState.verifyQueueIndex++;
+            var tid2 = setTimeout(processNextVerifyName, 50);
+            verifyState.timeouts.push(tid2);
+        })
+            .catch(function(err) {
+            if (err === '__paused__') { return; }
+            addLogMessage('processNextVerifyName: error: ' + err, 'error');
+            candidate.status = VERIFY_LABELS.statusNotInDropdown;
+            verifyState.counters.notFound++;
+            verifyState.counters.pending--;
+            updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusNotInDropdown);
+            updateVerifyRightPanelSummary(verifyState.counters);
+            verifyState.verifyQueueIndex++;
+            var tid3 = setTimeout(processNextVerifyName, 50);
+            verifyState.timeouts.push(tid3);
+        });
+    }
+
+    function performVerifyRescan() {
+        addLogMessage('performVerifyRescan: restarting scan with auto-scroll', 'log');
+        for (let i = 0; i < verifyState.observers.length; i++) {
+            try {
+                verifyState.observers[i].disconnect();
+            } catch (e) {
+                addLogMessage('performVerifyRescan: error disconnecting observer: ' + e, 'error');
+            }
+        }
+        verifyState.observers = [];
+        for (let i = 0; i < verifyState.timeouts.length; i++) {
+            try {
+                clearTimeout(verifyState.timeouts[i]);
+            } catch (e) {
+                addLogMessage('performVerifyRescan: error clearing timeout: ' + e, 'error');
+            }
+        }
+        verifyState.timeouts = [];
+        if (verifyState.idleCallbackId && typeof cancelIdleCallback === 'function') {
+            cancelIdleCallback(verifyState.idleCallbackId);
+            verifyState.idleCallbackId = null;
+        }
+        verifyState.scannedNames = [];
+        verifyState.seenNormalizedNames = new Set();
+        verifyState.leftPanelRowIndex = 0;
+        verifyState.userScrollPaused = false;
+        verifyState.isVerifying = false;
+        verifyState.verifyQueue = [];
+        verifyState.verifyQueueIndex = 0;
+        for (let pi = 0; pi < verifyState.parsedNames.length; pi++) {
+            verifyState.parsedNames[pi].status = 'Pending';
+        }
+        var progressModal = document.getElementById('verify-progress-modal');
+        if (progressModal && progressModal.parentNode) {
+            progressModal.parentNode.removeChild(progressModal);
+        }
+        showCollectingDataPanel('verify', 'Verify Names');
+        addLogMessage('performVerifyRescan: starting auto-scroll scan', 'log');
+        verifyAutoScrollScan({
+            onRow: function(name, normalized) {
+                addLogMessage('performVerifyRescan: onRow callback for ' + name, 'log');
+            },
+            onProgress: function(data) {
+                addLogMessage('performVerifyRescan: progress - scanned ' + data.scanned, 'log');
+            },
+            onDone: function(data) {
+                addLogMessage('performVerifyRescan: done - total=' + data.total + ' reason=' + data.reason, 'log');
+                removeCollectingDataPanel('verify');
+                if (data.reason !== 'stopped' && verifyState.isRunning) {
+                    addLogMessage('performVerifyRescan: re-scan complete, showing progress panel', 'log');
+                    showVerifyProgressPanel();
+                }
+            },
+            onError: function(error) {
+                addLogMessage('performVerifyRescan: error - ' + error.message, 'error');
+                removeCollectingDataPanel('verify');
+                showVerifyProgressPanel();
+                updateVerifyScanStatus('Error', 'error');
+                showVerifyInlineNotice('Error during re-scan: ' + error.message);
+            }
+        });
+    }
+
+    function stopVerify() {
+        addLogMessage('stopVerify: stopping all verify processes', 'log');
+        verifyState.isRunning = false;
+        if (verifyState.idleCallbackId && typeof cancelIdleCallback === 'function') {
+            addLogMessage('stopVerify: cancelling idle callback', 'log');
+            cancelIdleCallback(verifyState.idleCallbackId);
+            verifyState.idleCallbackId = null;
+        }
+        for (let i = 0; i < verifyState.observers.length; i++) {
+            try {
+                verifyState.observers[i].disconnect();
+            } catch (e) {
+                addLogMessage('stopVerify: error disconnecting observer: ' + e, 'error');
+            }
+        }
+        verifyState.observers = [];
+        for (let i = 0; i < verifyState.timeouts.length; i++) {
+            try {
+                clearTimeout(verifyState.timeouts[i]);
+            } catch (e) {
+                addLogMessage('stopVerify: error clearing timeout: ' + e, 'error');
+            }
+        }
+        verifyState.timeouts = [];
+        for (let i = 0; i < verifyState.intervals.length; i++) {
+            try {
+                clearInterval(verifyState.intervals[i]);
+            } catch (e) {
+                addLogMessage('stopVerify: error clearing interval: ' + e, 'error');
+            }
+        }
+        verifyState.intervals = [];
+        for (let i = 0; i < verifyState.eventListeners.length; i++) {
+            try {
+                const listener = verifyState.eventListeners[i];
+                listener.element.removeEventListener(listener.type, listener.handler);
+            } catch (e) {
+                addLogMessage('stopVerify: error removing event listener: ' + e, 'error');
+            }
+        }
+        verifyState.eventListeners = [];
+        if (verifyState.abortController) {
+            verifyState.abortController.abort();
+            verifyState.abortController = null;
+        }
+        setAriaBusyOff();
+        if (verifyState.scrollContainer && verifyState.prevScrollTop !== undefined) {
+            addLogMessage('stopVerify: restoring viewport', 'log');
+            restoreViewport(verifyState.scrollContainer, verifyState.prevScrollTop);
+        }
+        verifyState.scrollContainer = null;
+        verifyState.userScrollHandler = null;
+        verifyState.userScrollPaused = false;
+        if (verifyState.isVerifying) {
+            addLogMessage('stopVerify: was verifying, marking remaining as Stopped', 'log');
+            for (let qi = verifyState.verifyQueueIndex; qi < verifyState.verifyQueue.length; qi++) {
+                if (verifyState.verifyQueue[qi].status === VERIFY_LABELS.statusPending) {
+                    verifyState.verifyQueue[qi].status = VERIFY_LABELS.statusStopped;
+                    verifyState.counters.pending--;
+                }
+            }
+            verifyState.isVerifying = false;
+        }
+        verifyState.verifyQueue = [];
+        verifyState.verifyQueueIndex = 0;
+        verifyState.existingPairs = new Set();
+        verifyState.listScrollTop = 0;
+        const inputModal = document.getElementById('verify-input-modal');
+        if (inputModal && inputModal.parentNode) {
+            inputModal.parentNode.removeChild(inputModal);
+        }
+        const progressModal = document.getElementById('verify-progress-modal');
+        if (progressModal && progressModal.parentNode) {
+            progressModal.parentNode.removeChild(progressModal);
+        }
+        removeCollectingDataPanel('verify');
+        resetVerifyState();
+        addLogMessage('stopVerify: cleanup complete', 'log');
     }
 
     const RESP_SELECTORS = {
@@ -14968,7 +16338,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         background: rgba(255, 255, 255, 0.05);
     `;
 
-        for (let i = 1; i <= 9; i++) {
+        for (let i = 1; i <= 10; i++) {
             const button = document.createElement('button');
             if (i === 1) {
                 button.textContent = 'Add Signatures';
@@ -14996,6 +16366,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
             } else if (i === 9) {
                 button.textContent = 'Get Training Log';
                 button.id = 'tlog-btn';
+            } else if (i === 10) {
+                button.textContent = 'Verify Names';
+                button.id = 'verify-names-btn';
             }
 
             button.style.cssText = `
@@ -15064,6 +16437,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 button.onclick = () => {
                     console.log('Get Training Log button clicked');
                     getTrainingLogInit();
+                };
+            } else if (i === 10) {
+                button.onclick = () => {
+                    console.log('Verify Names button clicked');
+                    verifyNamesInit();
                 };
             }
 
