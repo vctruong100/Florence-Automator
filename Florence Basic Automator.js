@@ -216,7 +216,8 @@
         listScrollTop: 0,
         isAddingEntries: false,
         isPaused: false,
-        activeDropdown: null
+        activeDropdown: null,
+        timer: null
     };
 
     let doaState = {
@@ -247,7 +248,8 @@
         roleListScrollTop: 0,
         isAddingEntries: false,
         isPaused: false,
-        activeDropdown: null
+        activeDropdown: null,
+        timer: null
     };
 
     let verifyState = {
@@ -277,8 +279,178 @@
         listScrollTop: 0,
         isVerifying: false,
         isPaused: false,
-        activeDropdown: null
+        activeDropdown: null,
+        timer: null
     };
+
+    function createFeatureTimer(prefix) {
+        var timerState = {
+            startTime: 0,
+            pausedAt: 0,
+            totalPausedMs: 0,
+            totalItems: 0,
+            completedItems: 0,
+            intervalId: null,
+            isRunning: false,
+            isPaused: false,
+            isFinished: false,
+            finishedAt: 0
+        };
+        function formatTime(ms) {
+            if (ms < 0 || isNaN(ms) || !isFinite(ms)) { return '--:--'; }
+            var totalSeconds = Math.floor(ms / 1000);
+            var hours = Math.floor(totalSeconds / 3600);
+            var minutes = Math.floor((totalSeconds % 3600) / 60);
+            var seconds = totalSeconds % 60;
+            if (hours > 0) {
+                return String(hours) + ':' + (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+            }
+            return (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        }
+        function getElapsedMs() {
+            if (!timerState.isRunning && !timerState.isFinished) { return 0; }
+            var now = timerState.isPaused ? timerState.pausedAt : (timerState.isFinished ? timerState.finishedAt : Date.now());
+            return Math.max(0, now - timerState.startTime - timerState.totalPausedMs);
+        }
+        function getEtaMs() {
+            if (timerState.isFinished) { return 0; }
+            if (timerState.completedItems <= 0 || timerState.totalItems <= 0) { return -1; }
+            var elapsed = getElapsedMs();
+            if (elapsed <= 0) { return -1; }
+            var avgPerItem = elapsed / timerState.completedItems;
+            var remaining = timerState.totalItems - timerState.completedItems;
+            return remaining > 0 ? avgPerItem * remaining : 0;
+        }
+        function getEstTotalMs() {
+            if (timerState.isFinished) { return getElapsedMs(); }
+            if (timerState.completedItems <= 0 || timerState.totalItems <= 0) { return -1; }
+            var elapsed = getElapsedMs();
+            if (elapsed <= 0) { return -1; }
+            return (elapsed / timerState.completedItems) * timerState.totalItems;
+        }
+        function updateDisplay() {
+            var elapsedEl = document.getElementById(prefix + '-timer-elapsed');
+            var etaEl = document.getElementById(prefix + '-timer-eta');
+            var totalEl = document.getElementById(prefix + '-timer-total');
+            var elapsed = getElapsedMs();
+            if (elapsedEl) { elapsedEl.textContent = formatTime(elapsed); }
+            var eta = getEtaMs();
+            if (etaEl) { etaEl.textContent = eta >= 0 ? formatTime(eta) : '--:--'; }
+            var estTotal = getEstTotalMs();
+            if (totalEl) { totalEl.textContent = estTotal >= 0 ? formatTime(estTotal) : '--:--'; }
+        }
+        return {
+            start: function() {
+                timerState.startTime = Date.now();
+                timerState.pausedAt = 0;
+                timerState.totalPausedMs = 0;
+                timerState.totalItems = 0;
+                timerState.completedItems = 0;
+                timerState.isRunning = true;
+                timerState.isPaused = false;
+                timerState.isFinished = false;
+                timerState.finishedAt = 0;
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); }
+                timerState.intervalId = setInterval(updateDisplay, 1000);
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): started', 'log');
+            },
+            pause: function() {
+                if (!timerState.isRunning || timerState.isPaused || timerState.isFinished) { return; }
+                timerState.isPaused = true;
+                timerState.pausedAt = Date.now();
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): paused', 'log');
+            },
+            resume: function() {
+                if (!timerState.isRunning || !timerState.isPaused || timerState.isFinished) { return; }
+                timerState.totalPausedMs += Date.now() - timerState.pausedAt;
+                timerState.isPaused = false;
+                timerState.pausedAt = 0;
+                timerState.intervalId = setInterval(updateDisplay, 1000);
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): resumed', 'log');
+            },
+            reset: function() {
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+                timerState.startTime = Date.now();
+                timerState.pausedAt = 0;
+                timerState.totalPausedMs = 0;
+                timerState.totalItems = 0;
+                timerState.completedItems = 0;
+                timerState.isRunning = true;
+                timerState.isPaused = false;
+                timerState.isFinished = false;
+                timerState.finishedAt = 0;
+                timerState.intervalId = setInterval(updateDisplay, 1000);
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): reset', 'log');
+            },
+            setTotal: function(total) {
+                timerState.totalItems = total;
+                updateDisplay();
+            },
+            updateProgress: function(completed) {
+                timerState.completedItems = completed;
+                updateDisplay();
+            },
+            complete: function() {
+                if (timerState.isFinished) { return; }
+                timerState.isFinished = true;
+                timerState.finishedAt = timerState.isPaused ? timerState.pausedAt : Date.now();
+                if (timerState.isPaused) { timerState.totalPausedMs += timerState.finishedAt - timerState.pausedAt; }
+                timerState.isRunning = false;
+                timerState.isPaused = false;
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): completed, elapsed=' + formatTime(getElapsedMs()), 'log');
+            },
+            stop: function() {
+                if (timerState.isFinished) { return; }
+                timerState.isFinished = true;
+                timerState.finishedAt = timerState.isPaused ? timerState.pausedAt : Date.now();
+                if (timerState.isPaused) { timerState.totalPausedMs += timerState.finishedAt - timerState.pausedAt; }
+                timerState.isRunning = false;
+                timerState.isPaused = false;
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+                updateDisplay();
+                addLogMessage('featureTimer(' + prefix + '): stopped', 'log');
+            },
+            destroy: function() {
+                if (timerState.intervalId) { clearInterval(timerState.intervalId); timerState.intervalId = null; }
+                timerState.isRunning = false;
+                timerState.isPaused = false;
+                timerState.isFinished = true;
+                addLogMessage('featureTimer(' + prefix + '): destroyed', 'log');
+            },
+            createDisplay: function() {
+                var timerBar = document.createElement('div');
+                timerBar.id = prefix + '-timer-bar';
+                timerBar.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 8px 16px; background: rgba(0, 0, 0, 0.15); border-radius: 8px; margin-top: 8px; flex-shrink: 0;';
+                var items = [
+                    { id: prefix + '-timer-elapsed', label: 'Elapsed', value: '00:00' },
+                    { id: prefix + '-timer-eta', label: 'ETA', value: '--:--' },
+                    { id: prefix + '-timer-total', label: 'Est. Total', value: '--:--' }
+                ];
+                for (var i = 0; i < items.length; i++) {
+                    var item = document.createElement('div');
+                    item.style.cssText = 'text-align: center;';
+                    var valSpan = document.createElement('span');
+                    valSpan.id = items[i].id;
+                    valSpan.textContent = items[i].value;
+                    valSpan.style.cssText = 'display: block; color: #a8d8ff; font-size: 15px; font-weight: 700; font-family: Consolas, monospace;';
+                    var labelSpan = document.createElement('span');
+                    labelSpan.textContent = items[i].label;
+                    labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.5); font-size: 10px; font-weight: 500; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;';
+                    item.appendChild(valSpan);
+                    item.appendChild(labelSpan);
+                    timerBar.appendChild(item);
+                }
+                return timerBar;
+            }
+        };
+    }
 
     function addELogStaffEntriesInit() {
         addLogMessage('addELogStaffEntriesInit: starting feature', 'log');
@@ -456,6 +628,8 @@
             addLogMessage('showELogInputPanel: parsed ' + parsed.length + ' unique names', 'log');
             if (modal.parentNode) { document.body.removeChild(modal); }
             elogState.isRunning = true;
+            elogState.timer = createFeatureTimer('elog');
+            elogState.timer.start();
             showCollectingDataPanel('elog', 'Add Training Log Staff Entries');
             startELogScan();
         };
@@ -594,6 +768,7 @@
             if (elogState.isPaused) {
                 addLogMessage('showELogProgressPanel: Resume clicked', 'log');
                 elogState.isPaused = false;
+                if (elogState.timer) { elogState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
                 pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
                 pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
@@ -607,6 +782,7 @@
             } else {
                 addLogMessage('showELogProgressPanel: Pause clicked', 'log');
                 elogState.isPaused = true;
+                if (elogState.timer) { elogState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
                 pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
                 pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
@@ -664,6 +840,7 @@
         container.appendChild(header);
         container.appendChild(panelsContainer);
         container.appendChild(summaryFooter);
+        if (elogState.timer) { container.appendChild(elogState.timer.createDisplay()); }
         container.appendChild(ariaLiveRegion);
         modal.appendChild(container);
         container.style.position = 'fixed';
@@ -793,20 +970,8 @@
                 filterBtn.style.background = pressed ? 'rgba(255, 107, 107, 0.3)' : 'rgba(255, 107, 107, 0.15)';
             };
             filterBtn.onclick = function() {
-                var isPressed = filterBtn.getAttribute('aria-pressed') === 'true';
-                var newPressed = !isPressed;
-                filterBtn.setAttribute('aria-pressed', String(newPressed));
-                if (newPressed) {
-                    filterBtn.style.background = 'rgba(255, 107, 107, 0.3)';
-                    filterBtn.style.color = '#ff6b6b';
-                    filterBtn.style.borderColor = 'rgba(255, 107, 107, 0.6)';
-                } else {
-                    filterBtn.style.background = 'rgba(255, 107, 107, 0.15)';
-                    filterBtn.style.color = 'rgba(255, 107, 107, 0.8)';
-                    filterBtn.style.borderColor = 'rgba(255, 107, 107, 0.3)';
-                }
-                filterPanelListByFailure(listId, newPressed, failureStatuses);
-                addLogMessage('addSortToggleToSubpanel: toggled failure filter for ' + listId + ' active=' + newPressed, 'log');
+                showFailureNamesPopup(listId, failureStatuses);
+                addLogMessage('addSortToggleToSubpanel: opened failure names popup for ' + listId, 'log');
             };
             btnContainer.appendChild(filterBtn);
             titleRow.appendChild(btnContainer);
@@ -868,6 +1033,82 @@
             }
             item.style.display = isFailure ? 'flex' : 'none';
         }
+    }
+
+    function showFailureNamesPopup(listId, failureStatuses) {
+        var list = document.getElementById(listId);
+        if (!list) { return; }
+        var items = list.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        var failedNames = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var badge = item.querySelector('.elog-status-badge');
+            var badgeText = badge ? badge.textContent.trim() : '';
+            var isFailure = false;
+            for (var fi = 0; fi < failureStatuses.length; fi++) {
+                if (badgeText === failureStatuses[fi]) {
+                    isFailure = true;
+                    break;
+                }
+            }
+            if (isFailure) {
+                var sortName = item.getAttribute('data-sort-name') || '';
+                if (sortName) { failedNames.push(sortName); }
+            }
+        }
+        var existingPopup = document.getElementById('failure-names-popup-overlay');
+        if (existingPopup) { existingPopup.remove(); }
+        var overlay = document.createElement('div');
+        overlay.id = 'failure-names-popup-overlay';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; display: flex; align-items: center; justify-content: center;';
+        var popup = document.createElement('div');
+        popup.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 20px 24px; min-width: 320px; max-width: 480px; max-height: 70vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);';
+        var popupHeader = document.createElement('div');
+        popupHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;';
+        var popupTitle = document.createElement('h4');
+        popupTitle.textContent = 'Failed Staff (' + failedNames.length + ')';
+        popupTitle.style.cssText = 'margin: 0; color: white; font-size: 15px; font-weight: 600;';
+        var popupCloseBtn = document.createElement('button');
+        popupCloseBtn.innerHTML = '\u2715';
+        popupCloseBtn.style.cssText = 'background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;';
+        popupCloseBtn.onclick = function() { overlay.remove(); };
+        popupHeader.appendChild(popupTitle);
+        popupHeader.appendChild(popupCloseBtn);
+        popup.appendChild(popupHeader);
+        if (failedNames.length === 0) {
+            var emptyMsg = document.createElement('div');
+            emptyMsg.textContent = 'No failures found.';
+            emptyMsg.style.cssText = 'color: rgba(255,255,255,0.6); font-size: 13px; padding: 16px 0; text-align: center;';
+            popup.appendChild(emptyMsg);
+        } else {
+            var hint = document.createElement('div');
+            hint.textContent = 'Copy the names below to retry:';
+            hint.style.cssText = 'color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 8px;';
+            popup.appendChild(hint);
+            var textarea = document.createElement('textarea');
+            textarea.value = failedNames.join('\n');
+            textarea.readOnly = true;
+            textarea.style.cssText = 'width: 100%; min-height: 120px; max-height: 45vh; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 13px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; padding: 10px 12px; resize: vertical; outline: none; box-sizing: border-box; line-height: 1.6;';
+            textarea.onfocus = function() { textarea.style.borderColor = 'rgba(255,255,255,0.4)'; };
+            textarea.onblur = function() { textarea.style.borderColor = 'rgba(255,255,255,0.2)'; };
+            popup.appendChild(textarea);
+            var copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Copy All';
+            copyBtn.style.cssText = 'margin-top: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s ease; align-self: flex-end;';
+            copyBtn.onmouseover = function() { copyBtn.style.opacity = '0.85'; };
+            copyBtn.onmouseout = function() { copyBtn.style.opacity = '1'; };
+            copyBtn.onclick = function() {
+                textarea.select();
+                document.execCommand('copy');
+                copyBtn.textContent = 'Copied!';
+                setTimeout(function() { copyBtn.textContent = 'Copy All'; }, 1500);
+            };
+            popup.appendChild(copyBtn);
+        }
+        overlay.appendChild(popup);
+        overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); } };
+        document.body.appendChild(overlay);
+        addLogMessage('showFailureNamesPopup: showed ' + failedNames.length + ' failed names for ' + listId, 'log');
     }
 
     function initializeRightPanel() {
@@ -1211,6 +1452,7 @@
 
     function performRescan() {
         addLogMessage('performRescan: restarting scan with auto-scroll', 'log');
+        if (elogState.timer) { elogState.timer.reset(); }
         for (let i = 0; i < elogState.observers.length; i++) {
             try {
                 elogState.observers[i].disconnect();
@@ -1953,6 +2195,7 @@
                 }
             }
             updateRightPanelSummary(elogState.counters);
+            if (elogState.timer) { elogState.timer.stop(); }
             elogState.isAddingEntries = false;
             updateScanStatus('Stopped', 'stopped');
             var title = document.getElementById('elog-progress-title');
@@ -1969,6 +2212,7 @@
         if (elogState.addQueueIndex >= elogState.addQueue.length) {
             addLogMessage('processNextStaffFromQueue: all candidates processed', 'log');
             elogState.isAddingEntries = false;
+            if (elogState.timer) { elogState.timer.complete(); }
             updateScanStatus('Complete', 'complete');
             var titleEl = document.getElementById('elog-progress-title');
             if (titleEl) {
@@ -2013,6 +2257,7 @@
             elogState.counters.pending--;
             updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusAlready);
             updateRightPanelSummary(elogState.counters);
+            if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
             elogState.addQueueIndex++;
             var tid1 = setTimeout(processNextStaffFromQueue, 50);
             elogState.timeouts.push(tid1);
@@ -2059,6 +2304,7 @@
                             elogState.counters.pending--;
                             updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusSelectionFailed);
                             updateRightPanelSummary(elogState.counters);
+                            if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
                             elogState.addQueueIndex++;
                             var tid3 = setTimeout(processNextStaffFromQueue, 50);
                             elogState.timeouts.push(tid3);
@@ -2077,6 +2323,7 @@
                                 updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusSelectionFailed);
                             }
                             updateRightPanelSummary(elogState.counters);
+                            if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
                             elogState.addQueueIndex++;
                             var tid4 = setTimeout(processNextStaffFromQueue, 50);
                             elogState.timeouts.push(tid4);
@@ -2089,6 +2336,7 @@
                         elogState.counters.pending--;
                         updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusSelectionFailed);
                         updateRightPanelSummary(elogState.counters);
+                        if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
                         elogState.addQueueIndex++;
                         var tid5 = setTimeout(processNextStaffFromQueue, 50);
                         elogState.timeouts.push(tid5);
@@ -2109,6 +2357,7 @@
                     updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusSaveFailed);
                 }
                 updateRightPanelSummary(elogState.counters);
+                if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
                 elogState.addQueueIndex++;
                 var tid6 = setTimeout(processNextStaffFromQueue, 50);
                 elogState.timeouts.push(tid6);
@@ -2122,6 +2371,7 @@
             elogState.counters.pending--;
             updateRightPanelStatus(candidate.pairKey, ELOG_RUN_LABELS.statusSaveFailed);
             updateRightPanelSummary(elogState.counters);
+            if (elogState.timer) { elogState.timer.updateProgress(elogState.counters.total - elogState.counters.pending); }
             elogState.addQueueIndex++;
             var tid7 = setTimeout(processNextStaffFromQueue, 50);
             elogState.timeouts.push(tid7);
@@ -2153,6 +2403,7 @@
             pending: elogState.addQueue.length
         };
         updateRightPanelSummary(elogState.counters);
+        if (elogState.timer) { elogState.timer.setTotal(elogState.addQueue.length); }
         updateScanStatus('Adding Entries', 'progress');
         var title = document.getElementById('elog-progress-title');
         if (title) {
@@ -2698,6 +2949,7 @@
             progressModal.parentNode.removeChild(progressModal);
         }
         removeCollectingDataPanel('elog');
+        if (elogState.timer) { elogState.timer.destroy(); elogState.timer = null; }
         resetELogState();
         addLogMessage('stopELog: cleanup complete', 'log');
     }
@@ -2903,6 +3155,8 @@
             addLogMessage('showVerifyInputPanel: parsed ' + parsed.length + ' unique names', 'log');
             if (modal.parentNode) { document.body.removeChild(modal); }
             verifyState.isRunning = true;
+            verifyState.timer = createFeatureTimer('verify');
+            verifyState.timer.start();
             showCollectingDataPanel('verify', 'Verify Names');
             startVerifyScan();
         };
@@ -3529,6 +3783,7 @@
             if (verifyState.isPaused) {
                 addLogMessage('showVerifyProgressPanel: Resume clicked', 'log');
                 verifyState.isPaused = false;
+                if (verifyState.timer) { verifyState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
                 pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
                 pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
@@ -3542,6 +3797,7 @@
             } else {
                 addLogMessage('showVerifyProgressPanel: Pause clicked', 'log');
                 verifyState.isPaused = true;
+                if (verifyState.timer) { verifyState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
                 pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
                 pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
@@ -3600,6 +3856,7 @@
         container.appendChild(header);
         container.appendChild(panelsContainer);
         container.appendChild(summaryFooter);
+        if (verifyState.timer) { container.appendChild(verifyState.timer.createDisplay()); }
         container.appendChild(ariaLiveRegion);
         modal.appendChild(container);
         container.style.position = 'fixed';
@@ -3676,6 +3933,7 @@
             pending: verifyState.verifyQueue.length
         };
         updateVerifyRightPanelSummary(verifyState.counters);
+        if (verifyState.timer) { verifyState.timer.setTotal(verifyState.verifyQueue.length); }
         updateVerifyScanStatus('Verifying Names', 'progress');
         var title = document.getElementById('verify-progress-title');
         if (title) {
@@ -3782,6 +4040,7 @@
                 }
             }
             updateVerifyRightPanelSummary(verifyState.counters);
+            if (verifyState.timer) { verifyState.timer.stop(); }
             verifyState.isVerifying = false;
             updateVerifyScanStatus('Stopped', 'stopped');
             var title = document.getElementById('verify-progress-title');
@@ -3798,6 +4057,7 @@
         if (verifyState.verifyQueueIndex >= verifyState.verifyQueue.length) {
             addLogMessage('processNextVerifyName: all candidates processed', 'log');
             verifyState.isVerifying = false;
+            if (verifyState.timer) { verifyState.timer.complete(); }
             updateVerifyScanStatus('Complete', 'complete');
             var titleEl = document.getElementById('verify-progress-title');
             if (titleEl) {
@@ -3825,6 +4085,7 @@
             verifyState.counters.pending--;
             updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusAlreadyInTable);
             updateVerifyRightPanelSummary(verifyState.counters);
+            if (verifyState.timer) { verifyState.timer.updateProgress(verifyState.counters.total - verifyState.counters.pending); }
             verifyState.verifyQueueIndex++;
             var tid1 = setTimeout(processNextVerifyName, 50);
             verifyState.timeouts.push(tid1);
@@ -3857,6 +4118,7 @@
                 updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusNotInDropdown);
             }
             updateVerifyRightPanelSummary(verifyState.counters);
+            if (verifyState.timer) { verifyState.timer.updateProgress(verifyState.counters.total - verifyState.counters.pending); }
             verifyState.verifyQueueIndex++;
             var tid2 = setTimeout(processNextVerifyName, 50);
             verifyState.timeouts.push(tid2);
@@ -3869,6 +4131,7 @@
             verifyState.counters.pending--;
             updateVerifyRightPanelStatus(candidate.pairKey, VERIFY_LABELS.statusNotInDropdown);
             updateVerifyRightPanelSummary(verifyState.counters);
+            if (verifyState.timer) { verifyState.timer.updateProgress(verifyState.counters.total - verifyState.counters.pending); }
             verifyState.verifyQueueIndex++;
             var tid3 = setTimeout(processNextVerifyName, 50);
             verifyState.timeouts.push(tid3);
@@ -3877,6 +4140,7 @@
 
     function performVerifyRescan() {
         addLogMessage('performVerifyRescan: restarting scan with auto-scroll', 'log');
+        if (verifyState.timer) { verifyState.timer.reset(); }
         for (let i = 0; i < verifyState.observers.length; i++) {
             try {
                 verifyState.observers[i].disconnect();
@@ -4014,6 +4278,7 @@
             progressModal.parentNode.removeChild(progressModal);
         }
         removeCollectingDataPanel('verify');
+        if (verifyState.timer) { verifyState.timer.destroy(); verifyState.timer = null; }
         resetVerifyState();
         addLogMessage('stopVerify: cleanup complete', 'log');
     }
@@ -4155,8 +4420,8 @@
     };
 
     const CLEAN_REGEX = {
-        itemStart: /(^|\s)(\d{1,3})([.)])\s+/g,
-        leadingToken: /^(\d{1,3})([.)])\s*/,
+        itemStart: /(^|\s)(\d{1,3})\s*([.)=])\s+/g,
+        leadingToken: /^(\d{1,3})\s*([.)=])\s*/,
         specialChars: /[\\\/:<>"|?*]/g,
         standaloneAnd: /\b(and)\b/gi,
         smartQuotes: /[\u201c\u201d]/g,
@@ -4203,7 +4468,8 @@
         counters: { total: 0, completed: 0, failed: 0, pending: 0 },
         listScrollTop: 0,
         userScrollHandler: null,
-        userScrollPaused: false
+        userScrollPaused: false,
+        timer: null
     };
 
     function resetRespState() {
@@ -4718,6 +4984,8 @@
             if (modal.parentNode) {
                 document.body.removeChild(modal);
             }
+            respState.timer = createFeatureTimer('resp');
+            respState.timer.start();
             showResponsibilitiesProgressPanel(rd);
             processRolesWorkflow(rd);
         };
@@ -4953,6 +5221,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         summaryFooter.appendChild(sItem);
     }
     container.appendChild(summaryFooter);
+    if (respState.timer) { container.appendChild(respState.timer.createDisplay()); respState.timer.setTotal(rolesData.length); }
     addLogMessage('showResponsibilitiesProgressPanel: summary appended', 'log');
 
     var ariaLiveRegion = document.createElement('div');
@@ -5775,6 +6044,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     }
                 }
                 updateRespSummary();
+                if (respState.timer) { respState.timer.stop(); }
                 respSetAriaBusyOff();
                 var t1 = document.getElementById('resp-progress-title');
                 if (t1) {
@@ -5793,6 +6063,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 addLogMessage('processRolesWorkflow: all roles processed', 'log');
                 respSetAriaBusyOff();
                 respState.isRunning = false;
+                if (respState.timer) { respState.timer.complete(); }
                 var t2 = document.getElementById('resp-progress-title');
                 if (t2) {
                     t2.textContent = 'Set Responsibilities - Complete';
@@ -5847,6 +6118,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     respState.counters.pending--;
                     updateRespRoleStatus(role.key, RESP_LABELS.statusFailed, 'Role not in dropdown, or dropdown menu failed to open.');
                     updateRespSummary();
+                    if (respState.timer) { respState.timer.updateProgress(respState.counters.total - respState.counters.pending); }
                     return dismissRoleListDropdown(currentColumnEl).then(function() {
                         roleIndex++;
                         var ft = setTimeout(processNextRole, 300);
@@ -5893,6 +6165,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         updateRespRoleStatus(role.key, RESP_LABELS.statusFailed, 'Add Study Role failed');
                     }
                     updateRespSummary();
+                    if (respState.timer) { respState.timer.updateProgress(respState.counters.total - respState.counters.pending); }
                     roleIndex++;
                     var nt = setTimeout(processNextRole, 200);
                     respState.timeouts.push(nt);
@@ -5905,6 +6178,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     updateRespRoleStatus(role.key, RESP_LABELS.statusStopped, '');
                     respState.counters.pending--;
                     updateRespSummary();
+                    if (respState.timer) { respState.timer.updateProgress(respState.counters.total - respState.counters.pending); }
                     dismissRoleListDropdown(currentColumnEl).then(function() {
                         roleIndex++;
                         var et = setTimeout(processNextRole, 300);
@@ -5932,6 +6206,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     respState.counters.pending--;
                     updateRespRoleStatus(role.key, RESP_LABELS.statusFailed, err.message);
                     updateRespSummary();
+                    if (respState.timer) { respState.timer.updateProgress(respState.counters.total - respState.counters.pending); }
                     dismissRoleListDropdown(currentColumnEl).then(function() {
                         roleIndex++;
                         var et = setTimeout(processNextRole, 300);
@@ -6031,7 +6306,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var normalized = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         normalized = normalized.replace(CLEAN_REGEX.smartQuotes, '"');
         normalized = normalized.replace(CLEAN_REGEX.strayQuotes, '');
-        var pattern = /(?:^|[\s"'])(\d{1,3})([.)])\s+/g;
+        var pattern = /(?:^|[\s"'])(\d{1,3})\s*([.)=])\s+/g;
         var boundaries = [];
         var match;
         while ((match = pattern.exec(normalized)) !== null) {
@@ -6249,7 +6524,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(title);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.textContent = 'Paste the raw responsibility list below. Items should start with a number followed by . or ) and text.';
+        description.textContent = 'Paste the raw responsibility list below. Items should start with a number followed by . or ) or = and text.';
         description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         var textareaLabel = document.createElement('label');
         textareaLabel.setAttribute('for', 'clean-input-textarea');
@@ -6307,7 +6582,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (parseResult.items.length === 0) {
                 addLogMessage('showCleanInputPanel: no items parsed, showing notice', 'warn');
                 var notice = document.createElement('div');
-                notice.textContent = 'No numbered items found. Ensure items start with a number followed by . or ) and text.';
+                notice.textContent = 'No numbered items found. Ensure items start with a number followed by . or ) or = and text.';
                 notice.style.cssText = 'color: #ffd93d; font-size: 13px; margin-top: 8px; padding: 8px; background: rgba(255, 217, 61, 0.15); border-radius: 6px;';
                 notice.setAttribute('role', 'alert');
                 var existingNotice = container.querySelector('[role="alert"]');
@@ -6838,21 +7113,29 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     break;
                 }
             }
-            if (emailIdx === -1 || emailIdx + 1 >= parts.length) {
-                addLogMessage('parseDoAEntriesInput: line ' + mi + ' no email column or no role after email, skip', 'log');
+            var namePart;
+            var rolePart;
+            var numberPart;
+            if (emailIdx !== -1 && emailIdx + 1 < parts.length) {
+                namePart = parts[0].trim();
+                rolePart = parts[emailIdx + 1].trim();
+                numberPart = parts.slice(emailIdx + 2).join(' ');
+            } else if (parts.length >= 3) {
+                namePart = parts[0].trim();
+                rolePart = parts[1].trim();
+                numberPart = parts.slice(2).join(' ');
+            } else {
+                addLogMessage('parseDoAEntriesInput: line ' + mi + ' not enough columns and no email, skip', 'log');
                 continue;
             }
-            var namePart = parts[0].trim();
             if (!namePart) {
                 addLogMessage('parseDoAEntriesInput: line ' + mi + ' empty name, skip', 'log');
                 continue;
             }
-            var rolePart = parts[emailIdx + 1].trim();
             if (!rolePart) {
                 addLogMessage('parseDoAEntriesInput: line ' + mi + ' empty role, skip', 'log');
                 continue;
             }
-            var numberPart = parts.slice(emailIdx + 2).join(' ');
             var numTokens = numberPart.replace(/,/g, ' ').split(/\s+/).filter(function(t) {
                 return t.length > 0;
             });
@@ -7028,6 +7311,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 document.body.removeChild(modal);
             }
             doaState.isRunning = true;
+            doaState.timer = createFeatureTimer('doa');
+            doaState.timer.start();
             showCollectingDataPanel('doa', DOA_LABELS.featureButton);
             startDoAScan();
         };
@@ -7273,6 +7558,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (doaState.isPaused) {
                 addLogMessage('showDoAProgressPanel: Resume clicked', 'log');
                 doaState.isPaused = false;
+                if (doaState.timer) { doaState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
                 pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
                 pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
@@ -7286,6 +7572,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             } else {
                 addLogMessage('showDoAProgressPanel: Pause clicked', 'log');
                 doaState.isPaused = true;
+                if (doaState.timer) { doaState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
                 pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
                 pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
@@ -7342,6 +7629,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         container.appendChild(header);
         container.appendChild(panelsContainer);
         container.appendChild(summaryFooter);
+        if (doaState.timer) { container.appendChild(doaState.timer.createDisplay()); }
         container.appendChild(ariaLiveRegion);
         modal.appendChild(container);
         container.style.position = 'fixed';
@@ -8116,6 +8404,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 }
             }
             updateDoARightPanelSummary(doaState.counters);
+            if (doaState.timer) { doaState.timer.stop(); }
             doaState.isAddingEntries = false;
             updateDoAScanStatus('Stopped', 'stopped');
             var titleEl = document.getElementById('doa-progress-title');
@@ -8129,6 +8418,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         if (doaState.addQueueIndex >= doaState.addQueue.length) {
             addLogMessage('processNextDoAFromQueue: all candidates processed', 'log');
             doaState.isAddingEntries = false;
+            if (doaState.timer) { doaState.timer.complete(); }
             updateDoAScanStatus('Complete', 'complete');
             var titleEl2 = document.getElementById('doa-progress-title');
             if (titleEl2) {
@@ -8149,6 +8439,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             doaState.counters.pending--;
             updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusAlready);
             updateDoARightPanelSummary(doaState.counters);
+            if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
             doaState.addQueueIndex++;
             var tid1 = setTimeout(processNextDoAFromQueue, 50);
             doaState.timeouts.push(tid1);
@@ -8174,6 +8465,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 doaState.counters.pending--;
                 updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusNotInDropdown);
                 updateDoARightPanelSummary(doaState.counters);
+                if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
                 doaState.addQueueIndex++;
                 var tid2 = setTimeout(processNextDoAFromQueue, 50);
                 doaState.timeouts.push(tid2);
@@ -8195,6 +8487,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     doaState.counters.pending--;
                     updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusRoleNotFound);
                     updateDoARightPanelSummary(doaState.counters);
+                    if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
                     doaState.addQueueIndex++;
                     var tid3 = setTimeout(processNextDoAFromQueue, 50);
                     doaState.timeouts.push(tid3);
@@ -8212,6 +8505,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         doaState.counters.pending--;
                         updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusSelectionFailed);
                         updateDoARightPanelSummary(doaState.counters);
+                        if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
                         doaState.addQueueIndex++;
                         var tid4a = setTimeout(processNextDoAFromQueue, 50);
                         doaState.timeouts.push(tid4a);
@@ -8234,6 +8528,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                             updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusTasksApplied);
                         }
                         updateDoARightPanelSummary(doaState.counters);
+                        if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
                         doaState.addQueueIndex++;
                         var tid4b = setTimeout(processNextDoAFromQueue, 50);
                         doaState.timeouts.push(tid4b);
@@ -8249,6 +8544,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             doaState.counters.pending--;
             updateDoARightPanelStatus(candidate.pairKey, DOA_LABELS.statusSelectionFailed);
             updateDoARightPanelSummary(doaState.counters);
+            if (doaState.timer) { doaState.timer.updateProgress(doaState.counters.total - doaState.counters.pending); }
             doaState.addQueueIndex++;
             var tid5 = setTimeout(processNextDoAFromQueue, 50);
             doaState.timeouts.push(tid5);
@@ -8280,6 +8576,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             pending: doaState.addQueue.length
         };
         updateDoARightPanelSummary(doaState.counters);
+        if (doaState.timer) { doaState.timer.setTotal(doaState.addQueue.length); }
         updateDoAScanStatus('Adding Entries', 'progress');
         var titleEl = document.getElementById('doa-progress-title');
         if (titleEl) {
@@ -8473,6 +8770,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             warningModal.parentNode.removeChild(warningModal);
         }
         removeCollectingDataPanel('doa');
+        if (doaState.timer) { doaState.timer.destroy(); doaState.timer = null; }
         if (doaState.focusReturnElement) {
             doaState.focusReturnElement.focus();
         }
@@ -8540,6 +8838,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         if (wm && wm.parentNode) {
             wm.parentNode.removeChild(wm);
         }
+        if (respState.timer) { respState.timer.destroy(); respState.timer = null; }
         if (respState.focusReturnElement) {
             respState.focusReturnElement.focus();
         }
@@ -12718,7 +13017,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         userScrollPaused: false,
         lastAutoScrollTime: 0,
         leftPanelRowIndex: 0,
-        counters: { total: 0, saved: 0, alreadySet: 0, notFound: 0, failures: 0, pending: 0 }
+        counters: { total: 0, saved: 0, alreadySet: 0, notFound: 0, failures: 0, pending: 0 },
+        timer: null
     };
 
     function resetStartDateState() {
@@ -13181,6 +13481,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 document.body.removeChild(modal);
             }
             startDateState.isRunning = true;
+            startDateState.timer = createFeatureTimer('startdate');
+            startDateState.timer.start();
             showCollectingDataPanel('startdate', STARTDATE_LABELS.featureButton);
             startStartDateScan();
         };
@@ -13647,6 +13949,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
         var leftPanel = createSubpanel('Scanned Log Entries', 'startdate-left-panel', 'startdate-left-search');
         var rightPanel = createSubpanel('Start Date Status', 'startdate-right-panel', 'startdate-right-search');
+        addSortToggleToSubpanel(rightPanel, 'startdate-right-panel', 'startdate-sort-toggle', 'startdate-failure-filter', [STARTDATE_LABELS.statusNotFound, STARTDATE_LABELS.statusFailed, STARTDATE_LABELS.statusSaveFailed, STARTDATE_LABELS.statusEditFailed, STARTDATE_LABELS.statusMenuFailed, STARTDATE_LABELS.statusDatepickerFailed]);
         panelsContainer.appendChild(leftPanel);
         panelsContainer.appendChild(rightPanel);
         var summaryFooter = document.createElement('div');
@@ -13700,6 +14003,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         container.appendChild(dateInfoBar);
         container.appendChild(panelsContainer);
         container.appendChild(summaryFooter);
+        if (startDateState.timer) { container.appendChild(startDateState.timer.createDisplay()); startDateState.timer.setTotal(nonDuplicateCount); }
         container.appendChild(ariaLiveRegion);
         modal.appendChild(container);
         container.style.position = 'fixed';
@@ -13750,6 +14054,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             var item = createListItem(candidate.display, statusText, statusType, i + 1);
             item.setAttribute('data-pairkey', candidate.pairKey);
+            item.setAttribute('data-input-order', String(i + 1));
+            item.setAttribute('data-sort-name', candidate.display);
             if (candidate.isDuplicate) {
                 item.setAttribute('data-duplicate', 'true');
             }
@@ -14868,6 +15174,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     startDateState.counters.failures++;
                     startDateState.counters.pending--;
                     updateStartDateRightPanelSummary(startDateState.counters);
+                    if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                     resolve();
                     return;
                 }
@@ -14884,10 +15191,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
                                 if (!foundRow) {
                                     addLogMessage('processRowEditAndSave: row not found after cancel for ' + candidate.display, 'error');
                                     candidate.status = STARTDATE_LABELS.statusNotFound;
-                                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusNotFound, 'Row not found after cancel');
+                                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusNotFound);
                                     startDateState.counters.notFound++;
                                     startDateState.counters.pending--;
                                     updateStartDateRightPanelSummary(startDateState.counters);
+                                    if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                                     resolve();
                                     return;
                                 }
@@ -14907,6 +15215,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 startDateState.counters.alreadySet++;
                 startDateState.counters.pending--;
                 updateStartDateRightPanelSummary(startDateState.counters);
+                if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                 updateStartDateAriaLive(candidate.display + ' already has target date');
                 resolve();
                 return;
@@ -14959,6 +15268,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     startDateState.counters.saved++;
                     startDateState.counters.pending--;
                     updateStartDateRightPanelSummary(startDateState.counters);
+                    if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                     updateStartDateAriaLive('Saved for ' + candidate.display);
                 } else {
                     addLogMessage('processRowEditAndSave: save failed for ' + candidate.display, 'error');
@@ -14967,6 +15277,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     startDateState.counters.failures++;
                     startDateState.counters.pending--;
                     updateStartDateRightPanelSummary(startDateState.counters);
+                    if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                 }
                 resolve();
             });
@@ -14998,6 +15309,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 startDateState.counters.failures++;
                 startDateState.counters.pending--;
                 updateStartDateRightPanelSummary(startDateState.counters);
+                if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
             }
             resolve();
         });
@@ -15033,6 +15345,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                                 startDateState.counters.notFound++;
                                 startDateState.counters.pending--;
                                 updateStartDateRightPanelSummary(startDateState.counters);
+                                if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                                 resolve();
                                 return;
                             }
@@ -15049,6 +15362,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 startDateState.counters.failures++;
                 startDateState.counters.pending--;
                 updateStartDateRightPanelSummary(startDateState.counters);
+                if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
                 resolve();
             }
         });
@@ -15080,9 +15394,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
         }
         updateStartDateRightPanelSummary(startDateState.counters);
+        if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
         addLogMessage('beginSetStartDatesForQueue: queue size=' + queue.length, 'log');
         if (queue.length === 0) {
             addLogMessage('beginSetStartDatesForQueue: no candidates to process', 'warn');
+            if (startDateState.timer) { startDateState.timer.complete(); }
             updateStartDateProgressStatus(STARTDATE_LABELS.progressComplete, 'complete');
             updateStartDateAriaLive('Processing complete. No candidates to process.');
             return;
@@ -15096,12 +15412,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (!startDateState.isRunning || startDateState.stopRequested) {
                 addLogMessage('beginSetStartDatesForQueue: stopped at index ' + queueIndex, 'log');
                 markRemainingAsStopped();
+                if (startDateState.timer) { startDateState.timer.stop(); }
                 updateStartDateProgressStatus(STARTDATE_LABELS.progressStopped, 'stopped');
                 updateStartDateAriaLive('Processing stopped.');
                 return;
             }
             if (queueIndex >= queue.length) {
                 addLogMessage('beginSetStartDatesForQueue: all candidates processed', 'log');
+                if (startDateState.timer) { startDateState.timer.complete(); }
                 updateStartDateProgressStatus(STARTDATE_LABELS.progressComplete, 'complete');
                 var c = startDateState.counters;
                 updateStartDateAriaLive('Complete. Saved: ' + c.saved + ', Already Set: ' + c.alreadySet + ', Not Found: ' + c.notFound + ', Failed: ' + c.failures);
@@ -15296,6 +15614,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             warningModal.parentNode.removeChild(warningModal);
         }
         removeCollectingDataPanel('startdate');
+        if (startDateState.timer) { startDateState.timer.destroy(); startDateState.timer = null; }
         if (startDateState.focusReturnElement) {
             startDateState.focusReturnElement.focus();
         }
