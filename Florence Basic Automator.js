@@ -15531,6 +15531,788 @@ function showResponsibilitiesProgressPanel(rolesData) {
         startDateState.isRunning = false;
     }
 
+    // ─── Update Role Responsibilities ───────────────────────────────────────────
+
+    const UPDATEROLE_LABELS = {
+        featureButton: 'Update Role Responsibilities', inputTitle: 'Update Role Responsibilities',
+        warningTitle: 'Document Log Not Found', warningMessage: 'The current page does not contain the Document Log Entries table. Please navigate to the Document Log before using this feature.',
+        statusPending: 'Pending', statusLocating: 'Locating', statusEditing: 'Editing', statusSettingRole: 'Setting Role', statusSettingTasks: 'Setting Tasks',
+        statusSaving: 'Saving', statusEnteringReason: 'Entering Reason', statusCompleted: 'Completed', statusSaved: 'Saved', statusNotFound: 'Not Found',
+        statusFailed: 'Failed', statusStopped: 'Stopped', statusSaveFailed: 'Save Failed', statusEditFailed: 'Edit Failed', statusMenuFailed: 'Menu Failed',
+        statusRoleFailed: 'Role Failed', statusTasksFailed: 'Tasks Failed', statusDuplicate: 'Duplicate (ignored)',
+        progressInProgress: 'In Progress', progressComplete: 'Complete', progressStopped: 'Stopped', reasonText: 'Update Role'
+    };
+
+    const UPDATEROLE_SELECTORS = {
+        mainTableContainer: STARTDATE_SELECTORS.mainTableContainer, mainGridTable: STARTDATE_SELECTORS.mainGridTable,
+        mainGridRow: STARTDATE_SELECTORS.mainGridRow, mainGridCell: STARTDATE_SELECTORS.mainGridCell,
+        nameCellIndex: STARTDATE_SELECTORS.nameCellIndex, namePrimary: STARTDATE_SELECTORS.namePrimary, nameFallback: STARTDATE_SELECTORS.nameFallback,
+        rowMenuToggle: STARTDATE_SELECTORS.rowMenuToggle, rowMenuToggleFallbackIcon: STARTDATE_SELECTORS.rowMenuToggleFallbackIcon,
+        editMenuItemDirect: STARTDATE_SELECTORS.editMenuItemDirect, editMenuItemFallback: STARTDATE_SELECTORS.editMenuItemFallback,
+        editContextRoot: STARTDATE_SELECTORS.editContextRoot, memberDisplayInEdit: STARTDATE_SELECTORS.memberDisplayInEdit,
+        saveButton: STARTDATE_SELECTORS.saveButton, saveButtonTextFallback: STARTDATE_SELECTORS.saveButtonTextFallback,
+        overlayOrSpinner: STARTDATE_SELECTORS.overlayOrSpinner, reasonModal: STARTDATE_SELECTORS.reasonModal,
+        reasonInput: STARTDATE_SELECTORS.reasonInput, reasonSubmitBtn: STARTDATE_SELECTORS.reasonSubmitBtn,
+        roleClearBtn: DOA_SELECTORS.roleClearBtn, roleSearchInput: DOA_SELECTORS.roleSearchInput,
+        roleOptionItem: DOA_SELECTORS.roleOptionItem, roleOptionText: DOA_SELECTORS.roleOptionText,
+        tasksToggleBtn: DOA_SELECTORS.tasksToggleBtn, tasksMenu: DOA_SELECTORS.tasksMenu,
+        tasksItem: DOA_SELECTORS.tasksItem, tasksItemCheckbox: DOA_SELECTORS.tasksItemCheckbox,
+        listContainer: DOA_SELECTORS.listContainer, virtualViewport: DOA_SELECTORS.virtualViewport
+    };
+
+    const UPDATEROLE_TIMEOUTS = {
+        waitTableMs: 10000, waitGridMs: 10000, waitMenuOpenMs: 1500, waitEditFormMs: 2500,
+        settleMs: 250, scanSettleMs: 250, idleBetweenBatchesMs: 80, maxScanDurationMs: 120000, retryScanDelayMs: 150,
+        settleAfterSaveMs: 250, waitReasonModalMs: 3000, waitReasonSubmitEnabledMs: 1500, waitReasonModalCloseMs: 4000,
+        waitRoleListMs: 6000, waitTasksMenuMs: 5000, waitAfterTasksToggleMs: 200,
+        maxSelectDurationMs: 8000, scrollIdleMs: 140, waitAfterSelectRoleMs: 800
+    };
+
+    const UPDATEROLE_SCROLL = { stepPx: 500, maxNoProgressIterations: 8, retryScanAttempts: 3 };
+
+    var updateRoleState = {
+        isRunning: false, stopRequested: false, observers: [], timeouts: [], intervals: [], eventListeners: [], idleCallbackIds: [],
+        focusReturnElement: null, prevAriaBusy: null, parsedCandidates: [], scannedNames: [], seenNormalizedNames: new Set(),
+        scrollContainer: null, prevScrollTop: 0, userScrollHandler: null, userScrollPaused: false, lastAutoScrollTime: 0, leftPanelRowIndex: 0,
+        counters: { total: 0, saved: 0, notFound: 0, failures: 0, pending: 0 }, roleListScrollTop: 0, isPaused: false, activeDropdown: null, timer: null
+    };
+
+    function resetUpdateRoleState() {
+        addLogMessage('resetUpdateRoleState: resetting state', 'log');
+        updateRoleState.isRunning = false; updateRoleState.stopRequested = false;
+        updateRoleState.observers = []; updateRoleState.timeouts = []; updateRoleState.intervals = [];
+        updateRoleState.eventListeners = []; updateRoleState.idleCallbackIds = [];
+        updateRoleState.prevAriaBusy = null; updateRoleState.parsedCandidates = [];
+        updateRoleState.scannedNames = []; updateRoleState.seenNormalizedNames = new Set();
+        updateRoleState.scrollContainer = null; updateRoleState.prevScrollTop = 0;
+        updateRoleState.userScrollHandler = null; updateRoleState.userScrollPaused = false;
+        updateRoleState.lastAutoScrollTime = 0; updateRoleState.leftPanelRowIndex = 0;
+        updateRoleState.counters = { total: 0, saved: 0, notFound: 0, failures: 0, pending: 0 };
+        updateRoleState.roleListScrollTop = 0; updateRoleState.isPaused = false; updateRoleState.activeDropdown = null;
+    }
+
+    function updateRoleWaitForElement(selector, timeout) {
+        return new Promise(function(resolve, reject) {
+            var element = document.querySelector(selector);
+            if (element) { resolve(element); return; }
+            var observer = new MutationObserver(function(mutations, obs) {
+                var el = document.querySelector(selector);
+                if (el) { obs.disconnect(); var idx = updateRoleState.observers.indexOf(obs); if (idx > -1) { updateRoleState.observers.splice(idx, 1); } resolve(el); }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            updateRoleState.observers.push(observer);
+            var timeoutId = setTimeout(function() { observer.disconnect(); var idx = updateRoleState.observers.indexOf(observer); if (idx > -1) { updateRoleState.observers.splice(idx, 1); } reject(new Error('Timeout waiting for ' + selector)); }, timeout);
+            updateRoleState.timeouts.push(timeoutId);
+        });
+    }
+
+    function updateRoleDelay(ms) { return new Promise(function(resolve) { var tid = setTimeout(resolve, ms); updateRoleState.timeouts.push(tid); }); }
+
+    function updateRoleSetAriaBusyOn() { var target = document.querySelector(STARTDATE_ATTRS.ariaBusyTarget); if (target) { updateRoleState.prevAriaBusy = target.getAttribute(STARTDATE_ATTRS.ariaBusyAttr); target.setAttribute(STARTDATE_ATTRS.ariaBusyAttr, 'true'); } }
+    function updateRoleSetAriaBusyOff() { var target = document.querySelector(STARTDATE_ATTRS.ariaBusyTarget); if (target) { if (updateRoleState.prevAriaBusy !== null) { target.setAttribute(STARTDATE_ATTRS.ariaBusyAttr, updateRoleState.prevAriaBusy); } else { target.removeAttribute(STARTDATE_ATTRS.ariaBusyAttr); } updateRoleState.prevAriaBusy = null; } }
+    function updateRoleAriaLive(message) { var lr = document.getElementById('updaterole-aria-live'); if (lr) { lr.textContent = message; } }
+
+    function parseUpdateRoleInput(rawText) {
+        addLogMessage('parseUpdateRoleInput: starting parse', 'log');
+        if (!rawText || !rawText.trim()) { return []; }
+        var text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        text = text.replace(/[\u201c\u201d\u201e\u201f\u2018\u2019]+/g, '"');
+        text = text.replace(/-\s*\n\s*/g, '-');
+        var rawLines = text.split('\n');
+        var mergedLines = []; var pendingQuote = false; var buffer = '';
+        for (var li = 0; li < rawLines.length; li++) {
+            var line = rawLines[li];
+            if (pendingQuote) { buffer = buffer + ' ' + line; var quoteCount = 0; for (var ci = 0; ci < buffer.length; ci++) { if (buffer[ci] === '"') { quoteCount++; } } if (quoteCount % 2 === 0) { pendingQuote = false; mergedLines.push(buffer); buffer = ''; } continue; }
+            var qc = 0; for (var ci2 = 0; ci2 < line.length; ci2++) { if (line[ci2] === '"') { qc++; } }
+            if (qc % 2 !== 0) { pendingQuote = true; buffer = line; continue; }
+            mergedLines.push(line);
+        }
+        if (buffer) { mergedLines.push(buffer); }
+        var results = []; var seenPairKeys = new Set();
+        for (var mi = 0; mi < mergedLines.length; mi++) {
+            var mline = mergedLines[mi].trim(); if (!mline) { continue; }
+            mline = mline.replace(/"+/g, '');
+            var parts = mline.split(/\t+/);
+            if (parts.length < 3) { continue; }
+            var namePart = parts[0].trim(); var rolePart = parts[1].trim(); var numberPart = parts.slice(2).join(' ');
+            if (!namePart || !rolePart) { continue; }
+            var numTokens = numberPart.replace(/,/g, ' ').split(/\s+/).filter(function(t) { return t.length > 0; });
+            var numbersSet = expandResponsibilityTokensToSet(numTokens);
+            if (numbersSet.size === 0) { continue; }
+            var displayName = namePart.replace(/\s+/g, ' ').trim();
+            var nameTokens = displayName.split(' '); var normalizedDisplay = [];
+            for (var nt = 0; nt < nameTokens.length; nt++) { var token = nameTokens[nt]; if (token) { normalizedDisplay.push(token.charAt(0).toUpperCase() + token.slice(1).toLowerCase()); } }
+            displayName = normalizedDisplay.join(' ');
+            var pairKey = normalizeFirstLastPair(displayName); if (!pairKey) { continue; }
+            var roleNorm = normalizeRoleName(rolePart); if (!roleNorm.key) { continue; }
+            var isDuplicate = seenPairKeys.has(pairKey); if (!isDuplicate) { seenPairKeys.add(pairKey); }
+            results.push({ display: displayName, pairKey: pairKey, roleDisplay: roleNorm.display, roleKey: roleNorm.key, numbersSet: numbersSet, status: isDuplicate ? UPDATEROLE_LABELS.statusDuplicate : UPDATEROLE_LABELS.statusPending, isDuplicate: isDuplicate });
+        }
+        addLogMessage('parseUpdateRoleInput: parsed ' + results.length + ' candidates', 'log');
+        return results;
+    }
+
+    function showUpdateRoleWarning() {
+        addLogMessage('showUpdateRoleWarning: creating warning popup', 'log');
+        var modal = document.createElement('div'); modal.id = 'updaterole-warning-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'alertdialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-warning-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        var title = document.createElement('h3'); title.id = 'updaterole-warning-title'; title.textContent = UPDATEROLE_LABELS.warningTitle;
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close warning');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        var closeWarning = function() { if (modal.parentNode) { document.body.removeChild(modal); } if (updateRoleState.focusReturnElement) { updateRoleState.focusReturnElement.focus(); } };
+        closeButton.onclick = closeWarning; header.appendChild(title); header.appendChild(closeButton);
+        var messageDiv = document.createElement('p'); messageDiv.textContent = UPDATEROLE_LABELS.warningMessage;
+        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        var okButton = document.createElement('button'); okButton.textContent = 'OK';
+        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.onclick = closeWarning;
+        var keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
+        document.addEventListener('keydown', keyHandler); updateRoleState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
+        container.appendChild(header); container.appendChild(messageDiv); container.appendChild(okButton); modal.appendChild(container);
+        container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal); okButton.focus();
+    }
+
+    function showUpdateRoleInputPanel() {
+        addLogMessage('showUpdateRoleInputPanel: creating input panel', 'log');
+        var modal = document.createElement('div'); modal.id = 'updaterole-input-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-input-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updaterole-input-title'; titleEl.textContent = UPDATEROLE_LABELS.inputTitle;
+        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close panel');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateRole(); };
+        header.appendChild(titleEl); header.appendChild(closeButton);
+        var description = document.createElement('p');
+        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.append('Rules:'); description.appendChild(document.createElement('br'));
+        var lines = ['Paste tab-separated data with three columns: Staff Name, Study Role, Responsibilities.', 'Each row must be on a separate line. Responsibilities can be numbers separated by commas, spaces, or ranges (e.g. 1-5).', 'Role abbreviations (RN, RA, QA, PI) and keyword matching are supported.', 'After clicking Continue, do not click anywhere else on the page.'];
+        for (var i = 0; i < lines.length; i++) { description.appendChild(document.createTextNode('\u2022 ' + lines[i])); if (i < lines.length - 1) { description.appendChild(document.createElement('br')); } }
+        var namesLabel = document.createElement('label'); namesLabel.setAttribute('for', 'updaterole-data-input');
+        namesLabel.textContent = 'Staff Name \u2003 Study Role \u2003 Responsibilities (tab-separated)';
+        namesLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        var textarea = document.createElement('textarea'); textarea.id = 'updaterole-data-input';
+        textarea.placeholder = 'John Smith\tResearch Nurse\t1, 2, 3\nJane Doe\tPI\t1-10';
+        textarea.setAttribute('aria-label', 'Staff data input with tab-separated columns');
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box; tab-size: 16;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
+        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        var parseStatusDiv = document.createElement('div'); parseStatusDiv.id = 'updaterole-parse-status';
+        parseStatusDiv.setAttribute('aria-live', 'polite');
+        parseStatusDiv.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 12px; margin-top: 4px; min-height: 18px;';
+        var continueButton = document.createElement('button'); continueButton.textContent = 'Continue'; continueButton.disabled = true;
+        continueButton.setAttribute('aria-label', 'Continue with role update');
+        continueButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        var updateContinueState = function() {
+            var parsed = parseUpdateRoleInput(textarea.value);
+            var validCount = 0; for (var vi = 0; vi < parsed.length; vi++) { if (!parsed[vi].isDuplicate) { validCount++; } }
+            if (validCount > 0) {
+                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#6bcf7f';
+                continueButton.disabled = false; continueButton.style.opacity = '1'; continueButton.style.cursor = 'pointer';
+            } else if (textarea.value.trim().length > 0) {
+                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#ffd93d';
+                continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed';
+            } else { parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed'; }
+        };
+        textarea.addEventListener('input', updateContinueState); updateRoleState.eventListeners.push({ element: textarea, type: 'input', handler: updateContinueState });
+        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
+        continueButton.onmouseout = function() { continueButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueButton.onclick = function() {
+            if (continueButton.disabled) { return; }
+            var parsed = parseUpdateRoleInput(textarea.value);
+            if (parsed.length === 0) { return; }
+            updateRoleState.parsedCandidates = parsed;
+            addLogMessage('showUpdateRoleInputPanel: parsedCandidates=' + parsed.length, 'log');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            updateRoleState.isRunning = true; updateRoleState.timer = createFeatureTimer('updaterole'); updateRoleState.timer.start();
+            showCollectingDataPanel('updaterole', UPDATEROLE_LABELS.featureButton); startUpdateRoleScan();
+        };
+        var clearButton = document.createElement('button'); clearButton.textContent = 'Clear All'; clearButton.setAttribute('aria-label', 'Clear all inputs');
+        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
+        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.onclick = function() { textarea.value = ''; parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; textarea.focus(); };
+        var keyHandler = function(e) { if (e.key === 'Escape') { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateRole(); } };
+        document.addEventListener('keydown', keyHandler); updateRoleState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
+        var buttonContainer = document.createElement('div'); buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;';
+        buttonContainer.appendChild(clearButton); buttonContainer.appendChild(continueButton);
+        container.appendChild(header); container.appendChild(description); container.appendChild(namesLabel); container.appendChild(textarea); container.appendChild(parseStatusDiv); container.appendChild(buttonContainer);
+        modal.appendChild(container); container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal); textarea.focus();
+    }
+
+    function updateRoleScanVisibleRowsOnce() {
+        var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); if (!gridTable) { return 0; }
+        var rows = gridTable.querySelectorAll(UPDATEROLE_SELECTORS.mainGridRow); var newCount = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i]; if (row.getAttribute('role') === 'columnheader') { continue; }
+            var cells = row.querySelectorAll(UPDATEROLE_SELECTORS.mainGridCell);
+            if (cells.length <= UPDATEROLE_SELECTORS.nameCellIndex) { continue; }
+            var targetCell = cells[UPDATEROLE_SELECTORS.nameCellIndex];
+            var primaryElement = targetCell.querySelector(UPDATEROLE_SELECTORS.namePrimary); var extractedName = null;
+            if (primaryElement) { var brElement = primaryElement.querySelector('br'); if (brElement) { var nameText = ''; for (var ni = 0; ni < primaryElement.childNodes.length; ni++) { var node = primaryElement.childNodes[ni]; if (node.nodeName === 'BR') { break; } if (node.nodeType === Node.TEXT_NODE) { nameText += node.textContent; } } extractedName = nameText.trim().replace(/\s+/g, ' '); } else { extractedName = primaryElement.textContent.trim().replace(/\s+/g, ' '); } }
+            if (!extractedName) { var fallbackElement = targetCell.querySelector(UPDATEROLE_SELECTORS.nameFallback); if (fallbackElement) { extractedName = fallbackElement.textContent.trim().replace(/\s+/g, ' '); } }
+            if (!extractedName) { continue; }
+            var normalized = elogNormalizeName(extractedName);
+            if (updateRoleState.seenNormalizedNames.has(normalized)) { continue; }
+            updateRoleState.seenNormalizedNames.add(normalized); updateRoleState.scannedNames.push(extractedName); newCount++; updateRoleState.leftPanelRowIndex++;
+        }
+        if (newCount > 0) { addLogMessage('updateRoleScanVisibleRowsOnce: batch of ' + newCount + ' new names', 'log'); }
+        return newCount;
+    }
+
+    function updateRoleGetRenderedLastRowKey() {
+        var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); if (!gridTable) { return ''; }
+        var rows = gridTable.querySelectorAll(UPDATEROLE_SELECTORS.mainGridRow); var lastDataRow = null;
+        for (var i = rows.length - 1; i >= 0; i--) { if (rows[i].getAttribute('role') !== 'columnheader') { lastDataRow = rows[i]; break; } }
+        if (!lastDataRow) { return ''; }
+        var cells = lastDataRow.querySelectorAll(UPDATEROLE_SELECTORS.mainGridCell);
+        if (cells.length > 0) { var firstCellText = cells[0].textContent.trim(); if (firstCellText) { return firstCellText; } }
+        var hash = 0; var content = lastDataRow.textContent || '';
+        for (var ci = 0; ci < content.length; ci++) { hash = ((hash << 5) - hash) + content.charCodeAt(ci); hash = hash & hash; }
+        return 'hash_' + hash;
+    }
+
+    function updateRoleGetRenderedRowCount() {
+        var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); if (!gridTable) { return 0; }
+        var rows = gridTable.querySelectorAll(UPDATEROLE_SELECTORS.mainGridRow); var count = 0;
+        for (var i = 0; i < rows.length; i++) { if (rows[i].getAttribute('role') !== 'columnheader') { count++; } }
+        return count;
+    }
+
+    function updateRoleAwaitSettle(container) {
+        return new Promise(function(resolve) {
+            var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); var resolved = false; var observer = null; var debounceTimer = null;
+            function finish() { if (resolved) { return; } resolved = true; if (debounceTimer) { clearTimeout(debounceTimer); } if (observer) { observer.disconnect(); var idx = updateRoleState.observers.indexOf(observer); if (idx > -1) { updateRoleState.observers.splice(idx, 1); } } resolve(); }
+            var maxTimeoutId = setTimeout(function() { finish(); }, UPDATEROLE_TIMEOUTS.scanSettleMs * 5); updateRoleState.timeouts.push(maxTimeoutId);
+            if (gridTable) { observer = new MutationObserver(function() { if (resolved) { return; } if (debounceTimer) { clearTimeout(debounceTimer); } debounceTimer = setTimeout(function() { finish(); }, UPDATEROLE_TIMEOUTS.scanSettleMs); updateRoleState.timeouts.push(debounceTimer); }); observer.observe(gridTable, { childList: true, subtree: true }); updateRoleState.observers.push(observer); }
+            debounceTimer = setTimeout(function() { finish(); }, UPDATEROLE_TIMEOUTS.scanSettleMs); updateRoleState.timeouts.push(debounceTimer);
+        });
+    }
+
+    function updateRoleObserveUserScrollPause(container) {
+        if (!container || updateRoleState.userScrollHandler) { return; }
+        updateRoleState.userScrollHandler = function() { var timeSinceAuto = Date.now() - updateRoleState.lastAutoScrollTime; if (timeSinceAuto > 50 && !updateRoleState.userScrollPaused) { updateRoleState.userScrollPaused = true; var resumeTimeout = setTimeout(function() { updateRoleState.userScrollPaused = false; }, 800); updateRoleState.timeouts.push(resumeTimeout); } };
+        container.addEventListener('scroll', updateRoleState.userScrollHandler); updateRoleState.eventListeners.push({ element: container, type: 'scroll', handler: updateRoleState.userScrollHandler });
+    }
+
+    function startUpdateRoleScan() {
+        addLogMessage('startUpdateRoleScan: beginning scan', 'log');
+        updateRoleState.scannedNames = []; updateRoleState.seenNormalizedNames = new Set(); updateRoleState.leftPanelRowIndex = 0;
+        updateRoleWaitForElement(UPDATEROLE_SELECTORS.mainTableContainer, UPDATEROLE_TIMEOUTS.waitTableMs).then(function() { return updateRoleWaitForElement(UPDATEROLE_SELECTORS.mainGridTable, UPDATEROLE_TIMEOUTS.waitGridMs); }).then(function() {
+            updateRoleAutoScrollScan({ onDone: function(data) { removeCollectingDataPanel('updaterole'); if (data.reason !== 'stopped' && updateRoleState.isRunning) { showUpdateRoleProgressPanel(); } }, onError: function() { removeCollectingDataPanel('updaterole'); showUpdateRoleProgressPanel(); } });
+        }).catch(function() { removeCollectingDataPanel('updaterole'); showUpdateRoleProgressPanel(); });
+    }
+
+    function updateRoleAutoScrollScan(options) {
+        var onDone = options.onDone || function() {}; var onError = options.onError || function() {};
+        var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); if (!gridTable) { onError(new Error('Grid not found')); return; }
+        var container = findScrollableContainer(gridTable); if (!container) { onError(new Error('Container not found')); return; }
+        updateRoleState.scrollContainer = container; updateRoleState.prevScrollTop = container.scrollTop;
+        updateRoleSetAriaBusyOn(); updateRoleObserveUserScrollPause(container); container.scrollTo({ top: 0, behavior: 'auto' });
+        var startTime = Date.now(); var noProgress = 0; var prevScrollHeight = container.scrollHeight;
+        function initialScan() { updateRoleScanVisibleRowsOnce(); prevScrollHeight = container.scrollHeight; var t = setTimeout(scrollLoop, UPDATEROLE_TIMEOUTS.idleBetweenBatchesMs); updateRoleState.timeouts.push(t); }
+        function scrollLoop() {
+            if (!updateRoleState.isRunning || updateRoleState.stopRequested) { finishScan('stopped'); return; }
+            if (Date.now() - startTime > UPDATEROLE_TIMEOUTS.maxScanDurationMs) { finishScan('timeout'); return; }
+            if (updateRoleState.userScrollPaused) { var pt = setTimeout(scrollLoop, 100); updateRoleState.timeouts.push(pt); return; }
+            var currentScrollHeight = container.scrollHeight; if (currentScrollHeight > prevScrollHeight) { noProgress = 0; prevScrollHeight = currentScrollHeight; }
+            var priorKey = updateRoleGetRenderedLastRowKey(); var priorCount = updateRoleGetRenderedRowCount();
+            var currTop = container.scrollTop; var maxScroll = container.scrollHeight - container.clientHeight;
+            var newTop = Math.min(currTop + UPDATEROLE_SCROLL.stepPx, maxScroll);
+            updateRoleState.lastAutoScrollTime = Date.now(); container.scrollTo({ top: newTop, behavior: 'auto' });
+            updateRoleAwaitSettle(container).then(function() {
+                var attempts = 0;
+                function attemptScan() {
+                    var rc = updateRoleGetRenderedRowCount();
+                    if (rc === 0 && attempts < UPDATEROLE_SCROLL.retryScanAttempts) { attempts++; var rt = setTimeout(attemptScan, UPDATEROLE_TIMEOUTS.retryScanDelayMs); updateRoleState.timeouts.push(rt); return; }
+                    updateRoleScanVisibleRowsOnce();
+                    var currKey = updateRoleGetRenderedLastRowKey(); var currCount = updateRoleGetRenderedRowCount();
+                    var postScrollHeight = container.scrollHeight;
+                    if (postScrollHeight > prevScrollHeight) { noProgress = 0; prevScrollHeight = postScrollHeight; } else if (currKey === priorKey && currCount === priorCount) { noProgress++; } else { noProgress = 0; }
+                    if (computeEndReached(container, noProgress)) { finishScan('endReached'); return; }
+                    if (noProgress >= UPDATEROLE_SCROLL.maxNoProgressIterations) { finishScan('noProgress'); return; }
+                    if (typeof requestIdleCallback === 'function') { var icbId = requestIdleCallback(function() { var idx = updateRoleState.idleCallbackIds.indexOf(icbId); if (idx > -1) { updateRoleState.idleCallbackIds.splice(idx, 1); } scrollLoop(); }, { timeout: UPDATEROLE_TIMEOUTS.idleBetweenBatchesMs * 2 }); updateRoleState.idleCallbackIds.push(icbId); }
+                    else { var it = setTimeout(scrollLoop, UPDATEROLE_TIMEOUTS.idleBetweenBatchesMs); updateRoleState.timeouts.push(it); }
+                }
+                attemptScan();
+            });
+        }
+        function finishScan(reason) { addLogMessage('updateRoleAutoScrollScan: done reason=' + reason + ' total=' + updateRoleState.scannedNames.length, 'log'); updateRoleSetAriaBusyOff(); onDone({ total: updateRoleState.scannedNames.length, reason: reason }); }
+        function waitForStableScrollHeight(callback) { var checks = 0; var maxChecks = 5; var lastHeight = container.scrollHeight; var stableCount = 0; function checkHeight() { if (!updateRoleState.isRunning) { return; } var currentHeight = container.scrollHeight; if (currentHeight === lastHeight) { stableCount++; } else { stableCount = 0; lastHeight = currentHeight; } checks++; if (stableCount >= 2 || checks >= maxChecks) { callback(); return; } var tid = setTimeout(checkHeight, 500); updateRoleState.timeouts.push(tid); } var tid = setTimeout(checkHeight, 500); updateRoleState.timeouts.push(tid); }
+        updateRoleAwaitSettle(container).then(function() { waitForStableScrollHeight(function() { initialScan(); }); });
+    }
+
+    function showUpdateRoleProgressPanel() {
+        addLogMessage('showUpdateRoleProgressPanel: creating progress panel', 'log');
+        updateRoleState.isRunning = true;
+        var modal = document.createElement('div'); modal.id = 'updaterole-progress-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div'); container.id = 'updaterole-progress-container';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-progress-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
+        var titleContainer = document.createElement('div'); titleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updaterole-progress-title'; titleEl.textContent = UPDATEROLE_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var statusBadge = document.createElement('span'); statusBadge.id = 'updaterole-status-badge'; statusBadge.textContent = UPDATEROLE_LABELS.progressInProgress;
+        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        titleContainer.appendChild(titleEl); titleContainer.appendChild(statusBadge);
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close and stop');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() { stopUpdateRole(); };
+        header.appendChild(titleContainer); header.appendChild(closeButton);
+        var panelsContainer = document.createElement('div'); panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
+        var leftPanel = createSubpanel('Scanned Log Entries', 'updaterole-left-panel', 'updaterole-left-search');
+        var rightPanel = createSubpanel('Update Status', 'updaterole-right-panel', 'updaterole-right-search');
+        addSortToggleToSubpanel(rightPanel, 'updaterole-right-panel', 'updaterole-sort-toggle', 'updaterole-failure-filter', [UPDATEROLE_LABELS.statusNotFound, UPDATEROLE_LABELS.statusFailed, UPDATEROLE_LABELS.statusSaveFailed, UPDATEROLE_LABELS.statusEditFailed, UPDATEROLE_LABELS.statusMenuFailed, UPDATEROLE_LABELS.statusRoleFailed, UPDATEROLE_LABELS.statusTasksFailed]);
+        panelsContainer.appendChild(leftPanel); panelsContainer.appendChild(rightPanel);
+        var summaryFooter = document.createElement('div'); summaryFooter.id = 'updaterole-summary-footer'; summaryFooter.setAttribute('aria-label', 'Processing summary');
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        var nonDuplicateCount = 0;
+        for (var ndi = 0; ndi < updateRoleState.parsedCandidates.length; ndi++) { if (!updateRoleState.parsedCandidates[ndi].isDuplicate) { nonDuplicateCount++; } }
+        updateRoleState.counters = { total: nonDuplicateCount, saved: 0, notFound: 0, failures: 0, pending: nonDuplicateCount };
+        var summaryItems = [
+            { id: 'updaterole-summary-total', label: 'Total', value: String(nonDuplicateCount) }, { id: 'updaterole-summary-saved', label: 'Saved', value: '0' },
+            { id: 'updaterole-summary-notfound', label: 'Not Found', value: '0' }, { id: 'updaterole-summary-failed', label: 'Failed', value: '0' },
+            { id: 'updaterole-summary-pending', label: 'Pending', value: String(nonDuplicateCount) }, { id: 'updaterole-summary-percent', label: 'Progress', value: '0%' }
+        ];
+        for (var si = 0; si < summaryItems.length; si++) {
+            var sItem = document.createElement('div'); sItem.style.cssText = 'text-align: center;';
+            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            sItem.appendChild(vSpan); sItem.appendChild(lSpan); summaryFooter.appendChild(sItem);
+        }
+        var ariaLiveRegion = document.createElement('div'); ariaLiveRegion.id = 'updaterole-aria-live'; ariaLiveRegion.setAttribute('aria-live', 'polite'); ariaLiveRegion.setAttribute('aria-atomic', 'true');
+        ariaLiveRegion.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;';
+        container.appendChild(header); container.appendChild(panelsContainer); container.appendChild(summaryFooter);
+        if (updateRoleState.timer) { container.appendChild(updateRoleState.timer.createDisplay()); updateRoleState.timer.setTotal(nonDuplicateCount); }
+        container.appendChild(ariaLiveRegion); modal.appendChild(container);
+        container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal);
+        populateUpdateRoleLeftPanel(); initializeUpdateRoleRightPanel(); closeButton.focus();
+        beginUpdateRoleQueue();
+    }
+
+    function populateUpdateRoleLeftPanel() {
+        var leftPanel = document.getElementById('updaterole-left-panel'); if (!leftPanel) { return; } leftPanel.innerHTML = '';
+        for (var i = 0; i < updateRoleState.scannedNames.length; i++) { var item = createListItem(updateRoleState.scannedNames[i], null, null, i + 1); leftPanel.appendChild(item); }
+    }
+
+    function initializeUpdateRoleRightPanel() {
+        var rightPanel = document.getElementById('updaterole-right-panel'); if (!rightPanel) { return; } rightPanel.innerHTML = '';
+        for (var i = 0; i < updateRoleState.parsedCandidates.length; i++) {
+            var candidate = updateRoleState.parsedCandidates[i];
+            var statusText = candidate.isDuplicate ? UPDATEROLE_LABELS.statusDuplicate : UPDATEROLE_LABELS.statusPending;
+            var numsArr = Array.from(candidate.numbersSet).sort(function(a, b) { return a - b; });
+            var labelText = candidate.display + ' | ' + candidate.roleDisplay + ' | [' + numsArr.join(', ') + ']';
+            var item = createListItem(labelText, statusText, candidate.isDuplicate ? 'duplicate' : 'pending', i + 1);
+            item.setAttribute('data-pairkey', candidate.pairKey); item.setAttribute('data-input-order', String(i + 1)); item.setAttribute('data-sort-name', candidate.display);
+            if (candidate.isDuplicate) { item.setAttribute('data-duplicate', 'true'); }
+            rightPanel.appendChild(item);
+        }
+    }
+
+    function updateUpdateRoleStatus(pairKey, newStatus, detailsOptional) {
+        var rightPanel = document.getElementById('updaterole-right-panel'); if (!rightPanel) { return; }
+        var items = rightPanel.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i]; if (item.getAttribute('data-pairkey') !== pairKey) { continue; } if (item.getAttribute('data-duplicate') === 'true') { continue; }
+            var badge = item.querySelector('.elog-status-badge');
+            if (badge) {
+                badge.textContent = newStatus; var badgeColor = 'rgba(255, 255, 255, 0.7)'; var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                if (newStatus === UPDATEROLE_LABELS.statusSaved || newStatus === UPDATEROLE_LABELS.statusCompleted) { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusNotFound) { badgeColor = '#ffa500'; badgeBg = 'rgba(255, 165, 0, 0.2)'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusFailed || newStatus === UPDATEROLE_LABELS.statusSaveFailed || newStatus === UPDATEROLE_LABELS.statusEditFailed || newStatus === UPDATEROLE_LABELS.statusMenuFailed || newStatus === UPDATEROLE_LABELS.statusRoleFailed || newStatus === UPDATEROLE_LABELS.statusTasksFailed) { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusStopped || newStatus === UPDATEROLE_LABELS.statusDuplicate) { badgeColor = '#aaa'; badgeBg = 'rgba(170, 170, 170, 0.2)'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusLocating || newStatus === UPDATEROLE_LABELS.statusEditing || newStatus === UPDATEROLE_LABELS.statusSettingRole || newStatus === UPDATEROLE_LABELS.statusSettingTasks || newStatus === UPDATEROLE_LABELS.statusSaving || newStatus === UPDATEROLE_LABELS.statusEnteringReason) { badgeColor = '#64b5f6'; badgeBg = 'rgba(100, 181, 246, 0.2)'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusPending) { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                badge.style.color = badgeColor; badge.style.background = badgeBg;
+                if (detailsOptional) { badge.setAttribute('title', detailsOptional); }
+            }
+            break;
+        }
+        updateRoleAriaLive(pairKey + ' ' + newStatus);
+    }
+
+    function updateUpdateRoleSummary(counters) {
+        var ids = ['updaterole-summary-total', 'updaterole-summary-saved', 'updaterole-summary-notfound', 'updaterole-summary-failed', 'updaterole-summary-pending', 'updaterole-summary-percent'];
+        var vals = [counters.total, counters.saved, counters.notFound, counters.failures, counters.pending];
+        for (var i = 0; i < ids.length - 1; i++) { var el = document.getElementById(ids[i]); if (el) { el.textContent = String(vals[i]); } }
+        var elPct = document.getElementById(ids[ids.length - 1]);
+        if (elPct) { var processed = counters.total - counters.pending; elPct.textContent = (counters.total > 0 ? Math.round((processed / counters.total) * 100) : 0) + '%'; }
+    }
+
+    function updateUpdateRoleProgressBadge(statusText, statusType) {
+        var badge = document.getElementById('updaterole-status-badge'); var titleEl = document.getElementById('updaterole-progress-title');
+        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; } else if (statusType === 'stopped') { badge.style.background = 'rgba(170, 170, 170, 0.3)'; badge.style.color = '#aaa'; } else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; } }
+        if (titleEl) { titleEl.textContent = UPDATEROLE_LABELS.featureButton + ' - ' + statusText; }
+        updateRoleState.isRunning = false;
+    }
+
+    function updateRoleFindRow(targetPairKey) {
+        var gridTable = document.querySelector(UPDATEROLE_SELECTORS.mainGridTable); if (!gridTable) { return null; }
+        var rows = gridTable.querySelectorAll(UPDATEROLE_SELECTORS.mainGridRow);
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i]; if (row.getAttribute('role') === 'columnheader') { continue; }
+            var cells = row.querySelectorAll(UPDATEROLE_SELECTORS.mainGridCell); if (cells.length <= UPDATEROLE_SELECTORS.nameCellIndex) { continue; }
+            var targetCell = cells[UPDATEROLE_SELECTORS.nameCellIndex]; var primaryEl = targetCell.querySelector(UPDATEROLE_SELECTORS.namePrimary); var extractedName = null;
+            if (primaryEl) { var brEl = primaryEl.querySelector('br'); if (brEl) { var nameText = ''; for (var ni = 0; ni < primaryEl.childNodes.length; ni++) { var node = primaryEl.childNodes[ni]; if (node.nodeName === 'BR') { break; } if (node.nodeType === Node.TEXT_NODE) { nameText += node.textContent; } } extractedName = nameText.trim().replace(/\s+/g, ' '); } else { extractedName = primaryEl.textContent.trim().replace(/\s+/g, ' '); } }
+            if (!extractedName) { var fallbackEl = targetCell.querySelector(UPDATEROLE_SELECTORS.nameFallback); if (fallbackEl) { extractedName = fallbackEl.textContent.trim().replace(/\s+/g, ' '); } }
+            if (!extractedName) { continue; }
+            if (normalizeFirstLastPair(extractedName) === targetPairKey) { return row; }
+        }
+        return null;
+    }
+
+    function updateRoleOpenEdit(rowEl, targetPairKey) {
+        return new Promise(function(resolve, reject) {
+            try {
+                if (targetPairKey) { var freshRow = updateRoleFindRow(targetPairKey); if (freshRow) { addLogMessage('updateRoleOpenEdit: re-found fresh row for ' + targetPairKey, 'log'); rowEl = freshRow; } }
+                var editLink = rowEl.querySelector(UPDATEROLE_SELECTORS.editMenuItemDirect);
+                if (editLink) { editLink.click(); var tid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitEditFormMs); updateRoleState.timeouts.push(tid); return; }
+                var menuToggle = rowEl.querySelector(UPDATEROLE_SELECTORS.rowMenuToggle);
+                if (!menuToggle) { var iconEl = rowEl.querySelector(UPDATEROLE_SELECTORS.rowMenuToggleFallbackIcon); if (iconEl) { menuToggle = iconEl.closest('a') || iconEl.parentElement; } }
+                if (!menuToggle) { reject(new Error('Menu toggle not found')); return; }
+                menuToggle.click();
+                var waitTid = setTimeout(function() {
+                    if (targetPairKey) { var reRow = updateRoleFindRow(targetPairKey); if (reRow) { rowEl = reRow; } }
+                    var editBtn = rowEl.querySelector(UPDATEROLE_SELECTORS.editMenuItemDirect);
+                    if (!editBtn) { var fallbackItems = rowEl.querySelectorAll(UPDATEROLE_SELECTORS.editMenuItemFallback); for (var ei = 0; ei < fallbackItems.length; ei++) { if (fallbackItems[ei].textContent.trim().toLowerCase() === 'edit') { editBtn = fallbackItems[ei]; break; } } }
+                    if (!editBtn) { var globalEdit = document.querySelector(UPDATEROLE_SELECTORS.editMenuItemDirect); if (globalEdit) { editBtn = globalEdit; } }
+                    if (editBtn) { editBtn.click(); var formTid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitEditFormMs); updateRoleState.timeouts.push(formTid); }
+                    else { reject(new Error('Edit menu item not found')); }
+                }, UPDATEROLE_TIMEOUTS.waitMenuOpenMs);
+                updateRoleState.timeouts.push(waitTid);
+            } catch (error) { reject(error); }
+        });
+    }
+
+    function updateRoleSelectRole(roleDisplay, roleKey) {
+        addLogMessage('updateRoleSelectRole: roleKey=' + roleKey, 'log');
+        return new Promise(function(resolve) {
+            var clearBtn = document.querySelector(UPDATEROLE_SELECTORS.roleClearBtn);
+            if (clearBtn) { clearBtn.click(); }
+            var delayTid = setTimeout(function() {
+                var roleInput = document.querySelector(UPDATEROLE_SELECTORS.roleSearchInput);
+                if (!roleInput) { resolve(false); return; }
+                roleInput.click(); roleInput.focus();
+                updateRoleWaitForElement(UPDATEROLE_SELECTORS.listContainer, UPDATEROLE_TIMEOUTS.waitRoleListMs).then(function() {
+                    var viewportEl = document.querySelector(UPDATEROLE_SELECTORS.virtualViewport);
+                    if (viewportEl && updateRoleState.roleListScrollTop > 0) { viewportEl.scrollTop = updateRoleState.roleListScrollTop; }
+                    var passCount = 0; var lastScrollTop = -1; var lastOptionSnapshot = ''; var startTime = Date.now();
+                    function scanRoles() {
+                        if (!updateRoleState.isRunning || updateRoleState.stopRequested) { resolve(false); return; }
+                        if (Date.now() - startTime > UPDATEROLE_TIMEOUTS.maxSelectDurationMs) { resolve(false); return; }
+                        if (passCount >= 1) { resolve(false); return; }
+                        var freshVp = document.querySelector(UPDATEROLE_SELECTORS.virtualViewport); if (freshVp) { viewportEl = freshVp; }
+                        var roleOptions = document.querySelectorAll(UPDATEROLE_SELECTORS.roleOptionItem); var found = false; var optionTexts = [];
+                        for (var ri = 0; ri < roleOptions.length; ri++) {
+                            var textEl = roleOptions[ri].querySelector(UPDATEROLE_SELECTORS.roleOptionText);
+                            var optText = textEl ? textEl.textContent.trim() : roleOptions[ri].textContent.trim(); optionTexts.push(optText);
+                            var normalized = normalizeRoleName(optText);
+                            if (normalized.key === roleKey) {
+                                roleOptions[ri].click(); found = true;
+                                var vp = document.querySelector(UPDATEROLE_SELECTORS.virtualViewport); if (vp) { updateRoleState.roleListScrollTop = vp.scrollTop; }
+                                var verifyTid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitAfterSelectRoleMs); updateRoleState.timeouts.push(verifyTid); break;
+                            }
+                        }
+                        if (!found) {
+                            var vp2 = document.querySelector(UPDATEROLE_SELECTORS.virtualViewport); if (!vp2) { resolve(false); return; }
+                            var currentSnapshot = optionTexts.join('|'); var currentTop = vp2.scrollTop;
+                            if (currentTop === lastScrollTop && currentSnapshot === lastOptionSnapshot) { passCount++; }
+                            lastScrollTop = currentTop; lastOptionSnapshot = currentSnapshot;
+                            var stepSize = Math.round(vp2.clientHeight * 0.7); var maxScroll = vp2.scrollHeight - vp2.clientHeight;
+                            var newTop = Math.min(currentTop + stepSize, maxScroll);
+                            if (newTop <= currentTop && currentTop > 0) { newTop = 0; lastScrollTop = -1; lastOptionSnapshot = ''; passCount++; }
+                            vp2.scrollTop = newTop;
+                            var scrollTid = setTimeout(scanRoles, UPDATEROLE_TIMEOUTS.scrollIdleMs); updateRoleState.timeouts.push(scrollTid);
+                        }
+                    }
+                    var initTid = setTimeout(scanRoles, UPDATEROLE_TIMEOUTS.scrollIdleMs); updateRoleState.timeouts.push(initTid);
+                }).catch(function() { resolve(false); });
+            }, 500);
+            updateRoleState.timeouts.push(delayTid);
+        });
+    }
+
+    function updateRoleApplyTasks(numbersSet) {
+        addLogMessage('updateRoleApplyTasks: size=' + numbersSet.size, 'log');
+        return new Promise(function(resolve) {
+            var toggleBtn = document.querySelector(UPDATEROLE_SELECTORS.tasksToggleBtn);
+            if (!toggleBtn) { resolve(false); return; }
+            toggleBtn.click();
+            updateRoleWaitForElement(UPDATEROLE_SELECTORS.tasksMenu, UPDATEROLE_TIMEOUTS.waitTasksMenuMs).then(function(menu) {
+                var items = menu.querySelectorAll(UPDATEROLE_SELECTORS.tasksItem); var toggleQueue = [];
+                for (var ti = 0; ti < items.length; ti++) {
+                    var itemText = items[ti].textContent.trim(); var leadingNumMatch = itemText.match(/^(\d+)\./);
+                    if (!leadingNumMatch) { continue; }
+                    var taskNum = parseInt(leadingNumMatch[1], 10); var checkbox = items[ti].querySelector(UPDATEROLE_SELECTORS.tasksItemCheckbox);
+                    if (!checkbox) { continue; }
+                    var isChecked = checkbox.checked; var shouldBeChecked = numbersSet.has(taskNum);
+                    if (shouldBeChecked && !isChecked) { toggleQueue.push({ element: checkbox, taskNum: taskNum }); }
+                    else if (!shouldBeChecked && isChecked) { toggleQueue.push({ element: checkbox, taskNum: taskNum }); }
+                }
+                addLogMessage('updateRoleApplyTasks: ' + toggleQueue.length + ' toggles needed', 'log');
+                var tqi = 0;
+                function processNextToggle() {
+                    if (!updateRoleState.isRunning || updateRoleState.stopRequested) { resolve(false); return; }
+                    if (tqi >= toggleQueue.length) {
+                        var closeBtn = document.querySelector(UPDATEROLE_SELECTORS.tasksToggleBtn); if (closeBtn) { closeBtn.click(); }
+                        var closeTid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(closeTid); return;
+                    }
+                    toggleQueue[tqi].element.click(); tqi++;
+                    var nextTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(nextTid);
+                }
+                var startTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(startTid);
+            }).catch(function() { resolve(false); });
+        });
+    }
+
+    function updateRoleReasonModal(candidate, callback) {
+        addLogMessage('updateRoleReasonModal: waiting for ' + candidate.display, 'log');
+        var elapsed = 0; var step = 300;
+        function pollForModal() {
+            if (updateRoleState.stopRequested) { callback(false); return; }
+            if (elapsed >= UPDATEROLE_TIMEOUTS.waitReasonModalMs) { callback(true); return; }
+            var modal = document.querySelector(UPDATEROLE_SELECTORS.reasonModal);
+            if (!modal) { elapsed += step; var tid = setTimeout(pollForModal, step); updateRoleState.timeouts.push(tid); return; }
+            updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusEnteringReason);
+            var textarea = modal.querySelector(UPDATEROLE_SELECTORS.reasonInput);
+            if (!textarea) { textarea = document.querySelector(UPDATEROLE_SELECTORS.reasonInput); }
+            if (!textarea) { callback(false); return; }
+            textarea.focus(); textarea.value = UPDATEROLE_LABELS.reasonText;
+            textarea.dispatchEvent(new Event('input', { bubbles: true })); textarea.dispatchEvent(new Event('change', { bubbles: true }));
+            var submitElapsed = 0; var submitStep = 200;
+            function pollForSubmitEnabled() {
+                if (updateRoleState.stopRequested) { callback(false); return; }
+                var submitBtn = modal.querySelector(UPDATEROLE_SELECTORS.reasonSubmitBtn);
+                if (!submitBtn) { submitBtn = document.querySelector(UPDATEROLE_SELECTORS.reasonSubmitBtn); }
+                if (!submitBtn) { callback(false); return; }
+                if (!submitBtn.disabled) {
+                    submitBtn.click();
+                    var closePollElapsed = 0; var closePollStep = 300;
+                    function pollForModalClose() {
+                        if (updateRoleState.stopRequested) { callback(false); return; }
+                        var stillOpen = document.querySelector(UPDATEROLE_SELECTORS.reasonModal);
+                        if (!stillOpen) { callback(true); return; }
+                        if (closePollElapsed >= UPDATEROLE_TIMEOUTS.waitReasonModalCloseMs) { callback(true); return; }
+                        closePollElapsed += closePollStep; var closeTid = setTimeout(pollForModalClose, closePollStep); updateRoleState.timeouts.push(closeTid);
+                    }
+                    var initCloseTid = setTimeout(pollForModalClose, closePollStep); updateRoleState.timeouts.push(initCloseTid); return;
+                }
+                if (submitElapsed >= UPDATEROLE_TIMEOUTS.waitReasonSubmitEnabledMs) {
+                    textarea.value = ''; textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    textarea.value = UPDATEROLE_LABELS.reasonText; textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    textarea.dispatchEvent(new Event('change', { bubbles: true })); textarea.dispatchEvent(new Event('blur', { bubbles: true }));
+                    var lastChanceTid = setTimeout(function() {
+                        var freshBtn = modal.querySelector(UPDATEROLE_SELECTORS.reasonSubmitBtn); if (!freshBtn) { freshBtn = document.querySelector(UPDATEROLE_SELECTORS.reasonSubmitBtn); }
+                        if (freshBtn && !freshBtn.disabled) { freshBtn.click(); var finalTid = setTimeout(function() { callback(true); }, 1000); updateRoleState.timeouts.push(finalTid); }
+                        else { callback(false); }
+                    }, 500); updateRoleState.timeouts.push(lastChanceTid); return;
+                }
+                submitElapsed += submitStep; var submitTid = setTimeout(pollForSubmitEnabled, submitStep); updateRoleState.timeouts.push(submitTid);
+            }
+            var initSubmitTid = setTimeout(pollForSubmitEnabled, submitStep); updateRoleState.timeouts.push(initSubmitTid);
+        }
+        var initTid = setTimeout(pollForModal, step); updateRoleState.timeouts.push(initTid);
+    }
+
+    function updateRolePerformSave(candidate, saveBtn, attempt, resolve) {
+        if (updateRoleState.stopRequested) { resolve(false); return; }
+        if (attempt >= 2) { resolve(false); return; }
+        updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusSaving);
+        saveBtn.click();
+        updateRoleReasonModal(candidate, function(reasonOk) {
+            if (!reasonOk) {
+                if (attempt < 1) { var retryTid = setTimeout(function() { var freshBtn = findSaveButton(); if (freshBtn) { updateRolePerformSave(candidate, freshBtn, attempt + 1, resolve); } else { resolve(false); } }, UPDATEROLE_TIMEOUTS.settleAfterSaveMs); updateRoleState.timeouts.push(retryTid); return; }
+                resolve(false); return;
+            }
+            resolve(true);
+        });
+    }
+
+    function updateRoleSaveEntry(candidate) {
+        return new Promise(function(resolve) {
+            try {
+                var saveBtn = findSaveButton();
+                if (!saveBtn) { resolve(false); return; }
+                if (saveBtn.disabled || saveBtn.getAttribute('aria-busy') === 'true') {
+                    var waitTid = setTimeout(function() { if (saveBtn.disabled || saveBtn.getAttribute('aria-busy') === 'true') { resolve(false); return; } updateRolePerformSave(candidate, saveBtn, 0, resolve); }, 1000);
+                    updateRoleState.timeouts.push(waitTid); return;
+                }
+                updateRolePerformSave(candidate, saveBtn, 0, resolve);
+            } catch (err) { resolve(false); }
+        });
+    }
+
+    function updateRoleProcessRow(candidate, rowEl, resolve, isRetry) {
+        addLogMessage('updateRoleProcessRow: processing ' + candidate.display + (isRetry ? ' (retry)' : ''), 'log');
+        if (updateRoleState.stopRequested) { candidate.status = UPDATEROLE_LABELS.statusStopped; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusStopped); resolve(); return; }
+        candidate.status = UPDATEROLE_LABELS.statusEditing; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusEditing);
+        updateRoleOpenEdit(rowEl, candidate.pairKey).then(function() {
+            if (updateRoleState.stopRequested) { throw new Error('Stopped'); }
+            if (!ensureCorrectEditContextForCandidate(candidate)) {
+                clickCancelButton();
+                if (isRetry) { candidate.status = UPDATEROLE_LABELS.statusEditFailed; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusEditFailed, 'Edit context mismatch'); updateRoleState.counters.failures++; updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters); if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); } resolve(); return; }
+                var cancelTid = setTimeout(function() { waitForOverlayToClear().then(function() {
+                    var correctRow = updateRoleFindRow(candidate.pairKey);
+                    if (correctRow) { updateRoleProcessRow(candidate, correctRow, resolve, true); }
+                    else { updateRoleScrollToFind(candidate, function(foundRow) { if (!foundRow) { candidate.status = UPDATEROLE_LABELS.statusNotFound; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusNotFound); updateRoleState.counters.notFound++; updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters); if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); } resolve(); return; } updateRoleProcessRow(candidate, foundRow, resolve, true); }); }
+                }); }, 1000); updateRoleState.timeouts.push(cancelTid); return;
+            }
+            updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusSettingRole);
+            return updateRoleSelectRole(candidate.roleDisplay, candidate.roleKey).then(function(roleOk) {
+                if (!roleOk) { throw new Error('Role selection failed'); }
+                if (updateRoleState.stopRequested) { throw new Error('Stopped'); }
+                updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusSettingTasks);
+                return updateRoleApplyTasks(candidate.numbersSet);
+            }).then(function(tasksOk) {
+                if (!tasksOk) { throw new Error('Tasks application failed'); }
+                if (updateRoleState.stopRequested) { throw new Error('Stopped'); }
+                return updateRoleSaveEntry(candidate);
+            }).then(function(saveOk) {
+                if (saveOk) { candidate.status = UPDATEROLE_LABELS.statusSaved; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusSaved); updateRoleState.counters.saved++; }
+                else { candidate.status = UPDATEROLE_LABELS.statusSaveFailed; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusSaveFailed); updateRoleState.counters.failures++; }
+                updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters);
+                if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); }
+                var postSaveTid = setTimeout(function() { waitForOverlayToClear().then(function() { resolve(); }); }, 1500); updateRoleState.timeouts.push(postSaveTid);
+            });
+        }).catch(function(err) {
+            addLogMessage('updateRoleProcessRow: error: ' + err.message, 'error');
+            if (updateRoleState.stopRequested) { candidate.status = UPDATEROLE_LABELS.statusStopped; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusStopped); }
+            else {
+                var failStatus = UPDATEROLE_LABELS.statusFailed; var failDetail = err.message;
+                if (err.message.indexOf('Menu') !== -1) { failStatus = UPDATEROLE_LABELS.statusMenuFailed; } else if (err.message.indexOf('Edit') !== -1) { failStatus = UPDATEROLE_LABELS.statusEditFailed; }
+                else if (err.message.indexOf('Role') !== -1) { failStatus = UPDATEROLE_LABELS.statusRoleFailed; } else if (err.message.indexOf('Tasks') !== -1 || err.message.indexOf('task') !== -1) { failStatus = UPDATEROLE_LABELS.statusTasksFailed; }
+                candidate.status = failStatus; updateUpdateRoleStatus(candidate.pairKey, failStatus, failDetail);
+                updateRoleState.counters.failures++; updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters);
+                if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); }
+            }
+            resolve();
+        });
+    }
+
+    function updateRoleProcessCandidate(candidate) {
+        return new Promise(function(resolve) {
+            try {
+                if (updateRoleState.stopRequested) { candidate.status = UPDATEROLE_LABELS.statusStopped; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusStopped); resolve(); return; }
+                candidate.status = UPDATEROLE_LABELS.statusLocating; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusLocating);
+                waitForOverlayToClear().then(function() {
+                    if (updateRoleState.stopRequested) { candidate.status = UPDATEROLE_LABELS.statusStopped; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusStopped); resolve(); return; }
+                    var rowEl = updateRoleFindRow(candidate.pairKey);
+                    if (!rowEl) {
+                        updateRoleScrollToFind(candidate, function(foundRow) {
+                            if (!foundRow) { candidate.status = UPDATEROLE_LABELS.statusNotFound; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusNotFound); updateRoleState.counters.notFound++; updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters); if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); } resolve(); return; }
+                            updateRoleProcessRow(candidate, foundRow, resolve);
+                        }); return;
+                    }
+                    updateRoleProcessRow(candidate, rowEl, resolve);
+                });
+            } catch (err) { candidate.status = UPDATEROLE_LABELS.statusFailed; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusFailed, err.message); updateRoleState.counters.failures++; updateRoleState.counters.pending--; updateUpdateRoleSummary(updateRoleState.counters); if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); } resolve(); }
+        });
+    }
+
+    function updateRoleScrollToFind(candidate, callback) {
+        if (!updateRoleState.scrollContainer) { callback(null); return; }
+        updateRoleState.scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
+        var attempts = 0; var maxAttempts = 50;
+        function scanAndScroll() {
+            if (updateRoleState.stopRequested) { callback(null); return; }
+            if (attempts >= maxAttempts) { callback(null); return; }
+            attempts++;
+            var row = updateRoleFindRow(candidate.pairKey); if (row) { callback(row); return; }
+            var currTop = updateRoleState.scrollContainer.scrollTop; var maxScroll = updateRoleState.scrollContainer.scrollHeight - updateRoleState.scrollContainer.clientHeight;
+            var newTop = Math.min(currTop + UPDATEROLE_SCROLL.stepPx, maxScroll);
+            if (newTop <= currTop) { callback(null); return; }
+            updateRoleState.scrollContainer.scrollTo({ top: newTop, behavior: 'auto' });
+            var tid = setTimeout(scanAndScroll, UPDATEROLE_TIMEOUTS.scanSettleMs); updateRoleState.timeouts.push(tid);
+        }
+        var initTid = setTimeout(scanAndScroll, UPDATEROLE_TIMEOUTS.scanSettleMs); updateRoleState.timeouts.push(initTid);
+    }
+
+    function updateRoleMarkRemainingStopped() {
+        var stoppedCount = 0;
+        for (var i = 0; i < updateRoleState.parsedCandidates.length; i++) {
+            var s = updateRoleState.parsedCandidates[i].status;
+            if (s === UPDATEROLE_LABELS.statusPending || s === UPDATEROLE_LABELS.statusLocating || s === UPDATEROLE_LABELS.statusEditing || s === UPDATEROLE_LABELS.statusSettingRole || s === UPDATEROLE_LABELS.statusSettingTasks) {
+                updateRoleState.parsedCandidates[i].status = UPDATEROLE_LABELS.statusStopped; updateUpdateRoleStatus(updateRoleState.parsedCandidates[i].pairKey, UPDATEROLE_LABELS.statusStopped); stoppedCount++;
+            }
+        }
+        updateRoleState.counters.failures += stoppedCount; updateRoleState.counters.pending = 0; updateUpdateRoleSummary(updateRoleState.counters);
+    }
+
+    function beginUpdateRoleQueue() {
+        addLogMessage('beginUpdateRoleQueue: starting queue', 'log');
+        var scannedPairKeys = new Set();
+        for (var si = 0; si < updateRoleState.scannedNames.length; si++) { var pk = normalizeFirstLastPair(updateRoleState.scannedNames[si]); if (pk) { scannedPairKeys.add(pk); } }
+        var queue = [];
+        for (var ni = 0; ni < updateRoleState.parsedCandidates.length; ni++) {
+            var candidate = updateRoleState.parsedCandidates[ni];
+            if (candidate.isDuplicate) { continue; }
+            if (!scannedPairKeys.has(candidate.pairKey)) { candidate.status = UPDATEROLE_LABELS.statusNotFound; updateUpdateRoleStatus(candidate.pairKey, UPDATEROLE_LABELS.statusNotFound); updateRoleState.counters.notFound++; updateRoleState.counters.pending--; }
+            else { queue.push(candidate); }
+        }
+        updateUpdateRoleSummary(updateRoleState.counters);
+        if (updateRoleState.timer) { updateRoleState.timer.updateProgress(updateRoleState.counters.total - updateRoleState.counters.pending); }
+        if (queue.length === 0) { if (updateRoleState.timer) { updateRoleState.timer.complete(); } updateUpdateRoleProgressBadge(UPDATEROLE_LABELS.progressComplete, 'complete'); updateRoleAriaLive('Complete. No candidates to process.'); return; }
+        if (updateRoleState.scrollContainer) { updateRoleState.scrollContainer.scrollTo({ top: 0, behavior: 'auto' }); }
+        var queueIndex = 0;
+        function processNext() {
+            if (!updateRoleState.isRunning || updateRoleState.stopRequested) { updateRoleMarkRemainingStopped(); if (updateRoleState.timer) { updateRoleState.timer.stop(); } updateUpdateRoleProgressBadge(UPDATEROLE_LABELS.progressStopped, 'stopped'); updateRoleAriaLive('Processing stopped.'); return; }
+            if (queueIndex >= queue.length) { if (updateRoleState.timer) { updateRoleState.timer.complete(); } updateUpdateRoleProgressBadge(UPDATEROLE_LABELS.progressComplete, 'complete'); var c = updateRoleState.counters; updateRoleAriaLive('Complete. Saved: ' + c.saved + ', Not Found: ' + c.notFound + ', Failed: ' + c.failures); return; }
+            var currentCandidate = queue[queueIndex]; queueIndex++;
+            updateRoleProcessCandidate(currentCandidate).then(function() {
+                if (typeof requestIdleCallback === 'function') { var icbId = requestIdleCallback(function() { var idx = updateRoleState.idleCallbackIds.indexOf(icbId); if (idx > -1) { updateRoleState.idleCallbackIds.splice(idx, 1); } processNext(); }, { timeout: UPDATEROLE_TIMEOUTS.settleAfterSaveMs * 2 }); updateRoleState.idleCallbackIds.push(icbId); }
+                else { var tid = setTimeout(processNext, UPDATEROLE_TIMEOUTS.settleAfterSaveMs); updateRoleState.timeouts.push(tid); }
+            });
+        }
+        processNext();
+    }
+
+    function updateRoleResponsibilitiesInit() {
+        addLogMessage('updateRoleResponsibilitiesInit: starting feature', 'log');
+        updateRoleState.focusReturnElement = document.getElementById('updaterole-btn');
+        resetUpdateRoleState();
+        var mainTable = document.querySelector(UPDATEROLE_SELECTORS.mainTableContainer);
+        if (!mainTable) { showUpdateRoleWarning(); return; }
+        showUpdateRoleInputPanel();
+    }
+
+    function stopUpdateRole() {
+        addLogMessage('stopUpdateRole: stopping', 'log');
+        updateRoleState.isRunning = false; updateRoleState.stopRequested = true;
+        for (var i = 0; i < updateRoleState.idleCallbackIds.length; i++) { try { if (typeof cancelIdleCallback === 'function') { cancelIdleCallback(updateRoleState.idleCallbackIds[i]); } } catch (e) {} } updateRoleState.idleCallbackIds = [];
+        for (var i2 = 0; i2 < updateRoleState.observers.length; i2++) { try { updateRoleState.observers[i2].disconnect(); } catch (e2) {} } updateRoleState.observers = [];
+        for (var i3 = 0; i3 < updateRoleState.timeouts.length; i3++) { try { clearTimeout(updateRoleState.timeouts[i3]); } catch (e3) {} } updateRoleState.timeouts = [];
+        for (var i4 = 0; i4 < updateRoleState.intervals.length; i4++) { try { clearInterval(updateRoleState.intervals[i4]); } catch (e4) {} } updateRoleState.intervals = [];
+        for (var i5 = 0; i5 < updateRoleState.eventListeners.length; i5++) { try { var l = updateRoleState.eventListeners[i5]; l.element.removeEventListener(l.type, l.handler); } catch (e5) {} } updateRoleState.eventListeners = [];
+        updateRoleSetAriaBusyOff();
+        if (updateRoleState.scrollContainer && updateRoleState.prevScrollTop !== undefined) { updateRoleState.scrollContainer.scrollTo({ top: updateRoleState.prevScrollTop, behavior: 'auto' }); }
+        var modals = ['updaterole-input-modal', 'updaterole-warning-modal', 'updaterole-collecting-modal', 'updaterole-progress-modal'];
+        for (var mi = 0; mi < modals.length; mi++) { var m = document.getElementById(modals[mi]); if (m && m.parentNode) { m.parentNode.removeChild(m); } }
+        if (updateRoleState.timer) { updateRoleState.timer.stop(); }
+        if (updateRoleState.focusReturnElement) { updateRoleState.focusReturnElement.focus(); }
+    }
+
+    // ─── End Update Role Responsibilities ────────────────────────────────────────
+
     function addStartDateInit() {
         addLogMessage('addStartDateInit: starting feature', 'log');
         startDateState.focusReturnElement = document.getElementById('startdate-btn');
@@ -16657,7 +17439,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         background: rgba(255, 255, 255, 0.05);
     `;
 
-        for (let i = 1; i <= 10; i++) {
+        for (let i = 1; i <= 11; i++) {
             const button = document.createElement('button');
             if (i === 1) {
                 button.textContent = 'Add Signatures';
@@ -16688,6 +17470,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
             } else if (i === 10) {
                 button.textContent = 'Verify Names';
                 button.id = 'verify-names-btn';
+            } else if (i === 11) {
+                button.textContent = 'Update Role Responsibilities';
+                button.id = 'updaterole-btn';
             }
 
             button.style.cssText = `
@@ -16761,6 +17546,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 button.onclick = () => {
                     console.log('Verify Names button clicked');
                     verifyNamesInit();
+                };
+            } else if (i === 11) {
+                button.onclick = () => {
+                    console.log('Update Role Responsibilities button clicked');
+                    updateRoleResponsibilitiesInit();
                 };
             }
 
