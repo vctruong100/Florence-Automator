@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.1
+// @version 2.2.2
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @run-at document-idle
@@ -16479,7 +16479,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     const CFG_STORAGE = {
         key: 'florence_main_gui_visibility_keybind',
-        keyDisplay: 'florence_main_gui_visibility_keybind_label'
+        keyDisplay: 'florence_main_gui_visibility_keybind_label',
+        hideLogs: 'florence_hide_logs',
+        buttonLayout: 'florence_button_layout'
     };
 
     const CFG_KEYS = {
@@ -16492,6 +16494,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
         waitModalMs: 8000,
         debounceMs: 200
     };
+
+    const BUTTON_DEFS = [
+        { id: 'add-signatures-btn', label: 'Add Signatures', handler: function() { startAddSignaturesFlow(); } },
+        { id: 'elog-staff-entries-btn', label: 'Add Training Log Staff Entries', handler: function() { addELogStaffEntriesInit(); } },
+        { id: 'clean-resp-btn', label: 'Clean Study Task List', handler: function() { cleanResponsibilityInit(); } },
+        { id: 'doa-staff-entries-btn', label: 'Add DoA Log Staff Entries', handler: function() { addDoALogStaffEntriesInit(); } },
+        { id: 'resp-set-btn', label: 'Set Role Responsibilities', handler: function() { setResponsibilitiesInit(); } },
+        { id: 'cb-select-btn', label: 'Select Checkboxes', handler: function() { selectCheckboxesInit(); } },
+        { id: 'startdate-btn', label: 'Add Start Date', handler: function() { addStartDateInit(); } },
+        { id: 'ssig-select-btn', label: 'Select Signed Checkbox', handler: function() { selectSignedCheckboxInit(); } },
+        { id: 'tlog-btn', label: 'Get Training Log', handler: function() { getTrainingLogInit(); } },
+        { id: 'verify-names-btn', label: 'Verify Names', handler: function() { verifyNamesInit(); } },
+        { id: 'updaterole-btn', label: 'Update Role Responsibilities', handler: function() { updateRoleResponsibilitiesInit(); } }
+    ];
 
     var cfgState = {
         currentCode: 'F2',
@@ -16635,6 +16651,120 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
         addLogMessage('saveKeybind: complete', 'log');
     }
+
+    function loadHideLogs() {
+        return localStorage.getItem(CFG_STORAGE.hideLogs) === 'true';
+    }
+
+    function saveHideLogsSetting(hidden) {
+        localStorage.setItem(CFG_STORAGE.hideLogs, hidden ? 'true' : 'false');
+    }
+
+    function applyHideLogs(hidden) {
+        var btn = document.getElementById('florence-clear-logs-btn');
+        var box = document.getElementById('florence-log-box');
+        var gui = document.getElementById(FLORENCE_GUI_ID);
+        if (btn) btn.style.display = hidden ? 'none' : '';
+        if (box) box.style.display = hidden ? 'none' : '';
+        if (gui) gui.style.minHeight = hidden ? 'auto' : '400px';
+    }
+
+    function loadButtonLayout() {
+        try {
+            var raw = localStorage.getItem(CFG_STORAGE.buttonLayout);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return null;
+            return parsed;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveButtonLayoutSetting(layout) {
+        localStorage.setItem(CFG_STORAGE.buttonLayout, JSON.stringify(layout));
+    }
+
+    function getEffectiveButtonLayout() {
+        var saved = loadButtonLayout();
+        var defaultLayout = BUTTON_DEFS.map(function(def, idx) {
+            return { id: def.id, position: idx, visible: true};
+        });
+        if (!saved || !Array.isArray(saved)) return defaultLayout;
+        var savedIds = {};
+        for (var s = 0; s < saved.length; s++) { savedIds[saved[s].id] = true; }
+        var maxPos = -1;
+        for (var mm = 0; mm < saved.length; mm++) {
+            if (saved[mm].position > maxPos) maxPos = saved[mm].position;
+        }
+        var currentIds = {};
+        for (var c = 0; c < BUTTON_DEFS.length; c++) { currentIds[BUTTON_DEFS[c].id] = true; }
+        for (var n = 0; n < BUTTON_DEFS.length; n++) {
+            if (!savedIds[BUTTON_DEFS[n].id]) {
+                maxPos++;
+                saved.push({ id: BUTTON_DEFS[n].id, position: maxPos, visible: true});
+            }
+        }
+        return saved.filter(function(e) { return currentIds[e.id]; });
+    }
+
+    function buildDefMap() {
+        var map = {};
+        for (var i = 0; i < BUTTON_DEFS.length; i++) {
+            map[BUTTON_DEFS[i].id] = BUTTON_DEFS[i];
+        }
+        return map;
+    }
+
+    function renderButtonsInto(container) {
+        container.innerHTML = '';
+        var layout = getEffectiveButtonLayout();
+        var defMap = buildDefMap();
+        var layoutByPos = {};
+        for (var i = 0; i < layout.length; i++) {
+            layoutByPos[layout[i].position] = layout[i];
+        }
+        var maxPos = 0;
+        for (var j = 0; j < layout.length; j++) {
+            if (layout[j].position > maxPos) maxPos = layout[j].position;
+        }
+        var lastVisiblePos = -1;
+        for (var p  = maxPos; p >= 0; p--) {
+            var ev = layoutByPos[p];
+            if (ev && ev.visible && defMap[ev.id]) { lastVisiblePos = p; break;}
+        }
+        for (let pos = 0; pos <= lastVisiblePos; pos++) {
+            var entry = layoutByPos[pos];
+            if (entry && entry.visible && defMap[entry.id]) {
+                var def = defMap[entry.id];
+                const button = document.createElement('button');
+                button.id = def.id;
+                button.textContent = def.label;
+                button.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);';
+                button.onmouseover = () => {
+                    button.style.transform = 'translateY(-2px)';
+                    button.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
+                }
+                button.onmouseout = () => { 
+                    button.style.transform = 'translateY(0)';
+                    button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
+                }
+                button.onclick = def.handler;
+                container.appendChild(button);
+            } else {
+                const spacer = document.createElement('div');
+                spacer.style.cssText = 'visibility:hidden; min-height: 44px;';
+                container.appendChild(spacer);
+            }
+        }
+    }
+
+    function rebuildButtonsContainer() {
+        var container = document.getElementById('florence-buttons-container');
+        if (container) renderButtonsInto(container);
+    }
+
+
 
     function attachGlobalKeybindListener() {
         addLogMessage('attachGlobalKeybindListener: attaching listener for code=' + cfgState.currentCode, 'log');
@@ -16809,7 +16939,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cfg-modal-title');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 340px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); position: relative; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 420px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); position: relative; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
 
         var modalHeader = document.createElement('div');
         modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); border-radius: 12px 12px 0 0;';
@@ -16835,7 +16965,22 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modalHeader.appendChild(modalClose);
 
         var modalBody = document.createElement('div');
-        modalBody.style.cssText = 'padding: 16px;';
+        modalBody.style.cssText = 'padding: 16px; max-height: 65vh; overflow-y: auto;';
+
+        var pendingHideLogs = loadHideLogs();
+        var pendingLayout = JSON.parse(JSON.stringify(getEffectiveButtonLayout()));
+        var originalHideLogs = pendingHideLogs;
+        var originalLayout = JSON.parse(JSON.stringify(pendingLayout));
+        var cfgHasDirty = false;
+
+        function checkDirty() {
+            cfgHasDirty = false;
+            if (cfgState.capturedCode && validateKeyChoice(cfgState.capturedCode) && cfgState.capturedCode !== cfgState.currentCode) cfgHasDirty = true;
+            if (pendingHideLogs !== originalHideLogs) cfgHasDirty = true;
+            if (JSON.stringify(pendingLayout) !== JSON.stringify(originalLayout)) cfgHasDirty = true;
+            var invalidKeybind = cfgState.capturedCode && !validateKeyChoice(cfgState.capturedCode);
+            updateSaveBtnState(cfgHasDirty && !invalidKeybind); 
+        }
 
         var fieldLabel = document.createElement('label');
         fieldLabel.setAttribute('for', CFG_SELECTORS.keyCaptureFieldId);
@@ -16867,6 +17012,173 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var validationMsg = document.createElement('div');
         validationMsg.style.cssText = 'color: #ff6b6b; font-size: 12px; min-height: 18px; margin-top: 6px; transition: opacity 0.2s ease;';
         validationMsg.textContent = '';
+
+                var displaySection = document.createElement('div');
+        displaySection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);';
+        var displayTitle = document.createElement('div');
+        displayTitle.textContent = 'Display';
+        displayTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;';
+        displaySection.appendChild(displayTitle);
+
+        var hideLogsRow = document.createElement('label');
+        hideLogsRow.style.cssText = 'display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.15); transition: background 0.2s ease;';
+        hideLogsRow.onmouseover = function() { hideLogsRow.style.background = 'rgba(0, 0, 0, 0.25)'; };
+        hideLogsRow.onmouseout = function() { hideLogsRow.style.background = 'rgba(0, 0, 0, 0.15)'; };
+        var hideLogsCheckbox = document.createElement('input');
+        hideLogsCheckbox.type = 'checkbox';
+        hideLogsCheckbox.checked = pendingHideLogs;
+        hideLogsCheckbox.setAttribute('aria-label', 'Hide Logs');
+        hideLogsCheckbox.style.cssText = 'width: 16px; height: 16px; cursor: pointer; accent-color: #764ba2; flex-shrink: 0;';
+        hideLogsCheckbox.onchange = function() {
+            pendingHideLogs = hideLogsCheckbox.checked;
+            checkDirty();
+        };
+        var hideLogsLabel = document.createElement('span');
+        hideLogsLabel.textContent = 'Hide Logs';
+        hideLogsLabel.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 500;';
+        hideLogsRow.appendChild(hideLogsCheckbox);
+        hideLogsRow.appendChild(hideLogsLabel);
+        displaySection.appendChild(hideLogsRow);
+
+                var btnSection = document.createElement('div');
+        btnSection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);';
+        var btnSectionTitle = document.createElement('div');
+        btnSectionTitle.textContent = 'Feature Buttons';
+        btnSectionTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;';
+        btnSection.appendChild(btnSectionTitle);
+
+        var btnListContainer = document.createElement('div');
+        btnListContainer.style.cssText = 'max-height: 260px; overflow-y: auto; border-radius: 6px; background: rgba(0, 0, 0, 0.15); padding: 4px;';
+        btnListContainer.setAttribute('role', 'listbox');
+        btnListContainer.setAttribute('aria-label', 'Feature button order and visibility');
+        var defMap = buildDefMap();
+        var dragSrcIdx = null;
+
+        function renderBtnList() {
+            btnListContainer.innerHTML = '';
+            var sorted = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
+            for (let si = 0; si < sorted.length; si++) {
+                const entry = sorted[si];
+                const def = defMap[entry.id];
+                if (!def) continue;
+                const item = document.createElement('div');
+                item.setAttribute('role', 'option');
+                item.setAttribute('aria-label', def.label + (entry.visible ? '' : ' (hidden)'));
+                item.setAttribute('draggable', 'true');
+                item.setAttribute('tabindex', '0');
+                item.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 4px; margin-bottom: 2px; cursor: grab; transition: background 0.15s ease, opacity 0.15s ease; background: rgba(255,255,255,0.05); opacity: ' + (entry.visible ? '1' : '0.45') + ';';
+                item.onmouseover = function() { item.style.background = 'rgba(255,255,255,0.12)'; };
+                item.onmouseout = function() { item.style.background = 'rgba(255,255,255,0.05)'; };
+
+                var handle = document.createElement('span');
+                handle.textContent = '\u2630';
+                handle.style.cssText = 'color: rgba(255,255,255,0.5); font-size: 14px; cursor: grab; flex-shrink: 0; user-select: none;';
+                handle.setAttribute('aria-hidden', 'true');
+
+                var posLabel = document.createElement('span');
+                posLabel.textContent = (entry.position + 1);
+                posLabel.style.cssText = 'color: rgba(255,255,255,0.4); font-size: 11px; min-width: 18px; text-align: center; flex-shrink: 0;';
+
+                var nameLabel = document.createElement('span');
+                nameLabel.textContent = def.label;
+                nameLabel.style.cssText = 'color: white; font-size: 12px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (entry.visible ? '' : ' text-decoration: line-through; color: rgba(255,255,255,0.5);');
+
+                var toggleBtn = document.createElement('button');
+                toggleBtn.textContent = entry.visible ? 'Hide' : 'Show';
+                toggleBtn.setAttribute('aria-label', (entry.visible ? 'Hide ' : 'Show ') + def.label);
+                toggleBtn.setAttribute('type', 'button');
+                toggleBtn.style.cssText = 'background: ' + (entry.visible ? 'rgba(255,255,255,0.12)' : 'rgba(107,207,127,0.3)') + '; border: 1px solid ' + (entry.visible ? 'rgba(255,255,255,0.2)' : 'rgba(107,207,127,0.5)') + '; color: ' + (entry.visible ? 'rgba(255,255,255,0.8)' : '#6bcf7f') + '; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; flex-shrink: 0; transition: all 0.2s ease;';
+                toggleBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    for (var pi = 0; pi < pendingLayout.length; pi++) {
+                        if (pendingLayout[pi].id === entry.id) {
+                            pendingLayout[pi].visible = !pendingLayout[pi].visible;
+                            break;
+                        }
+                    }
+                    renderBtnList();
+                    checkDirty();
+                };
+
+                item.addEventListener('dragstart', function(e) {
+                    dragSrcIdx = si;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(si));
+                    item.style.opacity = '0.3';
+                });
+                item.addEventListener('dragend', function() {
+                    item.style.opacity = entry.visible ? '1' : '0.45';
+                    dragSrcIdx = null;
+                });
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    item.style.background = 'rgba(118, 75, 162, 0.4)';
+                });
+                item.addEventListener('dragleave', function() {
+                    item.style.background = 'rgba(255,255,255,0.05)';
+                });
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    item.style.background = 'rgba(255,255,255,0.05)';
+                    var fromSortIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                    if (isNaN(fromSortIdx) || fromSortIdx === si) return;
+                    var sortedNow = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
+                    var fromId = sortedNow[fromSortIdx] ? sortedNow[fromSortIdx].id : null;
+                    var toId = sortedNow[si] ? sortedNow[si].id : null;
+                    if (!fromId || !toId) return;
+                    var fromEntry = null, toEntry = null;
+                    for (var fi = 0; fi < pendingLayout.length; fi++) {
+                        if (pendingLayout[fi].id === fromId) fromEntry = pendingLayout[fi];
+                        if (pendingLayout[fi].id === toId) toEntry = pendingLayout[fi];
+                    }
+                    if (fromEntry && toEntry) {
+                        var tempPos = fromEntry.position;
+                        fromEntry.position = toEntry.position;
+                        toEntry.position = tempPos;
+                    }
+                    renderBtnList();
+                    checkDirty();
+                });
+
+                item.addEventListener('keydown', function(e) {
+                    var sortedNow = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
+                    var curIdx = -1;
+                    for (var ci = 0; ci < sortedNow.length; ci++) { if (sortedNow[ci].id === entry.id) { curIdx = ci; break; } }
+                    if (e.key === 'ArrowUp' && curIdx > 0) {
+                        e.preventDefault();
+                        var above = sortedNow[curIdx - 1];
+                        var cur = sortedNow[curIdx];
+                        for (var k = 0; k < pendingLayout.length; k++) {
+                            if (pendingLayout[k].id === above.id) { var t = pendingLayout[k].position; pendingLayout[k].position = cur.position; for (var k2 = 0; k2 < pendingLayout.length; k2++) { if (pendingLayout[k2].id === cur.id) { pendingLayout[k2].position = t; } } break; }
+                        }
+                        renderBtnList();
+                        checkDirty();
+                        var items = btnListContainer.querySelectorAll('[role="option"]');
+                        if (items[curIdx - 1]) items[curIdx - 1].focus();
+                    } else if (e.key === 'ArrowDown' && curIdx < sortedNow.length - 1) {
+                        e.preventDefault();
+                        var below = sortedNow[curIdx + 1];
+                        var cur2 = sortedNow[curIdx];
+                        for (var k3 = 0; k3 < pendingLayout.length; k3++) {
+                            if (pendingLayout[k3].id === below.id) { var t2 = pendingLayout[k3].position; pendingLayout[k3].position = cur2.position; for (var k4 = 0; k4 < pendingLayout.length; k4++) { if (pendingLayout[k4].id === cur2.id) { pendingLayout[k4].position = t2; } } break; }
+                        }
+                        renderBtnList();
+                        checkDirty();
+                        var items2 = btnListContainer.querySelectorAll('[role="option"]');
+                        if (items2[curIdx + 1]) items2[curIdx + 1].focus();
+                    }
+                });
+
+                item.appendChild(handle);
+                item.appendChild(posLabel);
+                item.appendChild(nameLabel);
+                item.appendChild(toggleBtn);
+                btnListContainer.appendChild(item);
+            }
+        }
+        renderBtnList();
+        btnSection.appendChild(btnListContainer);
 
         var ariaLive = document.createElement('span');
         ariaLive.setAttribute('aria-live', 'polite');
@@ -16952,11 +17264,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (!validateKeyChoice(canonical.code)) {
                 validationMsg.textContent = CFG_LABELS.invalidKey;
                 cfgAnnounce(CFG_LABELS.invalidKey);
-                updateSaveBtnState(false);
+                checkDirty();
                 addLogMessage('openConfigModal: key rejected code=' + canonical.code, 'warn');
             } else {
                 validationMsg.textContent = '';
-                updateSaveBtnState(true);
+                checkDirty();
                 addLogMessage('openConfigModal: key accepted code=' + canonical.code, 'log');
             }
         };
@@ -17001,17 +17313,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (saveBtn.disabled) {
                 return;
             }
-            if (!cfgState.capturedCode || !validateKeyChoice(cfgState.capturedCode)) {
-                addLogMessage('openConfigModal: Save clicked but no valid key captured', 'warn');
-                return;
-            }
-            addLogMessage('openConfigModal: Save clicked, applying code=' + cfgState.capturedCode + ' label=' + cfgState.capturedLabel, 'log');
+            var keybindChanged = cfgState.capturedCode && validateKeyChoice(cfgState.capturedCode) && cfgState.capturedCode !== cfgState.currentCode;
+            var hideLogsChanged = pendingHideLogs !== originalHideLogs;
+            var layoutChanged = JSON.stringify(pendingLayout) !== JSON.stringify(originalLayout);
             var newCode = cfgState.capturedCode;
             var newLabel = cfgState.capturedLabel;
             closeModal(true);
-            applyVisibilityKeybind(newCode, newLabel);
-            saveKeybind(newCode, newLabel);
-            cfgAnnounce(CFG_LABELS.saved);
+            if (keybindChanged) {
+                applyVisibilityKeybind(newCode, newLabel);
+                saveKeybind(newCode, newLabel);
+            }
+            if (hideLogsChanged) { 
+                saveHideLogsSetting(pendingHideLogs);
+                applyHideLogs(pendingHideLogs);
+            }
+            if (layoutChanged) {
+                saveButtonLayoutSetting(pendingLayout);
+                rebuildButtonsContainer();
+            }
+            addLogMessage('openConfigModal: settings saved', 'log');
         };
 
         cfgState.modalEscHandler = function(e) {
@@ -17040,6 +17360,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modalBody.appendChild(fieldLabel);
         modalBody.appendChild(keyCaptureField);
         modalBody.appendChild(validationMsg);
+        modalBody.appendChild(displaySection);
+        modalBody.appendChild(btnSection);
 
         modalFooter.appendChild(cancelBtn);
         modalFooter.appendChild(saveBtn);
@@ -17431,6 +17753,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         insertConfigIconNextToClose(headerRight, closeButton);
 
         const buttonsContainer = document.createElement('div');
+        buttonsContainer.id = 'florence-buttons-container';
         buttonsContainer.style.cssText = `
         padding: 16px;
         display: grid;
@@ -17438,124 +17761,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         gap: 10px;
         background: rgba(255, 255, 255, 0.05);
     `;
-
-        for (let i = 1; i <= 11; i++) {
-            const button = document.createElement('button');
-            if (i === 1) {
-                button.textContent = 'Add Signatures';
-            } else if (i === 2) {
-                button.textContent = 'Add Training Log Staff Entries';
-                button.id = 'elog-staff-entries-btn';
-            } else if (i === 3) {
-                button.textContent = "Clean Study Task List";
-                button.id = 'clean-resp-btn';
-            } else if (i === 4) {
-                button.textContent = "Add DoA Log Staff Entries";
-                button.id = 'doa-staff-entries-btn';
-            } else if (i === 5) {
-                button.textContent = 'Set Role Responsibilities';
-                button.id = 'resp-set-btn';
-            } else if (i === 6) {
-                button.textContent = "Select Checkboxes";
-                button.id = 'cb-select-btn';
-            } else if (i === 7) {
-                button.textContent = 'Add Start Date';
-                button.id = 'startdate-btn';
-            } else if (i === 8) {
-                button.textContent = 'Select Signed Checkbox';
-                button.id = 'ssig-select-btn';
-            } else if (i === 9) {
-                button.textContent = 'Get Training Log';
-                button.id = 'tlog-btn';
-            } else if (i === 10) {
-                button.textContent = 'Verify Names';
-                button.id = 'verify-names-btn';
-            } else if (i === 11) {
-                button.textContent = 'Update Role Responsibilities';
-                button.id = 'updaterole-btn';
-            }
-
-            button.style.cssText = `
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        `;
-
-            button.onmouseover = () => {
-                button.style.transform = 'translateY(-2px)';
-                button.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
-            };
-            button.onmouseout = () => {
-                button.style.transform = 'translateY(0)';
-                button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
-            };
-
-            if (i === 1) {
-                button.onclick = () => {
-                    console.log('Add Signatures button clicked');
-                    startAddSignaturesFlow();
-                };
-            } else if (i === 2) {
-                button.onclick = () => {
-                    console.log('Add ELog Staff Entries button clicked');
-                    addELogStaffEntriesInit();
-                };
-            } else if (i === 3) {
-                button.onclick = () => {
-                    console.log('Clean Responsibility button clicked');
-                    cleanResponsibilityInit();
-                };
-            } else if (i === 4) {
-                button.onclick = () => {
-                    console.log('Add DoA Log Staff Entries button clicked');
-                    addDoALogStaffEntriesInit();
-                };
-            } else if (i === 5) {
-                button.onclick = () => {
-                    console.log('Set Responsibilities button clicked');
-                    setResponsibilitiesInit();
-                };
-            } else if (i === 6) {
-                button.onclick = () => {
-                    console.log('Select Checkboxes button clicked');
-                    selectCheckboxesInit();
-                };
-            } else if (i === 7) {
-                button.onclick = () => {
-                    console.log('Add Start Date button clicked');
-                    addStartDateInit();
-                };
-            } else if (i === 8) {
-                button.onclick = () => {
-                    console.log('Select Signed Checkbox button clicked');
-                    selectSignedCheckboxInit();
-                };
-            } else if (i === 9) {
-                button.onclick = () => {
-                    console.log('Get Training Log button clicked');
-                    getTrainingLogInit();
-                };
-            } else if (i === 10) {
-                button.onclick = () => {
-                    console.log('Verify Names button clicked');
-                    verifyNamesInit();
-                };
-            } else if (i === 11) {
-                button.onclick = () => {
-                    console.log('Update Role Responsibilities button clicked');
-                    updateRoleResponsibilitiesInit();
-                };
-            }
-
-            buttonsContainer.appendChild(button);
-        }
+        renderButtonsInto(buttonsContainer);
         const scaleContainer = document.createElement('div');
         scaleContainer.style.cssText = `
         padding: 12px 16px;
@@ -17597,6 +17803,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         scaleContainer.appendChild(scaleSlider);
 
         const clearLogsBtn = document.createElement('button');
+        clearLogsBtn.id = 'florence-clear-logs-btn';
         clearLogsBtn.textContent = 'Clear Logs';
         clearLogsBtn.style.cssText = `
         margin-top: 8px;
@@ -17645,6 +17852,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         guiContainer.appendChild(scaleContainer);
         guiContainer.appendChild(logBox);
 
+        if (loadHideLogs()) {
+            clearLogsBtn.style.display = 'none';
+            logBox.style.display = 'none';
+            guiContainer.style.minHeight = 'auto';
+        }
         document.body.appendChild(guiContainer);
         makeDraggable(guiContainer, header);
         addLogMessage('Florence Automator GUI initialized', 'log');
@@ -17653,7 +17865,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     function updateLogBox() {
         const logBox = document.getElementById('florence-log-box');
-        if (!logBox) return;
+        if (!logBox || logBox.style.display === 'none') return;
         var maxDisplay = 200;
         var startIdx = Math.max(0, logMessages.length - maxDisplay);
         var html = '';
