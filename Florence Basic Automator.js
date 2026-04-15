@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.2
+// @version 2.2.3
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @run-at document-idle
@@ -16939,10 +16939,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cfg-modal-title');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 420px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); position: relative; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 520px; max-width: 94%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); position: relative; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; max-height: 92vh;';
 
         var modalHeader = document.createElement('div');
-        modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); border-radius: 12px 12px 0 0;';
+        modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); border-radius: 12px 12px 0 0; flex-shrink: 0;';
 
         var modalTitle = document.createElement('h3');
         modalTitle.id = 'cfg-modal-title';
@@ -16965,7 +16965,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modalHeader.appendChild(modalClose);
 
         var modalBody = document.createElement('div');
-        modalBody.style.cssText = 'padding: 16px; max-height: 65vh; overflow-y: auto;';
+        modalBody.style.cssText = 'padding: 16px; overflow-y: auto; flex: 1;';
 
         var pendingHideLogs = loadHideLogs();
         var pendingLayout = JSON.parse(JSON.stringify(getEffectiveButtonLayout()));
@@ -16994,7 +16994,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         keyCaptureField.value = cfgState.currentLabel;
         keyCaptureField.setAttribute('aria-label', CFG_LABELS.keybindLabel);
         keyCaptureField.setAttribute('placeholder', CFG_LABELS.keybindPlaceholder);
-        keyCaptureField.style.cssText = 'width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; color: white; font-size: 14px; font-weight: 500; outline: none; cursor: pointer; text-align: center; letter-spacing: 0.5px; transition: border-color 0.3s ease;';
+        keyCaptureField.style.cssText = 'width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(15, 10, 40, 0.7); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; color: #e0e0ff; font-size: 14px; font-weight: 500; outline: none; cursor: pointer; text-align: center; letter-spacing: 0.5px; transition: border-color 0.3s ease; font-family: monospace; -webkit-text-fill-color: #e0e0ff;';
         keyCaptureField.onfocus = function() {
             keyCaptureField.style.borderColor = 'rgba(255, 255, 255, 0.6)';
             keyCaptureField.value = '';
@@ -17044,141 +17044,220 @@ function showResponsibilitiesProgressPanel(rolesData) {
         btnSection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);';
         var btnSectionTitle = document.createElement('div');
         btnSectionTitle.textContent = 'Feature Buttons';
-        btnSectionTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;';
+        btnSectionTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;';
         btnSection.appendChild(btnSectionTitle);
+        var btnSectionHint = document.createElement('div');
+        btnSectionHint.textContent = 'Drag buttons to reorder. Dropped button inserts at that cell; others shift right.';
+        btnSectionHint.style.cssText = 'font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 10px; font-style: italic;';
+        btnSection.appendChild(btnSectionHint);
 
-        var btnListContainer = document.createElement('div');
-        btnListContainer.style.cssText = 'max-height: 260px; overflow-y: auto; border-radius: 6px; background: rgba(0, 0, 0, 0.15); padding: 4px;';
-        btnListContainer.setAttribute('role', 'listbox');
-        btnListContainer.setAttribute('aria-label', 'Feature button order and visibility');
+        var btnGridContainer = document.createElement('div');
+        btnGridContainer.style.cssText = 'max-height: 480px; overflow-y: auto; border-radius: 6px; background: rgba(0, 0, 0, 0.15); padding: 6px;';
+        btnGridContainer.setAttribute('role', 'grid');
+        btnGridContainer.setAttribute('aria-label', 'Feature button order and visibility');
         var defMap = buildDefMap();
-        var dragSrcIdx = null;
+        var dragSrcPos = null;
 
-        function renderBtnList() {
-            btnListContainer.innerHTML = '';
+        // --- Auto-scroll during drag ---
+        var autoScrollRAF = null;
+        var autoScrollSpeed = 0;
+        function startAutoScroll() {
+            if (autoScrollRAF) return;
+            function tick() {
+                if (autoScrollSpeed !== 0) {
+                    btnGridContainer.scrollTop += autoScrollSpeed;
+                }
+                autoScrollRAF = requestAnimationFrame(tick);
+            }
+            autoScrollRAF = requestAnimationFrame(tick);
+        }
+        function stopAutoScroll() {
+            if (autoScrollRAF) {
+                cancelAnimationFrame(autoScrollRAF);
+                autoScrollRAF = null;
+            }
+            autoScrollSpeed = 0;
+        }
+        btnGridContainer.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var rect = btnGridContainer.getBoundingClientRect();
+            var y = e.clientY;
+            var edgeZone = 40;
+            if (y - rect.top < edgeZone) {
+                autoScrollSpeed = -Math.max(2, Math.round((edgeZone - (y - rect.top)) / 4));
+                startAutoScroll();
+            } else if (rect.bottom - y < edgeZone) {
+                autoScrollSpeed = Math.max(2, Math.round((edgeZone - (rect.bottom - y)) / 4));
+                startAutoScroll();
+            } else {
+                autoScrollSpeed = 0;
+            }
+        });
+        btnGridContainer.addEventListener('dragleave', function(e) {
+            var rect = btnGridContainer.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                stopAutoScroll();
+            }
+        });
+        btnGridContainer.addEventListener('drop', function() { stopAutoScroll(); });
+        btnGridContainer.addEventListener('dragend', function() { stopAutoScroll(); });
+
+        var btnGrid = document.createElement('div');
+        btnGrid.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 4px;';
+
+        // --- Insert-and-shift logic ---
+        function moveButtonToPosition(fromPos, toPos) {
+            if (fromPos === toPos) return;
             var sorted = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
-            for (let si = 0; si < sorted.length; si++) {
-                const entry = sorted[si];
-                const def = defMap[entry.id];
-                if (!def) continue;
-                const item = document.createElement('div');
-                item.setAttribute('role', 'option');
-                item.setAttribute('aria-label', def.label + (entry.visible ? '' : ' (hidden)'));
-                item.setAttribute('draggable', 'true');
-                item.setAttribute('tabindex', '0');
-                item.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 4px; margin-bottom: 2px; cursor: grab; transition: background 0.15s ease, opacity 0.15s ease; background: rgba(255,255,255,0.05); opacity: ' + (entry.visible ? '1' : '0.45') + ';';
-                item.onmouseover = function() { item.style.background = 'rgba(255,255,255,0.12)'; };
-                item.onmouseout = function() { item.style.background = 'rgba(255,255,255,0.05)'; };
-
-                var handle = document.createElement('span');
-                handle.textContent = '\u2630';
-                handle.style.cssText = 'color: rgba(255,255,255,0.5); font-size: 14px; cursor: grab; flex-shrink: 0; user-select: none;';
-                handle.setAttribute('aria-hidden', 'true');
-
-                var posLabel = document.createElement('span');
-                posLabel.textContent = (entry.position + 1);
-                posLabel.style.cssText = 'color: rgba(255,255,255,0.4); font-size: 11px; min-width: 18px; text-align: center; flex-shrink: 0;';
-
-                var nameLabel = document.createElement('span');
-                nameLabel.textContent = def.label;
-                nameLabel.style.cssText = 'color: white; font-size: 12px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (entry.visible ? '' : ' text-decoration: line-through; color: rgba(255,255,255,0.5);');
-
-                var toggleBtn = document.createElement('button');
-                toggleBtn.textContent = entry.visible ? 'Hide' : 'Show';
-                toggleBtn.setAttribute('aria-label', (entry.visible ? 'Hide ' : 'Show ') + def.label);
-                toggleBtn.setAttribute('type', 'button');
-                toggleBtn.style.cssText = 'background: ' + (entry.visible ? 'rgba(255,255,255,0.12)' : 'rgba(107,207,127,0.3)') + '; border: 1px solid ' + (entry.visible ? 'rgba(255,255,255,0.2)' : 'rgba(107,207,127,0.5)') + '; color: ' + (entry.visible ? 'rgba(255,255,255,0.8)' : '#6bcf7f') + '; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 500; flex-shrink: 0; transition: all 0.2s ease;';
-                toggleBtn.onclick = function(e) {
-                    e.stopPropagation();
-                    for (var pi = 0; pi < pendingLayout.length; pi++) {
-                        if (pendingLayout[pi].id === entry.id) {
-                            pendingLayout[pi].visible = !pendingLayout[pi].visible;
-                            break;
-                        }
+            var movedItem = null;
+            var movedIdx = -1;
+            for (var mi = 0; mi < sorted.length; mi++) {
+                if (sorted[mi].position === fromPos) { movedItem = sorted[mi]; movedIdx = mi; break; }
+            }
+            if (!movedItem) return;
+            sorted.splice(movedIdx, 1);
+            var insertIdx = 0;
+            for (var ii = 0; ii < sorted.length; ii++) {
+                if (sorted[ii].position < toPos) insertIdx = ii + 1;
+                else if (sorted[ii].position === toPos) { insertIdx = ii; break; }
+            }
+            if (toPos > fromPos && insertIdx > sorted.length) insertIdx = sorted.length;
+            sorted.splice(insertIdx, 0, movedItem);
+            for (var ri = 0; ri < sorted.length; ri++) {
+                for (var pi = 0; pi < pendingLayout.length; pi++) {
+                    if (pendingLayout[pi].id === sorted[ri].id) {
+                        pendingLayout[pi].position = ri;
+                        break;
                     }
-                    renderBtnList();
-                    checkDirty();
-                };
-
-                item.addEventListener('dragstart', function(e) {
-                    dragSrcIdx = si;
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', String(si));
-                    item.style.opacity = '0.3';
-                });
-                item.addEventListener('dragend', function() {
-                    item.style.opacity = entry.visible ? '1' : '0.45';
-                    dragSrcIdx = null;
-                });
-                item.addEventListener('dragover', function(e) {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    item.style.background = 'rgba(118, 75, 162, 0.4)';
-                });
-                item.addEventListener('dragleave', function() {
-                    item.style.background = 'rgba(255,255,255,0.05)';
-                });
-                item.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    item.style.background = 'rgba(255,255,255,0.05)';
-                    var fromSortIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-                    if (isNaN(fromSortIdx) || fromSortIdx === si) return;
-                    var sortedNow = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
-                    var fromId = sortedNow[fromSortIdx] ? sortedNow[fromSortIdx].id : null;
-                    var toId = sortedNow[si] ? sortedNow[si].id : null;
-                    if (!fromId || !toId) return;
-                    var fromEntry = null, toEntry = null;
-                    for (var fi = 0; fi < pendingLayout.length; fi++) {
-                        if (pendingLayout[fi].id === fromId) fromEntry = pendingLayout[fi];
-                        if (pendingLayout[fi].id === toId) toEntry = pendingLayout[fi];
-                    }
-                    if (fromEntry && toEntry) {
-                        var tempPos = fromEntry.position;
-                        fromEntry.position = toEntry.position;
-                        toEntry.position = tempPos;
-                    }
-                    renderBtnList();
-                    checkDirty();
-                });
-
-                item.addEventListener('keydown', function(e) {
-                    var sortedNow = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
-                    var curIdx = -1;
-                    for (var ci = 0; ci < sortedNow.length; ci++) { if (sortedNow[ci].id === entry.id) { curIdx = ci; break; } }
-                    if (e.key === 'ArrowUp' && curIdx > 0) {
-                        e.preventDefault();
-                        var above = sortedNow[curIdx - 1];
-                        var cur = sortedNow[curIdx];
-                        for (var k = 0; k < pendingLayout.length; k++) {
-                            if (pendingLayout[k].id === above.id) { var t = pendingLayout[k].position; pendingLayout[k].position = cur.position; for (var k2 = 0; k2 < pendingLayout.length; k2++) { if (pendingLayout[k2].id === cur.id) { pendingLayout[k2].position = t; } } break; }
-                        }
-                        renderBtnList();
-                        checkDirty();
-                        var items = btnListContainer.querySelectorAll('[role="option"]');
-                        if (items[curIdx - 1]) items[curIdx - 1].focus();
-                    } else if (e.key === 'ArrowDown' && curIdx < sortedNow.length - 1) {
-                        e.preventDefault();
-                        var below = sortedNow[curIdx + 1];
-                        var cur2 = sortedNow[curIdx];
-                        for (var k3 = 0; k3 < pendingLayout.length; k3++) {
-                            if (pendingLayout[k3].id === below.id) { var t2 = pendingLayout[k3].position; pendingLayout[k3].position = cur2.position; for (var k4 = 0; k4 < pendingLayout.length; k4++) { if (pendingLayout[k4].id === cur2.id) { pendingLayout[k4].position = t2; } } break; }
-                        }
-                        renderBtnList();
-                        checkDirty();
-                        var items2 = btnListContainer.querySelectorAll('[role="option"]');
-                        if (items2[curIdx + 1]) items2[curIdx + 1].focus();
-                    }
-                });
-
-                item.appendChild(handle);
-                item.appendChild(posLabel);
-                item.appendChild(nameLabel);
-                item.appendChild(toggleBtn);
-                btnListContainer.appendChild(item);
+                }
             }
         }
-        renderBtnList();
-        btnSection.appendChild(btnListContainer);
+
+        function renderBtnGrid() {
+            btnGrid.innerHTML = '';
+            var sorted = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
+            for (var si = 0; si < sorted.length; si++) {
+                (function(siLocal) {
+                    var entry = sorted[siLocal];
+                    var def = defMap[entry.id];
+                    if (!def) return;
+
+                    var cell = document.createElement('div');
+                    cell.setAttribute('role', 'gridcell');
+                    cell.setAttribute('aria-label', def.label + (entry.visible ? '' : ' (hidden)'));
+                    cell.setAttribute('draggable', 'true');
+                    cell.setAttribute('tabindex', '0');
+                    cell.dataset.pos = String(entry.position);
+                    cell.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 5px; cursor: grab; transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease; background: rgba(255,255,255,0.07); opacity: ' + (entry.visible ? '1' : '0.4') + '; border: 1px solid transparent; min-height: 36px; user-select: none;';
+                    cell.onmouseover = function() { if (dragSrcPos === null) cell.style.background = 'rgba(255,255,255,0.14)'; };
+                    cell.onmouseout = function() { if (dragSrcPos === null) cell.style.background = 'rgba(255,255,255,0.07)'; };
+
+                    var posLabel = document.createElement('span');
+                    posLabel.textContent = String(entry.position + 1);
+                    posLabel.style.cssText = 'color: rgba(255,255,255,0.35); font-size: 10px; min-width: 16px; text-align: center; flex-shrink: 0; font-weight: 600;';
+
+                    var nameLabel = document.createElement('span');
+                    nameLabel.textContent = def.label;
+                    nameLabel.style.cssText = 'color: white; font-size: 11px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (entry.visible ? '' : ' text-decoration: line-through; color: rgba(255,255,255,0.45);');
+
+                    var toggleBtn = document.createElement('button');
+                    toggleBtn.textContent = entry.visible ? '\u2713' : '\u2715';
+                    toggleBtn.setAttribute('aria-label', (entry.visible ? 'Hide ' : 'Show ') + def.label);
+                    toggleBtn.setAttribute('type', 'button');
+                    toggleBtn.title = entry.visible ? 'Hide' : 'Show';
+                    var toggleBg = entry.visible ? 'rgba(107,207,127,0.35)' : 'rgba(255,100,100,0.3)';
+                    var toggleBorder = entry.visible ? 'rgba(107,207,127,0.5)' : 'rgba(255,100,100,0.5)';
+                    var toggleColor = entry.visible ? '#6bcf7f' : '#ff8a8a';
+                    toggleBtn.style.cssText = 'background: ' + toggleBg + '; border: 1px solid ' + toggleBorder + '; color: ' + toggleColor + '; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; flex-shrink: 0; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;';
+                    toggleBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        for (var ti = 0; ti < pendingLayout.length; ti++) {
+                            if (pendingLayout[ti].id === entry.id) {
+                                pendingLayout[ti].visible = !pendingLayout[ti].visible;
+                                break;
+                            }
+                        }
+                        renderBtnGrid();
+                        checkDirty();
+                    };
+
+                    cell.addEventListener('dragstart', function(e) {
+                        dragSrcPos = entry.position;
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(entry.position));
+                        setTimeout(function() { cell.style.opacity = '0.25'; cell.style.background = 'rgba(255,255,255,0.03)'; }, 0);
+                    });
+                    cell.addEventListener('dragend', function() {
+                        cell.style.opacity = entry.visible ? '1' : '0.4';
+                        cell.style.background = 'rgba(255,255,255,0.07)';
+                        cell.style.border = '1px solid transparent';
+                        dragSrcPos = null;
+                        stopAutoScroll();
+                    });
+                    cell.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragSrcPos !== null && dragSrcPos !== entry.position) {
+                            cell.style.background = 'rgba(118,75,162,0.45)';
+                            cell.style.border = '1px solid rgba(180,140,255,0.5)';
+                        }
+                    });
+                    cell.addEventListener('dragleave', function() {
+                        cell.style.background = 'rgba(255,255,255,0.07)';
+                        cell.style.border = '1px solid transparent';
+                    });
+                    cell.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cell.style.background = 'rgba(255,255,255,0.07)';
+                        cell.style.border = '1px solid transparent';
+                        var fromPos = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        if (isNaN(fromPos) || fromPos === entry.position) return;
+                        moveButtonToPosition(fromPos, entry.position);
+                        renderBtnGrid();
+                        checkDirty();
+                    });
+
+                    cell.addEventListener('keydown', function(e) {
+                        var sorted2 = pendingLayout.slice().sort(function(a, b) { return a.position - b.position; });
+                        var curIdx = -1;
+                        for (var ci = 0; ci < sorted2.length; ci++) { if (sorted2[ci].id === entry.id) { curIdx = ci; break; } }
+                        var targetIdx = -1;
+                        if (e.key === 'ArrowLeft' && curIdx > 0) { targetIdx = curIdx - 1; }
+                        else if (e.key === 'ArrowRight' && curIdx < sorted2.length - 1) { targetIdx = curIdx + 1; }
+                        else if (e.key === 'ArrowUp' && curIdx >= 2) { targetIdx = curIdx - 2; }
+                        else if (e.key === 'ArrowDown' && curIdx + 2 < sorted2.length) { targetIdx = curIdx + 2; }
+                        if (targetIdx >= 0) {
+                            e.preventDefault();
+                            var swapEntry = sorted2[targetIdx];
+                            var curEntry = sorted2[curIdx];
+                            for (var sk = 0; sk < pendingLayout.length; sk++) {
+                                if (pendingLayout[sk].id === swapEntry.id) {
+                                    var tmpP = pendingLayout[sk].position;
+                                    pendingLayout[sk].position = curEntry.position;
+                                    for (var sk2 = 0; sk2 < pendingLayout.length; sk2++) {
+                                        if (pendingLayout[sk2].id === curEntry.id) { pendingLayout[sk2].position = tmpP; }
+                                    }
+                                    break;
+                                }
+                            }
+                            renderBtnGrid();
+                            checkDirty();
+                            var cells = btnGrid.querySelectorAll('[role="gridcell"]');
+                            if (cells[targetIdx]) cells[targetIdx].focus();
+                        }
+                    });
+
+                    cell.appendChild(posLabel);
+                    cell.appendChild(nameLabel);
+                    cell.appendChild(toggleBtn);
+                    btnGrid.appendChild(cell);
+                })(si);
+            }
+        }
+        renderBtnGrid();
+        btnGridContainer.appendChild(btnGrid);
+        btnSection.appendChild(btnGridContainer);
 
         var ariaLive = document.createElement('span');
         ariaLive.setAttribute('aria-live', 'polite');
@@ -17193,7 +17272,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
 
         var modalFooter = document.createElement('div');
-        modalFooter.style.cssText = 'padding: 12px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.15);';
+        modalFooter.style.cssText = 'padding: 12px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.15); flex-shrink: 0;';
 
         var cancelBtn = document.createElement('button');
         cancelBtn.id = CFG_SELECTORS.cancelBtnId;
