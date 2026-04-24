@@ -702,6 +702,99 @@
         return normalized;
     }
 
+    var _tlogPanel1ColTemplate = '';
+    var _tlogPanel1LastFiltered = [];
+    var _tlogPanel3ColTemplate = '';
+    var _tlogPanel3LastResults = [];
+
+    function isWithinTypoTolerance(str1, str2, maxDist) {
+        if (typeof maxDist === 'undefined') maxDist = 2;
+        if (!str1 && !str2) return true;
+        if (!str1 || !str2) return false;
+        var a = str1.toLowerCase().trim();
+        var b = str2.toLowerCase().trim();
+        if (a === b) return true;
+        if (Math.abs(a.length - b.length) > maxDist) return false;
+        return levenshteinDistance(a, b) <= maxDist;
+    }
+
+    function escapeXml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    function exportTableToExcel(headers, rows, filename) {
+        var xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<?mso-application progid="Excel.Sheet"?>\n';
+        xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+        xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+        xml += '<Styles><Style ss:ID="hdr"><Font ss:Bold="1"/></Style></Styles>\n';
+        xml += '<Worksheet ss:Name="Sheet1"><Table>\n';
+        xml += '<Row ss:StyleID="hdr">\n';
+        for (var h = 0; h < headers.length; h++) {
+            xml += '<Cell><Data ss:Type="String">' + escapeXml(headers[h]) + '</Data></Cell>\n';
+        }
+        xml += '</Row>\n';
+        for (var r = 0; r < rows.length; r++) {
+            xml += '<Row>\n';
+            for (var c = 0; c < rows[r].length; c++) {
+                xml += '<Cell><Data ss:Type="String">' + escapeXml(rows[r][c]) + '</Data></Cell>\n';
+            }
+            xml += '</Row>\n';
+        }
+        xml += '</Table></Worksheet></Workbook>';
+        var blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'export.xls';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+    }
+
+    function addColumnResizeHandles(headerEl, bodyContainerId, onTemplateChange) {
+        var cells = headerEl.children;
+        for (var i = 0; i < cells.length - 1; i++) {
+            cells[i].style.position = 'relative';
+            var handle = document.createElement('div');
+            handle.style.cssText = 'position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2;';
+            (function(colIdx) {
+                handle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var startX = e.clientX;
+                    var widths = [];
+                    for (var ci = 0; ci < cells.length; ci++) {
+                        widths.push(cells[ci].getBoundingClientRect().width);
+                    }
+                    function onMove(me) {
+                        var dx = me.clientX - startX;
+                        startX = me.clientX;
+                        widths[colIdx] = Math.max(60, widths[colIdx] + dx);
+                        widths[colIdx + 1] = Math.max(60, widths[colIdx + 1] - dx);
+                        var template = widths.map(function(w) { return w + 'px'; }).join(' ');
+                        headerEl.style.gridTemplateColumns = template;
+                        if (onTemplateChange) onTemplateChange(template);
+                        var body = document.getElementById(bodyContainerId);
+                        if (body) {
+                            for (var ri = 0; ri < body.children.length; ri++) {
+                                body.children[ri].style.gridTemplateColumns = template;
+                            }
+                        }
+                    }
+                    function onUp() {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    }
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+            })(i);
+            cells[i].appendChild(handle);
+        }
+    }
+
     function showELogProgressPanel() {
         addLogMessage('showELogProgressPanel: creating progress panel', 'log');
         elogState.isRunning = true;
@@ -2005,6 +2098,17 @@
                 }
             }
         }
+        for (var fi = 0; fi < options.length; fi++) {
+            var fOptText = options[fi].getAttribute('aria-label') || (options[fi].textContent || '').trim();
+            fOptText = fOptText.trim();
+            var fOptPairKey = normalizeFirstLastPair(fOptText);
+            for (var ki3 = 0; ki3 < matchKeys.length; ki3++) {
+                if (isWithinTypoTolerance(fOptPairKey, matchKeys[ki3], 2)) {
+                    addLogMessage('scanFilteredOptionsForMatch: fuzzy match (typo tolerance) at index ' + fi + ' text=' + fOptText + ' matchedKey=' + matchKeys[ki3], 'log');
+                    return { element: options[fi], matchType: 'fuzzy' };
+                }
+            }
+        }
         addLogMessage('scanFilteredOptionsForMatch: no match found', 'log');
         return null;
     }
@@ -2096,6 +2200,23 @@
                         }, timeouts.settleMs);
                         state.timeouts.push(verifyTid);
                         break;
+                    }
+                }
+                if (!found) {
+                    for (var foi = 0; foi < options.length; foi++) {
+                        var foOptPairKey = normalizeFirstLastPair(optionTexts[foi]);
+                        for (var fmki = 0; fmki < matchKeys.length; fmki++) {
+                            if (isWithinTypoTolerance(foOptPairKey, matchKeys[fmki], 2)) {
+                                addLogMessage('scrollSearchForName: fuzzy match found at index ' + foi + ' text=' + optionTexts[foi], 'log');
+                                state.activeDropdown = null;
+                                options[foi].click();
+                                found = true;
+                                var fVerifyTid = setTimeout(function() { resolve(true); }, timeouts.settleMs);
+                                state.timeouts.push(fVerifyTid);
+                                break;
+                            }
+                        }
+                        if (found) break;
                     }
                 }
                 if (!found) {
@@ -12381,7 +12502,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'tlog-final-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #1e2a3a 0%, #2d1b4e 100%); border-radius: 12px; padding: 20px; width: 95vw; max-width: 1400px; height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; position: relative;';
+        container.style.cssText = 'background: linear-gradient(135deg, #1e2a3a 0%, #2d1b4e 100%); border-radius: 12px; padding: 20px; width: 98vw; max-width: 1800px; height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         var isFullscreen = false;
@@ -12406,9 +12527,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 container.style.maxWidth = '100vw';
                 container.style.borderRadius = '0';
             } else {
-                container.style.width = '95vw';
+                container.style.width = '98vw';
                 container.style.height = '85vh';
-                container.style.maxWidth = '1400px';
+                container.style.maxWidth = '1800px';
                 container.style.borderRadius = '12px';
             }
         };
@@ -12479,19 +12600,37 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function tlogBuildPanel1(data, items) {
+        _tlogPanel1ColTemplate = '2fr 2fr 1fr 1fr';
         var panel = document.createElement('div');
-        panel.style.cssText = 'flex: 2; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
+        panel.style.cssText = 'flex: 2.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
         var panelTitle = document.createElement('div');
         panelTitle.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;';
         var h4 = document.createElement('h4');
         h4.textContent = 'Combined Training Data';
         h4.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600;';
-        panelTitle.appendChild(h4);
+        var titleBtns = document.createElement('div');
+        titleBtns.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+        var exportBtn1 = document.createElement('button');
+        exportBtn1.textContent = '\u2913 Export';
+        exportBtn1.title = 'Export to Excel (.xls)';
+        exportBtn1.style.cssText = 'background: rgba(107, 207, 127, 0.25); border: 1px solid rgba(107, 207, 127, 0.5); color: #6bcf7f; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
+        exportBtn1.onmouseover = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.4)'; };
+        exportBtn1.onmouseout = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.25)'; };
+        exportBtn1.onclick = function() {
+            var hdrs = ['Staff Name', 'File Name', 'Status', 'Date Signed'];
+            var rows = [];
+            for (var ei = 0; ei < _tlogPanel1LastFiltered.length; ei++) {
+                var rec = _tlogPanel1LastFiltered[ei];
+                rows.push([rec.staffName, rec.trainingItem, rec.status, rec.dateSigned]);
+            }
+            exportTableToExcel(hdrs, rows, 'CombinedTrainingData.xls');
+        };
+        titleBtns.appendChild(exportBtn1);
         var filterDropdown = document.createElement('div');
         filterDropdown.style.cssText = 'position: relative;';
         var filterBtn = document.createElement('button');
         filterBtn.textContent = 'Filter Items \u25BC';
-        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 500;';
+        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 500;';
         var filterMenu = document.createElement('div');
         filterMenu.id = 'tlog-filter-menu';
         filterMenu.style.cssText = 'display: none; position: absolute; top: 100%; right: 0; background: #2a2a3e; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px; z-index: 10; max-height: 250px; overflow-y: auto; min-width: 280px; box-shadow: 0 8px 20px rgba(0,0,0,0.4);';
@@ -12520,12 +12659,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
         };
         filterDropdown.appendChild(filterBtn);
         filterDropdown.appendChild(filterMenu);
-        panelTitle.appendChild(filterDropdown);
+        titleBtns.appendChild(filterDropdown);
+        panelTitle.appendChild(h4);
+        panelTitle.appendChild(titleBtns);
         panel.appendChild(panelTitle);
         var searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.id = 'tlog-panel1-search';
-        searchInput.placeholder = 'Search by name, status, or date...';
+        searchInput.placeholder = 'Search by name, status, date, or file name...';
         searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 12px; outline: none; box-sizing: border-box; margin-bottom: 6px; flex-shrink: 0;';
         searchInput.onfocus = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
         searchInput.onblur = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.15)'; };
@@ -12534,8 +12675,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         });
         panel.appendChild(searchInput);
         var tableHeader = document.createElement('div');
-        tableHeader.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; flex-shrink: 0;';
-        var headers = ['Staff Name', 'Status', 'Date Signed'];
+        tableHeader.id = 'tlog-panel1-header';
+        tableHeader.style.cssText = 'display: grid; grid-template-columns: ' + _tlogPanel1ColTemplate + '; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; flex-shrink: 0;';
+        var headers = ['Staff Name', 'File Name', 'Status', 'Date Signed'];
         var sortState = { col: -1, asc: true };
         for (var hi = 0; hi < headers.length; hi++) {
             var th = document.createElement('div');
@@ -12551,7 +12693,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         sortState.asc = true;
                     }
                     tlogRefreshPanel1Table(data, items, sortState);
-                    var allThs = tableHeader.querySelectorAll('div');
+                    var allThs = tableHeader.querySelectorAll('[data-tlog-sort-col]');
                     for (var ati = 0; ati < allThs.length; ati++) {
                         var base = headers[ati];
                         allThs[ati].textContent = base + ' \u2195';
@@ -12561,6 +12703,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             })(hi, th);
             tableHeader.appendChild(th);
         }
+        addColumnResizeHandles(tableHeader, 'tlog-panel1-body', function(t) { _tlogPanel1ColTemplate = t; });
         panel.appendChild(tableHeader);
         var tableBody = document.createElement('div');
         tableBody.id = 'tlog-panel1-body';
@@ -12597,37 +12740,39 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 var nameHit = data[di].staffName.toLowerCase().indexOf(searchTerm) !== -1;
                 var statusHit = data[di].status.toLowerCase().indexOf(searchTerm) !== -1;
                 var dateHit = data[di].dateSigned.toLowerCase().indexOf(searchTerm) !== -1;
-                if (!nameHit && !statusHit && !dateHit) continue;
+                var fileHit = data[di].trainingItem.toLowerCase().indexOf(searchTerm) !== -1;
+                if (!nameHit && !statusHit && !dateHit && !fileHit) continue;
             }
             filtered.push(data[di]);
         }
+        _tlogPanel1LastFiltered = filtered;
         if (sortState && sortState.col >= 0) {
             filtered.sort(function(a, b) {
                 var valA, valB;
                 if (sortState.col === 0) { valA = a.staffName.toLowerCase(); valB = b.staffName.toLowerCase(); }
-                else if (sortState.col === 1) { valA = a.status.toLowerCase(); valB = b.status.toLowerCase(); }
+                else if (sortState.col === 1) { valA = a.trainingItem.toLowerCase(); valB = b.trainingItem.toLowerCase(); }
+                else if (sortState.col === 2) { valA = a.status.toLowerCase(); valB = b.status.toLowerCase(); }
                 else { valA = a.dateSigned.toLowerCase(); valB = b.dateSigned.toLowerCase(); }
                 var cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
                 return sortState.asc ? cmp : -cmp;
             });
         }
+        var colTemplate = _tlogPanel1ColTemplate || '2fr 2fr 1fr 1fr';
         body.innerHTML = '';
         var fragment = document.createDocumentFragment();
         for (var ri = 0; ri < filtered.length; ri++) {
             var rec = filtered[ri];
             var row = document.createElement('div');
-            row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: start;';
+            row.style.cssText = 'display: grid; grid-template-columns: ' + colTemplate + '; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: center;';
             row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
             row.onmouseout = function() { this.style.background = 'transparent'; };
-            var nameDiv = document.createElement('div');
             var nameSpan = document.createElement('div');
             nameSpan.textContent = rec.staffName;
-            nameSpan.style.cssText = 'color: white; font-size: 12px; font-weight: 500;';
-            var itemSpan = document.createElement('div');
-            itemSpan.textContent = rec.trainingItem;
-            itemSpan.style.cssText = 'color: rgba(255, 255, 255, 0.4); font-size: 10px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;';
-            nameDiv.appendChild(nameSpan);
-            nameDiv.appendChild(itemSpan);
+            nameSpan.style.cssText = 'color: white; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            var fileSpan = document.createElement('div');
+            fileSpan.textContent = rec.trainingItem;
+            fileSpan.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            fileSpan.title = rec.trainingItem;
             var statusSpan = document.createElement('div');
             statusSpan.textContent = rec.status;
             var sColor = rec.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : rec.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
@@ -12635,7 +12780,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var dateSpan = document.createElement('div');
             dateSpan.textContent = rec.dateSigned || '';
             dateSpan.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
-            row.appendChild(nameDiv);
+            row.appendChild(nameSpan);
+            row.appendChild(fileSpan);
             row.appendChild(statusSpan);
             row.appendChild(dateSpan);
             fragment.appendChild(row);
@@ -12725,7 +12871,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function tlogBuildPanel3() {
         var panel = document.createElement('div');
         panel.id = 'tlog-panel3';
-        panel.style.cssText = 'flex: 1.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
+        panel.style.cssText = 'flex: 2.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
         var h4 = document.createElement('h4');
         h4.textContent = 'Combined Results';
         h4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
@@ -12742,6 +12888,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('tlogGeneratePanel3: generating for ' + pastedNames.length + ' names', 'log');
         var panel = document.getElementById('tlog-panel3');
         if (!panel) return;
+        var p3ColTemplate = '2fr 2fr 1fr 1fr';
         var h4 = panel.querySelector('h4');
         panel.innerHTML = '';
         if (h4) panel.appendChild(h4);
@@ -12751,52 +12898,48 @@ function showResponsibilitiesProgressPanel(rolesData) {
             newH4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
             panel.appendChild(newH4);
         }
-        var searchRow = document.createElement('div');
-        searchRow.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; margin-bottom: 6px; flex-shrink: 0;';
-        var nameSearch = document.createElement('input');
-        nameSearch.type = 'text';
-        nameSearch.placeholder = 'Search name...';
-        nameSearch.style.cssText = 'padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
-        var spacer = document.createElement('div');
-        var dateSearch = document.createElement('input');
-        dateSearch.type = 'text';
-        dateSearch.placeholder = 'Search date...';
-        dateSearch.style.cssText = 'padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
-        searchRow.appendChild(nameSearch);
-        searchRow.appendChild(spacer);
-        searchRow.appendChild(dateSearch);
-        panel.appendChild(searchRow);
+        var toolsRow = document.createElement('div');
+        toolsRow.style.cssText = 'display: flex; gap: 6px; margin-bottom: 6px; flex-shrink: 0; align-items: center;';
+        var p3Search = document.createElement('input');
+        p3Search.type = 'text';
+        p3Search.placeholder = 'Search name, file, status, or date...';
+        p3Search.style.cssText = 'flex: 1; padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
+        var exportBtn3 = document.createElement('button');
+        exportBtn3.textContent = '\u2913 Export';
+        exportBtn3.title = 'Export to Excel (.xls)';
+        exportBtn3.style.cssText = 'background: rgba(107, 207, 127, 0.25); border: 1px solid rgba(107, 207, 127, 0.5); color: #6bcf7f; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; flex-shrink: 0;';
+        exportBtn3.onmouseover = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.4)'; };
+        exportBtn3.onmouseout = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.25)'; };
+        toolsRow.appendChild(p3Search);
+        toolsRow.appendChild(exportBtn3);
+        panel.appendChild(toolsRow);
         var colHeader = document.createElement('div');
-        colHeader.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px 4px 0 0; flex-shrink: 0;';
-        var ch1 = document.createElement('div');
-        ch1.textContent = 'Name \u2195';
-        ch1.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
-        var ch2 = document.createElement('div');
-        ch2.textContent = 'Status \u2195';
-        ch2.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
-        var ch3 = document.createElement('div');
-        ch3.textContent = 'Date Signed \u2195';
-        ch3.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+        colHeader.id = 'tlog-panel3-header';
+        colHeader.style.cssText = 'display: grid; grid-template-columns: ' + p3ColTemplate + '; gap: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px 4px 0 0; flex-shrink: 0;';
+        var p3Headers = ['Name', 'File Name', 'Status', 'Date Signed'];
         var p3Sort = { col: -1, asc: true };
-        var p3Heads = [ch1, ch2, ch3];
-        var p3Labels = ['Name', 'Status', 'Date Signed'];
-        function p3SortClick(ci) { if (p3Sort.col === ci) { p3Sort.asc = !p3Sort.asc; } else { p3Sort.col = ci; p3Sort.asc = true; } for (var u = 0; u < 3; u++) { p3Heads[u].textContent = p3Labels[u] + ' \u2195'; } p3Heads[ci].textContent = p3Labels[ci] + (p3Sort.asc ? ' \u25B2' : ' \u25BC'); renderPanel3(nameSearch.value, dateSearch.value); }
-        ch1.onclick = function() { p3SortClick(0); };
-        ch2.onclick = function() { p3SortClick(1); };
-        ch3.onclick = function() { p3SortClick(2); };
-        colHeader.appendChild(ch1);
-        colHeader.appendChild(ch2);
-        colHeader.appendChild(ch3);
+        var p3Heads = [];
+        for (var phi = 0; phi < p3Headers.length; phi++) {
+            var chEl = document.createElement('div');
+            chEl.textContent = p3Headers[phi] + ' \u2195';
+            chEl.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+            chEl.setAttribute('data-tlog-p3-sort-col', String(phi));
+            chEl.onclick = (function(ci) { return function() { if (p3Sort.col === ci) { p3Sort.asc = !p3Sort.asc; } else { p3Sort.col = ci; p3Sort.asc = true; } for (var u = 0; u < p3Heads.length; u++) { p3Heads[u].textContent = p3Headers[u] + ' \u2195'; } p3Heads[ci].textContent = p3Headers[ci] + (p3Sort.asc ? ' \u25B2' : ' \u25BC'); renderPanel3(p3Search.value); }; })(phi);
+            p3Heads.push(chEl);
+            colHeader.appendChild(chEl);
+        }
+        addColumnResizeHandles(colHeader, 'tlog-panel3-body', function(t) { p3ColTemplate = t; });
         panel.appendChild(colHeader);
         var resultBody = document.createElement('div');
         resultBody.id = 'tlog-panel3-body';
         resultBody.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
         panel.appendChild(resultBody);
         var dataMap = {};
+        var allDataKeys = [];
         for (var ci = 0; ci < tlogState.collectedData.length; ci++) {
             var rec = tlogState.collectedData[ci];
             var key = rec.staffName.toLowerCase().trim();
-            if (!dataMap[key]) dataMap[key] = [];
+            if (!dataMap[key]) { dataMap[key] = []; allDataKeys.push(key); }
             dataMap[key].push(rec);
         }
         var results = [];
@@ -12804,55 +12947,82 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var inputName = pastedNames[ni];
             var lookupKey = inputName.toLowerCase().trim();
             var entries = dataMap[lookupKey] || [];
-            var resolvedStatus = TLOG_LABELS.statusUnrequested;
-            var resolvedDate = '';
-            for (var ei = 0; ei < entries.length; ei++) {
-                if (entries[ei].status === TLOG_LABELS.statusSigned) {
-                    resolvedStatus = TLOG_LABELS.statusSigned;
-                    resolvedDate = entries[ei].dateSigned;
-                    break;
+            if (entries.length === 0) {
+                var bestKey = null;
+                var bestDist = 3;
+                for (var ki = 0; ki < allDataKeys.length; ki++) {
+                    var dist = levenshteinDistance(lookupKey, allDataKeys[ki]);
+                    if (dist <= 2 && dist < bestDist) {
+                        bestDist = dist;
+                        bestKey = allDataKeys[ki];
+                    }
                 }
-                if (entries[ei].status === TLOG_LABELS.statusPending) {
-                    resolvedStatus = TLOG_LABELS.statusPending;
+                if (bestKey) {
+                    addLogMessage('tlogGeneratePanel3: fuzzy matched "' + inputName + '" -> "' + bestKey + '" (dist=' + bestDist + ')', 'log');
+                    entries = dataMap[bestKey];
                 }
             }
-            results.push({ name: inputName, status: resolvedStatus, date: resolvedDate });
+            if (entries.length > 0) {
+                for (var ei = 0; ei < entries.length; ei++) {
+                    results.push({ name: inputName, fileName: entries[ei].trainingItem, status: entries[ei].status, date: entries[ei].dateSigned });
+                }
+            } else {
+                results.push({ name: inputName, fileName: '', status: TLOG_LABELS.statusUnrequested, date: '' });
+            }
         }
-        function renderPanel3(filter1, filter2) {
+        var lastFilteredP3 = results;
+        exportBtn3.onclick = function() {
+            var hdrs = ['Name', 'File Name', 'Status', 'Date Signed'];
+            var rows = [];
+            for (var xi = 0; xi < lastFilteredP3.length; xi++) {
+                rows.push([lastFilteredP3[xi].name, lastFilteredP3[xi].fileName, lastFilteredP3[xi].status, lastFilteredP3[xi].date]);
+            }
+            exportTableToExcel(hdrs, rows, 'CombinedResults.xls');
+        };
+        function renderPanel3(searchVal) {
+            var ct = p3ColTemplate || '2fr 2fr 1fr 1fr';
             resultBody.innerHTML = '';
             var frag = document.createDocumentFragment();
-            var f1 = (filter1 || '').toLowerCase();
-            var f2 = (filter2 || '').toLowerCase();
+            var term = (searchVal || '').toLowerCase();
             var sorted = results.slice();
-            if (p3Sort.col >= 0) { sorted.sort(function(a, b) { var vA, vB; if (p3Sort.col === 0) { vA = a.name.toLowerCase(); vB = b.name.toLowerCase(); } else if (p3Sort.col === 1) { vA = a.status.toLowerCase(); vB = b.status.toLowerCase(); } else { vA = a.date.toLowerCase(); vB = b.date.toLowerCase(); } var c = vA < vB ? -1 : vA > vB ? 1 : 0; return p3Sort.asc ? c : -c; }); }
+            if (p3Sort.col >= 0) { sorted.sort(function(a, b) { var vA, vB; if (p3Sort.col === 0) { vA = a.name.toLowerCase(); vB = b.name.toLowerCase(); } else if (p3Sort.col === 1) { vA = a.fileName.toLowerCase(); vB = b.fileName.toLowerCase(); } else if (p3Sort.col === 2) { vA = a.status.toLowerCase(); vB = b.status.toLowerCase(); } else { vA = a.date.toLowerCase(); vB = b.date.toLowerCase(); } var c = vA < vB ? -1 : vA > vB ? 1 : 0; return p3Sort.asc ? c : -c; }); }
+            var visible = [];
             for (var ri = 0; ri < sorted.length; ri++) {
                 var r = sorted[ri];
-                if (f1 && r.name.toLowerCase().indexOf(f1) === -1) continue;
-                if (f2 && r.date.toLowerCase().indexOf(f2) === -1) continue;
+                if (term) {
+                    var hit = r.name.toLowerCase().indexOf(term) !== -1 || r.fileName.toLowerCase().indexOf(term) !== -1 || r.status.toLowerCase().indexOf(term) !== -1 || r.date.toLowerCase().indexOf(term) !== -1;
+                    if (!hit) continue;
+                }
+                visible.push(r);
                 var row = document.createElement('div');
-                row.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 4px; padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); align-items: center;';
+                row.style.cssText = 'display: grid; grid-template-columns: ' + ct + '; gap: 4px; padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); align-items: center;';
                 row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
                 row.onmouseout = function() { this.style.background = 'transparent'; };
                 var c1 = document.createElement('div');
                 c1.textContent = r.name;
-                c1.style.cssText = 'color: white; font-size: 12px;';
+                c1.style.cssText = 'color: white; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
                 var c2 = document.createElement('div');
-                c2.textContent = r.status;
-                var sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
-                c2.style.cssText = 'color: ' + sc + '; font-size: 12px; font-weight: 600;';
+                c2.textContent = r.fileName;
+                c2.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                c2.title = r.fileName;
                 var c3 = document.createElement('div');
-                c3.textContent = r.date || '';
-                c3.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                c3.textContent = r.status;
+                var sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                c3.style.cssText = 'color: ' + sc + '; font-size: 12px; font-weight: 600;';
+                var c4 = document.createElement('div');
+                c4.textContent = r.date || '';
+                c4.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
                 row.appendChild(c1);
                 row.appendChild(c2);
                 row.appendChild(c3);
+                row.appendChild(c4);
                 frag.appendChild(row);
             }
+            lastFilteredP3 = visible;
             resultBody.appendChild(frag);
         }
-        nameSearch.addEventListener('input', function() { renderPanel3(nameSearch.value, dateSearch.value); });
-        dateSearch.addEventListener('input', function() { renderPanel3(nameSearch.value, dateSearch.value); });
-        renderPanel3('', '');
+        p3Search.addEventListener('input', function() { renderPanel3(p3Search.value); });
+        renderPanel3('');
     }
 
     const STARTDATE_SELECTORS = {
@@ -18991,6 +19161,28 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     addLogMessage('findCandidateItem: fallback last name matched -> "' + getItemDisplayName(items[k]) + '"', 'log');
                     return items[k];
                 }
+            }
+        }
+
+        if (firstLower || lastLower) {
+            var bestFuzzyItem = null;
+            var bestFuzzyDist = 3;
+            for (var fi = 0; fi < items.length; fi++) {
+                var fNameText = normalizeName(getItemDisplayName(items[fi]));
+                var fParts = splitNameParts(fNameText);
+                var fFirstLower = normalizeName(fParts.first || '').toLowerCase();
+                var fLastLower = normalizeName(fParts.last || '').toLowerCase();
+                var firstDist = firstLower && fFirstLower ? levenshteinDistance(firstLower, fFirstLower) : 0;
+                var lastDist = lastLower && fLastLower ? levenshteinDistance(lastLower, fLastLower) : 0;
+                var totalDist = firstDist + lastDist;
+                if (totalDist <= 2 && totalDist < bestFuzzyDist) {
+                    bestFuzzyDist = totalDist;
+                    bestFuzzyItem = items[fi];
+                }
+            }
+            if (bestFuzzyItem) {
+                addLogMessage('findCandidateItem: fuzzy match (typo tolerance, dist=' + bestFuzzyDist + ') -> "' + getItemDisplayName(bestFuzzyItem) + '"', 'log');
+                return bestFuzzyItem;
             }
         }
 
