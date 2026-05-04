@@ -705,6 +705,7 @@
     var _tlogPanel1ColTemplate = '';
     var _tlogPanel1LastFiltered = [];
     var _tlogPanel3ColTemplate = '';
+    var _tlogShowDuplicatesOnly = false;
     var _tlogPanel3LastResults = [];
 
     function isWithinTypoTolerance(str1, str2, maxDist) {
@@ -716,6 +717,19 @@
         if (a === b) return true;
         if (Math.abs(a.length - b.length) > maxDist) return false;
         return levenshteinDistance(a, b) <= maxDist;
+    }
+
+    function findFuzzyMatchInPairs(pairKey, pairSet, maxDist) {
+        if (!pairKey) return null;
+        if (typeof maxDist === 'undefined') maxDist = 2;
+        if (pairSet.has(pairKey)) return pairKey;
+        var match = null;
+        pairSet.forEach(function(existing) {
+            if (!match && isWithinTypoTolerance(pairKey, existing, maxDist)) {
+                match = existing;
+            }
+        });
+        return match;
     }
 
     function escapeXml(str) {
@@ -7306,7 +7320,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var duplicateIndices = [];
         for (var i = 0; i < parsedCandidates.length; i++) {
             var candidate = parsedCandidates[i];
-            if (seenPairKeys.has(candidate.pairKey)) {
+            var fuzzyInputDup = findFuzzyMatchInPairs(candidate.pairKey, seenPairKeys, 2);
+            if (fuzzyInputDup) {
                 addLogMessage('buildDoAQueueSorted: input duplicate pairKey=' + candidate.pairKey + ' display=' + candidate.display, 'log');
                 duplicateIndices.push(i);
                 continue;
@@ -8552,9 +8567,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
             return;
         }
         var candidate = doaState.addQueue[doaState.addQueueIndex];
-        addLogMessage('processNextDoAFromQueue: processing ' + candidate.display + ' role=' + candidate.roleDisplay, 'log');
-        if (doaState.existingPairs.has(candidate.pairKey)) {
-            addLogMessage('processNextDoAFromQueue: already exists in table', 'log');
+        addLogMessage('processNextDoAFromQueue: processing ' + candidate.display + ' role=' + candidate.roleDisplay + ' pairKey="' + candidate.pairKey + '" existingPairs.size=' + doaState.existingPairs.size, 'log');
+        if (doaState.existingPairs.size > 0 && doaState.existingPairs.size <= 50) {
+            addLogMessage('processNextDoAFromQueue: existingPairs=[' + Array.from(doaState.existingPairs).join(', ') + ']', 'log');
+        }
+
+        var fuzzyDupMatch = findFuzzyMatchInPairs(candidate.pairKey, doaState.existingPairs, 2);
+        if (!fuzzyDupMatch && candidate.candidatePairKeys) {
+            for (var fci = 0; fci < candidate.candidatePairKeys.length && !fuzzyDupMatch; fci++) {
+                fuzzyDupMatch = findFuzzyMatchInPairs(candidate.candidatePairKeys[fci], doaState.existingPairs, 2);
+            }
+        }
+
+        if (fuzzyDupMatch) {
+            addLogMessage('processNextDoAFromQueue: already exists in table (matched "' + fuzzyDupMatch + '" for input "' + candidate.pairKey + '")', 'log');
             candidate.status = DOA_LABELS.statusAlready;
             doaState.counters.duplicates++;
             doaState.counters.pending--;
@@ -11592,11 +11618,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
     };
 
     const TLOG_LABELS = {
-        featureButton: 'Get Training Log',
-        progressTitle: 'Scanning Training Items',
-        selectionTitle: 'Select Training Items',
-        processingTitle: 'Processing Training Logs',
-        finalTitle: 'Training Log Summary',
+        featureButton: 'Get Log Data',
+        progressTitle: 'Scanning Items',
+        selectionTitle: 'Select Items',
+        processingTitle: 'Processing Logs',
+        finalTitle: 'Log Summary',
         statusSigned: 'Signed',
         statusPending: 'Pending',
         statusUnrequested: 'Unrequested'
@@ -11615,7 +11641,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         selectedItems: [],
         collectedData: [],
         openTabs: [],
-        focusReturnElement: null
+        focusReturnElement: null,
+        isDoAMode: false
     };
 
     function resetTlogState() {
@@ -11633,6 +11660,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         tlogState.collectedData = [];
         tlogState.openTabs = [];
         tlogState.reuseTab = null;
+        tlogState.isDoAMode = false;
     }
 
     function stopTlog() {
@@ -11698,7 +11726,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var wrapper = document.querySelector(TLOG_SELECTORS.virtualScrollWrapper);
         if (!wrapper) {
             addLogMessage('getTrainingLogInit: virtual scroll wrapper not found, showing warning', 'warn');
-            tlogShowWarning('Training list not found. Please navigate to a page with the training items list before using this feature.');
+            tlogShowWarning('List not found. Please navigate to a page with the items list before using this feature.');
             return;
         }
         tlogShowScanProgress();
@@ -11716,7 +11744,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var header = document.createElement('div');
         header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
         var title = document.createElement('h3');
-        title.textContent = 'Training List Not Found';
+        title.textContent = 'List Not Found';
         title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
         var closeBtn = document.createElement('button');
         closeBtn.innerHTML = '\u2715';
@@ -11891,7 +11919,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var scanModal = document.getElementById('tlog-scan-modal');
             if (scanModal && scanModal.parentNode) scanModal.parentNode.removeChild(scanModal);
             if (tlogState.discoveredItems.length === 0) {
-                tlogShowWarning('No training items were found. Please make sure training items are visible on this page.');
+                tlogShowWarning('No items were found. Please make sure items are visible on this page.');
                 return;
             }
             tlogShowSelectionGUI();
@@ -11936,6 +11964,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         selectedCount.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 13px; margin-left: auto;';
         selectAllContainer.appendChild(selectAllCb);
         selectAllContainer.appendChild(selectAllLabel);
+        var doaCb = document.createElement('input');
+        doaCb.type = 'checkbox';
+        doaCb.id = 'tlog-doa-mode';
+        doaCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #ffd93d; margin-left: 16px;';
+        var doaLabel = document.createElement('label');
+        doaLabel.htmlFor = 'tlog-doa-mode';
+        doaLabel.textContent = 'DoA';
+        doaLabel.style.cssText = 'color: white; font-size: 14px; font-weight: 500; cursor: pointer;';
+        selectAllContainer.appendChild(doaCb);
+        selectAllContainer.appendChild(doaLabel);
         selectAllContainer.appendChild(selectedCount);
         var listContainer = document.createElement('div');
         listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 200px; max-height: 50vh; background: rgba(0, 0, 0, 0.15); border-radius: 8px; padding: 8px;';
@@ -12013,7 +12051,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             if (selected.length === 0) return;
             tlogState.selectedItems = selected;
-            addLogMessage('tlogShowSelectionGUI: selected ' + selected.length + ' items', 'log');
+            var doaCheckbox = document.getElementById('tlog-doa-mode');
+            tlogState.isDoAMode = doaCheckbox ? doaCheckbox.checked : false;
+            addLogMessage('tlogShowSelectionGUI: selected ' + selected.length + ' items, DoA mode=' + tlogState.isDoAMode, 'log');
             if (modal.parentNode) modal.parentNode.removeChild(modal);
             tlogProcessSelectedItems();
         };
@@ -12082,7 +12122,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var procModal = document.getElementById('tlog-processing-modal');
             if (procModal && procModal.parentNode) procModal.parentNode.removeChild(procModal);
             if (tlogState.collectedData.length === 0 && !tlogState.stopRequested) {
-                tlogShowWarning('No data was collected from the selected training items. The pages may not contain the expected table format.');
+                tlogShowWarning('No data was collected from the selected items. The pages may not contain the expected table format.');
                 return;
             }
             if (!tlogState.stopRequested) {
@@ -12422,33 +12462,56 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 if (seenKeys.has(rowKey)) continue;
                 seenKeys.add(rowKey);
                 var staffCell = cells.length > TLOG_SELECTORS.staffNameCellIndex ? cells[TLOG_SELECTORS.staffNameCellIndex] : null;
-                var sigCell = cells.length > TLOG_SELECTORS.signatureCellIndex ? cells[TLOG_SELECTORS.signatureCellIndex] : null;
                 if (!staffCell) continue;
+                var isStrikethrough = !!staffCell.querySelector('.log-entry--struckThrough');
                 var rawStaffText = staffCell.textContent.trim().replace(/\s+/g, ' ');
                 var staffName = rawStaffText.replace(/\S+@\S+\.\S+/g, '').trim().replace(/\s+/g, ' ');
                 if (!staffName) continue;
-                var sigText = sigCell ? sigCell.textContent.trim().replace(/\s+/g, ' ') : '';
-                var status = '';
-                var dateSigned = '';
-                if (sigText && sigText.toLowerCase().indexOf('unrequested') !== -1) {
-                    status = TLOG_LABELS.statusUnrequested;
-                } else if (sigText && sigText.toLowerCase().indexOf('pending other user') !== -1) {
-                    status = TLOG_LABELS.statusPending;
-                } else if (sigText && sigText.toLowerCase().indexOf('pending') !== -1) {
-                    status = TLOG_LABELS.statusPending;
-                } else if (sigText && sigText.trim()) {
-                    status = TLOG_LABELS.statusSigned;
-                    var dateMatch = sigText.match(/(\d{1,2}[A-Za-z]{3}\d{4}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
-                    dateSigned = dateMatch ? dateMatch[1] : sigText;
+                if (tlogState.isDoAMode) {
+                    var getCellText = function(idx) {
+                        if (cells.length > idx) {
+                            return cells[idx].textContent.trim().replace(/\s+/g, ' ');
+                        }
+                        return '';
+                    };
+                    records.push({
+                        staffName: staffName,
+                        studyRole: getCellText(4),
+                        responsibilities: getCellText(5),
+                        startDate: getCellText(6),
+                        staffSignature: getCellText(7),
+                        piSignatureStart: getCellText(8),
+                        endDate: getCellText(9),
+                        piSignatureEnd: getCellText(10),
+                        trainingItem: itemLabel,
+                        isStrikethrough: isStrikethrough
+                    });
                 } else {
-                    status = TLOG_LABELS.statusUnrequested;
+                    var sigCell = cells.length > TLOG_SELECTORS.signatureCellIndex ? cells[TLOG_SELECTORS.signatureCellIndex] : null;
+                    var sigText = sigCell ? sigCell.textContent.trim().replace(/\s+/g, ' ') : '';
+                    var status = '';
+                    var dateSigned = '';
+                    if (sigText && sigText.toLowerCase().indexOf('unrequested') !== -1) {
+                        status = TLOG_LABELS.statusUnrequested;
+                    } else if (sigText && sigText.toLowerCase().indexOf('pending other user') !== -1) {
+                        status = TLOG_LABELS.statusPending;
+                    } else if (sigText && sigText.toLowerCase().indexOf('pending') !== -1) {
+                        status = TLOG_LABELS.statusPending;
+                    } else if (sigText && sigText.trim()) {
+                        status = TLOG_LABELS.statusSigned;
+                        var dateMatch = sigText.match(/(\d{1,2}[A-Za-z]{3}\d{4}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}|\d{4}[\/-]\d{1,2}[\/-]\d{1,2})/);
+                        dateSigned = dateMatch ? dateMatch[1] : sigText;
+                    } else {
+                        status = TLOG_LABELS.statusUnrequested;
+                    }
+                    records.push({
+                        staffName: staffName,
+                        status: status,
+                        dateSigned: dateSigned,
+                        trainingItem: itemLabel,
+                        isStrikethrough: isStrikethrough
+                    });
                 }
-                records.push({
-                    staffName: staffName,
-                    status: status,
-                    dateSigned: dateSigned,
-                    trainingItem: itemLabel
-                });
                 newCount++;
             }
             return newCount;
@@ -12600,13 +12663,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function tlogBuildPanel1(data, items) {
-        _tlogPanel1ColTemplate = '2fr 2fr 1fr 1fr';
+        var isDoA = tlogState.isDoAMode;
+        _tlogPanel1ColTemplate = isDoA ? '160px 130px 160px 110px 150px 150px 110px 150px' : '2fr 2fr 1fr 1fr';
+        _tlogShowDuplicatesOnly = false;
         var panel = document.createElement('div');
         panel.style.cssText = 'flex: 2.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
         var panelTitle = document.createElement('div');
         panelTitle.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;';
         var h4 = document.createElement('h4');
-        h4.textContent = 'Combined Training Data';
+        h4.textContent = isDoA ? 'DoA Log Data' : 'Combined Training Data';
         h4.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600;';
         var titleBtns = document.createElement('div');
         titleBtns.style.cssText = 'display: flex; gap: 6px; align-items: center;';
@@ -12617,15 +12682,37 @@ function showResponsibilitiesProgressPanel(rolesData) {
         exportBtn1.onmouseover = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.4)'; };
         exportBtn1.onmouseout = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.25)'; };
         exportBtn1.onclick = function() {
-            var hdrs = ['Staff Name', 'File Name', 'Status', 'Date Signed'];
-            var rows = [];
-            for (var ei = 0; ei < _tlogPanel1LastFiltered.length; ei++) {
-                var rec = _tlogPanel1LastFiltered[ei];
-                rows.push([rec.staffName, rec.trainingItem, rec.status, rec.dateSigned]);
+            var hdrs, rows = [];
+            if (isDoA) {
+                hdrs = ['Staff Name', 'Study Role', 'Responsibilities', 'Start Date', 'Staff Signature', 'PI Signature (Start)', 'End Date', 'PI Signature (End)', 'File Name'];
+                for (var ei = 0; ei < _tlogPanel1LastFiltered.length; ei++) {
+                    var rec = _tlogPanel1LastFiltered[ei];
+                    rows.push([rec.staffName, rec.studyRole || '', rec.responsibilities || '', rec.startDate || '', rec.staffSignature || '', rec.piSignatureStart || '', rec.endDate || '', rec.piSignatureEnd || '', rec.trainingItem]);
+                }
+            } else {
+                hdrs = ['Staff Name', 'File Name', 'Status', 'Date Signed'];
+                for (var ei2 = 0; ei2 < _tlogPanel1LastFiltered.length; ei2++) {
+                    var rec2 = _tlogPanel1LastFiltered[ei2];
+                    rows.push([rec2.staffName, rec2.trainingItem, rec2.status, rec2.dateSigned]);
+                }
             }
-            exportTableToExcel(hdrs, rows, 'CombinedTrainingData.xls');
+            exportTableToExcel(hdrs, rows, isDoA ? 'DoALogData.xls' : 'CombinedTrainingData.xls');
+        };
+        var dupBtn = document.createElement('button');
+        dupBtn.textContent = 'Show Duplicate';
+        dupBtn.title = 'Show only duplicate staff names (excludes strikethrough)';
+        dupBtn.style.cssText = 'background: rgba(255, 217, 61, 0.15); border: 1px solid rgba(255, 217, 61, 0.4); color: #ffd93d; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
+        dupBtn.onmouseover = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.5)' : 'rgba(255, 217, 61, 0.3)'; };
+        dupBtn.onmouseout = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.4)' : 'rgba(255, 217, 61, 0.15)'; };
+        dupBtn.onclick = function() {
+            _tlogShowDuplicatesOnly = !_tlogShowDuplicatesOnly;
+            dupBtn.textContent = _tlogShowDuplicatesOnly ? 'Show All' : 'Show Duplicate';
+            dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.4)' : 'rgba(255, 217, 61, 0.15)';
+            dupBtn.style.borderColor = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.7)' : 'rgba(255, 217, 61, 0.4)';
+            tlogRefreshPanel1Table(data, items);
         };
         titleBtns.appendChild(exportBtn1);
+        titleBtns.appendChild(dupBtn);
         var filterDropdown = document.createElement('div');
         filterDropdown.style.cssText = 'position: relative;';
         var filterBtn = document.createElement('button');
@@ -12666,7 +12753,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.id = 'tlog-panel1-search';
-        searchInput.placeholder = 'Search by name, status, date, or file name...';
+        searchInput.placeholder = isDoA ? 'Search by name, role, date, signature...' : 'Search by name, status, date, or file name...';
         searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 12px; outline: none; box-sizing: border-box; margin-bottom: 6px; flex-shrink: 0;';
         searchInput.onfocus = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
         searchInput.onblur = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.15)'; };
@@ -12674,10 +12761,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
             tlogRefreshPanel1Table(data, items);
         });
         panel.appendChild(searchInput);
+        var scrollWrapper = document.createElement('div');
+        scrollWrapper.style.cssText = 'flex: 1; overflow: auto; min-height: 0; border-radius: 6px;';
+        var tableMinWidth = isDoA ? 'min-width: 1120px;' : '';
         var tableHeader = document.createElement('div');
         tableHeader.id = 'tlog-panel1-header';
-        tableHeader.style.cssText = 'display: grid; grid-template-columns: ' + _tlogPanel1ColTemplate + '; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; flex-shrink: 0;';
-        var headers = ['Staff Name', 'File Name', 'Status', 'Date Signed'];
+        tableHeader.style.cssText = 'display: grid; grid-template-columns: ' + _tlogPanel1ColTemplate + '; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 1; ' + tableMinWidth;
+        var headers = isDoA ? ['Staff Name', 'Study Role', 'Responsibilities', 'Start Date', 'Staff Sig.', 'PI Sig. (Start)', 'End Date', 'PI Sig. (End)'] : ['Staff Name', 'File Name', 'Status', 'Date Signed'];
         var sortState = { col: -1, asc: true };
         for (var hi = 0; hi < headers.length; hi++) {
             var th = document.createElement('div');
@@ -12704,11 +12794,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
             tableHeader.appendChild(th);
         }
         addColumnResizeHandles(tableHeader, 'tlog-panel1-body', function(t) { _tlogPanel1ColTemplate = t; });
-        panel.appendChild(tableHeader);
+        scrollWrapper.appendChild(tableHeader);
         var tableBody = document.createElement('div');
         tableBody.id = 'tlog-panel1-body';
-        tableBody.style.cssText = 'flex: 1; overflow-y: auto; min-height: 0;';
-        panel.appendChild(tableBody);
+        tableBody.style.cssText = tableMinWidth;
+        scrollWrapper.appendChild(tableBody);
+        panel.appendChild(scrollWrapper);
         var summaryBar = document.createElement('div');
         summaryBar.id = 'tlog-panel1-summary';
         summaryBar.style.cssText = 'display: flex; justify-content: space-around; padding: 8px 10px; background: rgba(0, 0, 0, 0.2); border-radius: 0 0 6px 6px; flex-shrink: 0; flex-wrap: wrap; gap: 4px;';
@@ -12719,6 +12810,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function tlogRefreshPanel1Table(data, items, sortState) {
         var body = document.getElementById('tlog-panel1-body');
         if (!body) return;
+        var isDoA = tlogState.isDoAMode;
         var filterCbs = document.querySelectorAll('#tlog-filter-menu input[data-tlog-filter]');
         var visibleItems = new Set();
         for (var fi = 0; fi < filterCbs.length; fi++) {
@@ -12737,77 +12829,133 @@ function showResponsibilitiesProgressPanel(rolesData) {
         for (var di = 0; di < data.length; di++) {
             if (!visibleItems.has(data[di].trainingItem)) continue;
             if (searchTerm) {
-                var nameHit = data[di].staffName.toLowerCase().indexOf(searchTerm) !== -1;
-                var statusHit = data[di].status.toLowerCase().indexOf(searchTerm) !== -1;
-                var dateHit = data[di].dateSigned.toLowerCase().indexOf(searchTerm) !== -1;
-                var fileHit = data[di].trainingItem.toLowerCase().indexOf(searchTerm) !== -1;
-                if (!nameHit && !statusHit && !dateHit && !fileHit) continue;
+                var haystack = data[di].staffName.toLowerCase() + ' ' + data[di].trainingItem.toLowerCase();
+                if (isDoA) {
+                    haystack += ' ' + (data[di].studyRole || '').toLowerCase() + ' ' + (data[di].responsibilities || '').toLowerCase() + ' ' + (data[di].startDate || '').toLowerCase() + ' ' + (data[di].staffSignature || '').toLowerCase() + ' ' + (data[di].piSignatureStart || '').toLowerCase() + ' ' + (data[di].endDate || '').toLowerCase() + ' ' + (data[di].piSignatureEnd || '').toLowerCase();
+                } else {
+                    haystack += ' ' + (data[di].status || '').toLowerCase() + ' ' + (data[di].dateSigned || '').toLowerCase();
+                }
+                if (haystack.indexOf(searchTerm) === -1) continue;
             }
             filtered.push(data[di]);
         }
+        if (_tlogShowDuplicatesOnly) {
+            var nameCounts = {};
+            for (var ci = 0; ci < filtered.length; ci++) {
+                if (filtered[ci].isStrikethrough) continue;
+                var nk = filtered[ci].staffName.toLowerCase().trim();
+                nameCounts[nk] = (nameCounts[nk] || 0) + 1;
+            }
+            var dupNames = new Set();
+            for (var dk in nameCounts) {
+                if (nameCounts[dk] > 1) dupNames.add(dk);
+            }
+            var dupFiltered = [];
+            for (var df = 0; df < filtered.length; df++) {
+                if (filtered[df].isStrikethrough) continue;
+                if (dupNames.has(filtered[df].staffName.toLowerCase().trim())) {
+                    dupFiltered.push(filtered[df]);
+                }
+            }
+            filtered = dupFiltered;
+        }
         _tlogPanel1LastFiltered = filtered;
         if (sortState && sortState.col >= 0) {
+            var doaFields = ['staffName', 'studyRole', 'responsibilities', 'startDate', 'staffSignature', 'piSignatureStart', 'endDate', 'piSignatureEnd'];
+            var nonDoaFields = ['staffName', 'trainingItem', 'status', 'dateSigned'];
+            var fields = isDoA ? doaFields : nonDoaFields;
             filtered.sort(function(a, b) {
-                var valA, valB;
-                if (sortState.col === 0) { valA = a.staffName.toLowerCase(); valB = b.staffName.toLowerCase(); }
-                else if (sortState.col === 1) { valA = a.trainingItem.toLowerCase(); valB = b.trainingItem.toLowerCase(); }
-                else if (sortState.col === 2) { valA = a.status.toLowerCase(); valB = b.status.toLowerCase(); }
-                else { valA = a.dateSigned.toLowerCase(); valB = b.dateSigned.toLowerCase(); }
+                var field = fields[sortState.col] || fields[0];
+                var valA = (a[field] || '').toLowerCase();
+                var valB = (b[field] || '').toLowerCase();
                 var cmp = valA < valB ? -1 : valA > valB ? 1 : 0;
                 return sortState.asc ? cmp : -cmp;
             });
         }
-        var colTemplate = _tlogPanel1ColTemplate || '2fr 2fr 1fr 1fr';
+        var colTemplate = _tlogPanel1ColTemplate || (isDoA ? '160px 130px 160px 110px 150px 150px 110px 150px' : '2fr 2fr 1fr 1fr');
+        var tableMinWidth = isDoA ? 'min-width: 1120px;' : '';
         body.innerHTML = '';
+        body.style.cssText = tableMinWidth;
         var fragment = document.createDocumentFragment();
+        var cellStyle = 'color: rgba(255, 255, 255, 0.8); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
         for (var ri = 0; ri < filtered.length; ri++) {
             var rec = filtered[ri];
             var row = document.createElement('div');
-            row.style.cssText = 'display: grid; grid-template-columns: ' + colTemplate + '; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: center;';
+            row.style.cssText = 'display: grid; grid-template-columns: ' + colTemplate + '; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: center;' + (rec.isStrikethrough ? ' opacity: 0.4; text-decoration: line-through;' : '');
             row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
             row.onmouseout = function() { this.style.background = 'transparent'; };
             var nameSpan = document.createElement('div');
             nameSpan.textContent = rec.staffName;
             nameSpan.style.cssText = 'color: white; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-            var fileSpan = document.createElement('div');
-            fileSpan.textContent = rec.trainingItem;
-            fileSpan.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-            fileSpan.title = rec.trainingItem;
-            var statusSpan = document.createElement('div');
-            statusSpan.textContent = rec.status;
-            var sColor = rec.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : rec.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
-            statusSpan.style.cssText = 'color: ' + sColor + '; font-size: 12px; font-weight: 600;';
-            var dateSpan = document.createElement('div');
-            dateSpan.textContent = rec.dateSigned || '';
-            dateSpan.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
             row.appendChild(nameSpan);
-            row.appendChild(fileSpan);
-            row.appendChild(statusSpan);
-            row.appendChild(dateSpan);
+            if (isDoA) {
+                var doaCols = [rec.studyRole, rec.responsibilities, rec.startDate, rec.staffSignature, rec.piSignatureStart, rec.endDate, rec.piSignatureEnd];
+                for (var dci = 0; dci < doaCols.length; dci++) {
+                    var dSpan = document.createElement('div');
+                    dSpan.textContent = doaCols[dci] || '';
+                    dSpan.title = doaCols[dci] || '';
+                    dSpan.style.cssText = cellStyle;
+                    row.appendChild(dSpan);
+                }
+            } else {
+                var fileSpan = document.createElement('div');
+                fileSpan.textContent = rec.trainingItem;
+                fileSpan.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                fileSpan.title = rec.trainingItem;
+                var statusSpan = document.createElement('div');
+                statusSpan.textContent = rec.status;
+                var sColor = rec.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : rec.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                statusSpan.style.cssText = 'color: ' + sColor + '; font-size: 12px; font-weight: 600;';
+                var dateSpan = document.createElement('div');
+                dateSpan.textContent = rec.dateSigned || '';
+                dateSpan.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                row.appendChild(fileSpan);
+                row.appendChild(statusSpan);
+                row.appendChild(dateSpan);
+            }
             fragment.appendChild(row);
         }
         body.appendChild(fragment);
         var uniqueNames = {};
-        var signedNames = new Set();
-        var pendingNames = new Set();
-        var unrequestedNames = new Set();
         for (var si = 0; si < filtered.length; si++) {
             var nm = filtered[si].staffName.toLowerCase();
             uniqueNames[nm] = true;
-            if (filtered[si].status === TLOG_LABELS.statusSigned) signedNames.add(nm);
-            else if (filtered[si].status === TLOG_LABELS.statusPending) pendingNames.add(nm);
-            else unrequestedNames.add(nm);
         }
         var summaryEl = document.getElementById('tlog-panel1-summary');
         if (summaryEl) {
             summaryEl.innerHTML = '';
-            var stats = [
-                { label: 'Total Unique', value: Object.keys(uniqueNames).length },
-                { label: 'Signed', value: signedNames.size },
-                { label: 'Pending', value: pendingNames.size },
-                { label: 'Unrequested', value: unrequestedNames.size },
-                { label: 'Total Rows', value: filtered.length }
-            ];
+            var stats;
+            if (isDoA) {
+                var nonStrikeCount = 0;
+                var strikeCount = 0;
+                for (var sc = 0; sc < filtered.length; sc++) {
+                    if (filtered[sc].isStrikethrough) strikeCount++;
+                    else nonStrikeCount++;
+                }
+                stats = [
+                    { label: 'Total Unique', value: Object.keys(uniqueNames).length },
+                    { label: 'Active Rows', value: nonStrikeCount },
+                    { label: 'Strikethrough', value: strikeCount },
+                    { label: 'Total Rows', value: filtered.length }
+                ];
+            } else {
+                var signedNames = new Set();
+                var pendingNames = new Set();
+                var unrequestedNames = new Set();
+                for (var si2 = 0; si2 < filtered.length; si2++) {
+                    var nm2 = filtered[si2].staffName.toLowerCase();
+                    if (filtered[si2].status === TLOG_LABELS.statusSigned) signedNames.add(nm2);
+                    else if (filtered[si2].status === TLOG_LABELS.statusPending) pendingNames.add(nm2);
+                    else unrequestedNames.add(nm2);
+                }
+                stats = [
+                    { label: 'Total Unique', value: Object.keys(uniqueNames).length },
+                    { label: 'Signed', value: signedNames.size },
+                    { label: 'Pending', value: pendingNames.size },
+                    { label: 'Unrequested', value: unrequestedNames.size },
+                    { label: 'Total Rows', value: filtered.length }
+                ];
+            }
             for (var sti = 0; sti < stats.length; sti++) {
                 var sDiv = document.createElement('div');
                 sDiv.style.cssText = 'text-align: center;';
@@ -16674,7 +16822,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         { id: 'cb-select-btn', label: 'Select Checkboxes', handler: function() { selectCheckboxesInit(); } },
         { id: 'startdate-btn', label: 'Add Start Date', handler: function() { addStartDateInit(); } },
         { id: 'ssig-select-btn', label: 'Select Signed Checkbox', handler: function() { selectSignedCheckboxInit(); } },
-        { id: 'tlog-btn', label: 'Get Training Log', handler: function() { getTrainingLogInit(); } },
+        { id: 'tlog-btn', label: 'Get Log Data', handler: function() { getTrainingLogInit(); } },
         { id: 'verify-names-btn', label: 'Verify Names', handler: function() { verifyNamesInit(); } },
         { id: 'updaterole-btn', label: 'Update Role Responsibilities', handler: function() { updateRoleResponsibilitiesInit(); } }
     ];
@@ -19751,3 +19899,4 @@ function showResponsibilitiesProgressPanel(rolesData) {
         init();
     }
 })();
+ 
