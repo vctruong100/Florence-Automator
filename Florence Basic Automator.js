@@ -15465,6 +15465,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
         return false;
     }
 
+    function uncheckSelectedRowIfAny() {
+        addLogMessage('uncheckSelectedRowIfAny: checking for selected rows', 'log');
+        var gridTable = document.querySelector(STARTDATE_SELECTORS.mainGridTable);
+        if (!gridTable) { return; }
+        var selectedCheckboxes = gridTable.querySelectorAll('.log-entry--checkbox-col mat-icon.checkbox-icon--selected');
+        if (selectedCheckboxes.length > 0) {
+            for (var sci = 0; sci < selectedCheckboxes.length; sci++) {
+                addLogMessage('uncheckSelectedRowIfAny: found selected checkbox ' + (sci + 1) + ', clicking to deselect', 'log');
+                selectedCheckboxes[sci].click();
+            }
+        } else {
+            addLogMessage('uncheckSelectedRowIfAny: no selected checkbox found', 'log');
+        }
+    }
+
     function processRowEditAndSave(candidate, rowEl, resolve, _retryAfterCancel) {
         var isRetry = !!_retryAfterCancel;
         addLogMessage('processRowEditAndSave: processing ' + candidate.display + (isRetry ? ' (retry after cancel)' : ''), 'log');
@@ -15574,24 +15589,60 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 });
             })
                 .then(function() {
-                addLogMessage('processRowEditAndSave: date selected, saving for ' + candidate.display, 'log');
-                updateStartDateAriaLive('Saving for ' + candidate.display);
-                return clickSaveAndVerifyForCandidate(candidate, rowEl, startDateState.parsedDate);
-            })
+                    addLogMessage('processRowEditAndSave: date selected, saving for ' + candidate.display, 'log');
+                    updateStartDateAriaLive('Saving for ' + candidate.display);
+                    return clickSaveAndVerifyForCandidate(candidate, rowEl, startDateState.parsedDate);
+                })
                 .then(function(saveOk) {
-                if (saveOk) {
-                    addLogMessage('processRowEditAndSave: save verified for ' + candidate.display, 'log');
-                    candidate.status = STARTDATE_LABELS.statusSaved;
-                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusSaved);
-                    startDateState.counters.saved++;
-                    startDateState.counters.pending--;
-                    updateStartDateRightPanelSummary(startDateState.counters);
-                    if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
-                    updateStartDateAriaLive('Saved for ' + candidate.display);
+                    if (saveOk) {
+                        addLogMessage('processRowEditAndSave: save verified for ' + candidate.display, 'log');
+                        candidate.status = STARTDATE_LABELS.statusSaved;
+                        updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusSaved);
+                        startDateState.counters.saved++;
+                        startDateState.counters.pending--;
+                        updateStartDateRightPanelSummary(startDateState.counters);
+                        if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
+                        updateStartDateAriaLive('Saved for ' + candidate.display);
+                    } else {
+                        addLogMessage('processRowEditAndSave: save failed for ' + candidate.display, 'error');
+                        candidate.status = STARTDATE_LABELS.statusSaveFailed;
+                        updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusSaveFailed, 'Save failed');
+                        startDateState.counters.failures++;
+                        startDateState.counters.pending--;
+                        updateStartDateRightPanelSummary(startDateState.counters);
+                        if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
+                    }
+                    var uncheckTid = setTimeout(function() {
+                        uncheckSelectedRowIfAny();
+                        resolve();
+                    }, STARTDATE_TIMEOUTS.settleMs);
+                    startDateState.timeouts.push(uncheckTid);
+                });
+        })
+            .catch(function(err) {
+                addLogMessage('processRowEditAndSave: error for ' + candidate.display + ': ' + err.message, 'error');
+                if (startDateState.stopRequested) {
+                    candidate.status = STARTDATE_LABELS.statusStopped;
+                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusStopped);
                 } else {
-                    addLogMessage('processRowEditAndSave: save failed for ' + candidate.display, 'error');
-                    candidate.status = STARTDATE_LABELS.statusSaveFailed;
-                    updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusSaveFailed, 'Save failed');
+                    var failStatus = STARTDATE_LABELS.statusFailed;
+                    var failDetail = err.message;
+                    if (err.message.indexOf('Menu') !== -1) {
+                        failStatus = STARTDATE_LABELS.statusMenuFailed;
+                        failDetail = 'Menu failed';
+                    } else if (err.message.indexOf('Edit') !== -1) {
+                        failStatus = STARTDATE_LABELS.statusEditFailed;
+                        failDetail = 'Edit failed';
+                    } else if (err.message.indexOf('picker') !== -1 ||
+                        err.message.indexOf('Picker') !== -1 ||
+                        err.message.indexOf('Year') !== -1 ||
+                        err.message.indexOf('Month') !== -1 ||
+                        err.message.indexOf('Day') !== -1) {
+                        failStatus = STARTDATE_LABELS.statusDatepickerFailed;
+                        failDetail = 'Date picker failed';
+                    }
+                    candidate.status = failStatus;
+                    updateStartDateRightPanelStatus(candidate.pairKey, failStatus, failDetail);
                     startDateState.counters.failures++;
                     startDateState.counters.pending--;
                     updateStartDateRightPanelSummary(startDateState.counters);
@@ -15599,38 +15650,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 }
                 resolve();
             });
-        })
-            .catch(function(err) {
-            addLogMessage('processRowEditAndSave: error for ' + candidate.display + ': ' + err.message, 'error');
-            if (startDateState.stopRequested) {
-                candidate.status = STARTDATE_LABELS.statusStopped;
-                updateStartDateRightPanelStatus(candidate.pairKey, STARTDATE_LABELS.statusStopped);
-            } else {
-                var failStatus = STARTDATE_LABELS.statusFailed;
-                var failDetail = err.message;
-                if (err.message.indexOf('Menu') !== -1) {
-                    failStatus = STARTDATE_LABELS.statusMenuFailed;
-                    failDetail = 'Menu failed';
-                } else if (err.message.indexOf('Edit') !== -1) {
-                    failStatus = STARTDATE_LABELS.statusEditFailed;
-                    failDetail = 'Edit failed';
-                } else if (err.message.indexOf('picker') !== -1 ||
-                    err.message.indexOf('Picker') !== -1 ||
-                    err.message.indexOf('Year') !== -1 ||
-                    err.message.indexOf('Month') !== -1 ||
-                    err.message.indexOf('Day') !== -1) {
-                    failStatus = STARTDATE_LABELS.statusDatepickerFailed;
-                    failDetail = 'Date picker failed';
-                }
-                candidate.status = failStatus;
-                updateStartDateRightPanelStatus(candidate.pairKey, failStatus, failDetail);
-                startDateState.counters.failures++;
-                startDateState.counters.pending--;
-                updateStartDateRightPanelSummary(startDateState.counters);
-                if (startDateState.timer) { startDateState.timer.updateProgress(startDateState.counters.total - startDateState.counters.pending); }
-            }
-            resolve();
-        });
     }
 
     function processNextStartDateForCandidate(candidate) {
@@ -15652,6 +15671,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         resolve();
                         return;
                     }
+                    uncheckSelectedRowIfAny();
                     var rowEl = findRowByNamePairKey(candidate.pairKey);
                     if (!rowEl) {
                         addLogMessage('processNextStartDateForCandidate: row not visible, scrolling for ' + candidate.display, 'log');
