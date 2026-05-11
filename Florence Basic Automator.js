@@ -10422,8 +10422,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
     };
 
     const SSIG_LABELS = {
-        featureButton: 'Select Signed Checkbox',
-        progressTitle: 'Select Signed Checkbox',
+        featureButton: 'Select Signed Checkbox (DOA)',
+        progressTitle: 'Select Signed Checkbox (DOA)',
         scanning: 'Scanning table',
         selecting: 'Selecting eligible rows',
         statusPending: 'Pending',
@@ -13242,7 +13242,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     };
 
     const STARTDATE_LABELS = {
-        featureButton: 'Add Start Date',
+        featureButton: 'Add Start Date (DOA)',
         inputTitle: 'Add Start Date',
         warningTitle: 'Document Log Not Found',
         warningMessage: 'The current page does not contain the Document Log Entries table. Please navigate to the Document Log before using this feature.',
@@ -16836,15 +16836,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
     const BUTTON_DEFS = [
         { id: 'add-signatures-btn', label: 'Add Signatures', handler: function() { startAddSignaturesFlow(); } },
         { id: 'elog-staff-entries-btn', label: 'Add Training Log Staff Entries', handler: function() { addELogStaffEntriesInit(); } },
-        { id: 'clean-resp-btn', label: 'Clean Study Task List', handler: function() { cleanResponsibilityInit(); } },
+        { id: 'clean-resp-btn', label: 'Clean Task List', handler: function() { cleanResponsibilityInit(); } },
         { id: 'doa-staff-entries-btn', label: 'Add DoA Log Staff Entries', handler: function() { addDoALogStaffEntriesInit(); } },
-        { id: 'resp-set-btn', label: 'Set Role Responsibilities', handler: function() { setResponsibilitiesInit(); } },
+        { id: 'resp-set-btn', label: 'Set Role Resp.', handler: function() { setResponsibilitiesInit(); } },
         { id: 'cb-select-btn', label: 'Select Checkboxes', handler: function() { selectCheckboxesInit(); } },
-        { id: 'startdate-btn', label: 'Add Start Date', handler: function() { addStartDateInit(); } },
-        { id: 'ssig-select-btn', label: 'Select Signed Checkbox', handler: function() { selectSignedCheckboxInit(); } },
+        { id: 'startdate-btn', label: 'Add Start Date (DOA)', handler: function() { addStartDateInit(); } },
+        { id: 'ssig-select-btn', label: 'Select Signed Checkbox (DOA)', handler: function() { selectSignedCheckboxInit(); } },
         { id: 'tlog-btn', label: 'Get Log Data', handler: function() { getTrainingLogInit(); } },
         { id: 'verify-names-btn', label: 'Verify Names', handler: function() { verifyNamesInit(); } },
-        { id: 'updaterole-btn', label: 'Update Role Responsibilities', handler: function() { updateRoleResponsibilitiesInit(); } }
+        { id: 'updaterole-btn', label: 'Update Role Resp. (DOA)', handler: function() { updateRoleResponsibilitiesInit(); } }
     ];
 
     var cfgState = {
