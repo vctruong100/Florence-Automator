@@ -154,6 +154,7 @@
         attendanceState.scanCount++;
         if (newCount > 0) {
             addLogMessage('scanParticipants: scan #' + attendanceState.scanCount + ' found ' + newCount + ' new participant(s), total: ' + attendanceState.allParticipants.length, 'log');
+            saveAttendanceToStorage();
         }
         return newCount;
     }
@@ -172,40 +173,463 @@
         return list;
     }
 
-    // ─── Attendance: XLSX Export ─────────────────────────────────────────
-    function generateXLSX(participants) {
-        var xmlRows = '';
-        xmlRows += '<Row>';
-        xmlRows += '<Cell><Data ss:Type="String">#</Data></Cell>';
-        xmlRows += '<Cell><Data ss:Type="String">Name</Data></Cell>';
-        xmlRows += '</Row>';
-        for (var i = 0; i < participants.length; i++) {
-            var escapedName = participants[i].name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-            xmlRows += '<Row>';
-            xmlRows += '<Cell><Data ss:Type="Number">' + (i + 1) + '</Data></Cell>';
-            xmlRows += '<Cell><Data ss:Type="String">' + escapedName + '</Data></Cell>';
-            xmlRows += '</Row>';
+    // ─── Attendance: Name Similarity ─────────────────────────────────────
+    function jaroWinkler(s1, s2) {
+        s1 = s1.toLowerCase().trim();
+        s2 = s2.toLowerCase().trim();
+        if (s1 === s2) return 1;
+        var len1 = s1.length, len2 = s2.length;
+        if (len1 === 0 || len2 === 0) return 0;
+        var matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+        var s1Matches = new Array(len1).fill(false);
+        var s2Matches = new Array(len2).fill(false);
+        var matches = 0;
+        for (var i = 0; i < len1; i++) {
+            var start = Math.max(0, i - matchDist);
+            var end = Math.min(i + matchDist + 1, len2);
+            for (var j = start; j < end; j++) {
+                if (s2Matches[j] || s1[i] !== s2[j]) continue;
+                s1Matches[i] = true;
+                s2Matches[j] = true;
+                matches++;
+                break;
+            }
         }
-        var xml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-            '<?mso-application progid="Excel.Sheet"?>\n' +
-            '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n' +
-            ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n' +
-            '<Styles>\n' +
-            '  <Style ss:ID="header">\n' +
-            '    <Font ss:Bold="1" ss:Size="11"/>\n' +
-            '    <Interior ss:Color="#667eea" ss:Pattern="Solid"/>\n' +
-            '    <Font ss:Color="#FFFFFF" ss:Bold="1"/>\n' +
-            '  </Style>\n' +
-            '</Styles>\n' +
-            '<Worksheet ss:Name="Attendance">\n' +
-            '<Table>\n' +
-            '<Column ss:Width="40"/>\n' +
-            '<Column ss:Width="200"/>\n' +
-            xmlRows +
-            '</Table>\n' +
-            '</Worksheet>\n' +
-            '</Workbook>';
-        return xml;
+        if (matches === 0) return 0;
+        var k = 0, transpositions = 0;
+        for (var i = 0; i < len1; i++) {
+            if (!s1Matches[i]) continue;
+            while (!s2Matches[k]) k++;
+            if (s1[i] !== s2[k]) transpositions++;
+            k++;
+        }
+        var jaro = (matches / len1 + matches / len2 + (matches - transpositions / 2) / matches) / 3;
+        var prefix = 0;
+        for (var i = 0; i < Math.min(Math.min(len1, len2), 4); i++) {
+            if (s1[i] === s2[i]) prefix++;
+            else break;
+        }
+        return jaro + prefix * 0.1 * (1 - jaro);
+    }
+
+    var MANUAL_ADD_SIMILARITY_THRESHOLD = 0.88;
+
+    // ─── Attendance: Manual Add Modal ────────────────────────────────────
+    function showManualAddModal() {
+        var existing = document.getElementById('msteams-manual-add-modal');
+        if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'msteams-manual-add-modal';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 25000; display: flex; align-items: center; justify-content: center; pointer-events: none;';
+
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 460px; max-width: 94%; box-shadow: 0 15px 35px rgba(0,0,0,0.4); display: flex; flex-direction: column; max-height: 90vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; cursor: move; flex-shrink: 0;';
+
+        var title = document.createElement('h3');
+        title.textContent = 'Add Names Manually';
+        title.style.cssText = 'margin: 0; color: white; font-size: 16px; font-weight: 600;';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = '\u2715';
+        closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;';
+        closeBtn.onmouseover = function () { closeBtn.style.background = 'rgba(255,67,54,0.8)'; };
+        closeBtn.onmouseout = function () { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        closeBtn.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        var body = document.createElement('div');
+        body.style.cssText = 'padding: 16px; flex: 1; overflow-y: auto;';
+
+        var instructions = document.createElement('p');
+        instructions.textContent = 'Paste or type one name per line. Duplicates will be detected automatically.';
+        instructions.style.cssText = 'color: rgba(255,255,255,0.75); font-size: 12px; margin: 0 0 10px 0; line-height: 1.5;';
+
+        var textarea = document.createElement('textarea');
+        textarea.placeholder = 'Maria Sanchez\nSaori Taniguchi\nDennice Rojas\n...';
+        textarea.style.cssText = 'width: 100%; height: 200px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: white; font-size: 13px; padding: 10px; box-sizing: border-box; resize: vertical; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; outline: none; line-height: 1.6;';
+        textarea.onfocus = function () { textarea.style.borderColor = 'rgba(255,255,255,0.7)'; };
+        textarea.onblur = function () { textarea.style.borderColor = 'rgba(255,255,255,0.3)'; };
+
+        body.appendChild(instructions);
+        body.appendChild(textarea);
+
+        var footer = document.createElement('div');
+        footer.style.cssText = 'padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.1); border-radius: 0 0 12px 12px; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0;';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
+        cancelBtn.onmouseover = function () { cancelBtn.style.background = 'rgba(255,255,255,0.25)'; };
+        cancelBtn.onmouseout = function () { cancelBtn.style.background = 'rgba(255,255,255,0.15)'; };
+        cancelBtn.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        var confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;';
+        confirmBtn.onmouseover = function () { confirmBtn.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; };
+        confirmBtn.onmouseout = function () { confirmBtn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        confirmBtn.onclick = function () { processManualNames(textarea.value, overlay); };
+
+        footer.appendChild(cancelBtn);
+        footer.appendChild(confirmBtn);
+
+        container.appendChild(header);
+        container.appendChild(body);
+        container.appendChild(footer);
+        overlay.appendChild(container);
+
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        overlay.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+
+        document.body.appendChild(overlay);
+        setTimeout(function () { textarea.focus(); }, 50);
+
+        var escHandler = function (e) {
+            if (e.key === 'Escape' && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+                document.removeEventListener('keydown', escHandler, true);
+            }
+        };
+        document.addEventListener('keydown', escHandler, true);
+    }
+
+    function processManualNames(rawInput, inputOverlay) {
+        var lines = rawInput.split('\n');
+        var inputNames = [];
+        for (var i = 0; i < lines.length; i++) {
+            var n = lines[i].trim();
+            if (n) inputNames.push(n);
+        }
+        if (inputNames.length === 0) {
+            addLogMessage('processManualNames: no names entered', 'warn');
+            return;
+        }
+
+        var duplicates = [];
+        var toAdd = [];
+        var seenInInput = [];
+
+        for (var i = 0; i < inputNames.length; i++) {
+            var name = inputNames[i];
+            var nameLower = name.toLowerCase();
+            var isDuplicate = false;
+            var matchedWith = null;
+
+            for (var j = 0; j < attendanceState.allParticipants.length; j++) {
+                var sim = jaroWinkler(nameLower, attendanceState.allParticipants[j].name.toLowerCase());
+                if (sim >= MANUAL_ADD_SIMILARITY_THRESHOLD) {
+                    isDuplicate = true;
+                    matchedWith = attendanceState.allParticipants[j].name;
+                    break;
+                }
+            }
+
+            if (!isDuplicate) {
+                for (var k = 0; k < seenInInput.length; k++) {
+                    var sim2 = jaroWinkler(nameLower, seenInInput[k].toLowerCase());
+                    if (sim2 >= MANUAL_ADD_SIMILARITY_THRESHOLD) {
+                        isDuplicate = true;
+                        matchedWith = seenInInput[k] + ' (same input list)';
+                        break;
+                    }
+                }
+            }
+
+            if (isDuplicate) {
+                duplicates.push({ input: name, matchedWith: matchedWith });
+                addLogMessage('processManualNames: duplicate skipped: "' + name + '" matches "' + matchedWith + '"', 'warn');
+            } else {
+                toAdd.push(name);
+                seenInInput.push(name);
+            }
+        }
+
+        for (var i = 0; i < toAdd.length; i++) {
+            var newName = toAdd[i];
+            if (!attendanceState.seenNames.has(newName.toLowerCase())) {
+                attendanceState.seenNames.add(newName.toLowerCase());
+                attendanceState.allParticipants.push({
+                    name: newName,
+                    firstSeen: Date.now(),
+                    pageOrder: attendanceState.allParticipants.length
+                });
+            }
+        }
+
+        if (toAdd.length > 0) {
+            refreshAttendanceList();
+            updateAttendanceCount();
+            saveAttendanceToStorage();
+        }
+        addLogMessage('processManualNames: added ' + toAdd.length + ' names, skipped ' + duplicates.length + ' duplicates', 'log');
+
+        if (inputOverlay && inputOverlay.parentNode) inputOverlay.parentNode.removeChild(inputOverlay);
+        showManualAddResults(toAdd, duplicates);
+    }
+
+    function showManualAddResults(added, duplicates) {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); z-index: 25000; display: flex; align-items: center; justify-content: center; pointer-events: none;';
+
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 460px; max-width: 94%; box-shadow: 0 15px 35px rgba(0,0,0,0.4); display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; cursor: move; flex-shrink: 0;';
+
+        var title = document.createElement('h3');
+        title.textContent = 'Add Names \u2014 Results';
+        title.style.cssText = 'margin: 0; color: white; font-size: 16px; font-weight: 600;';
+
+        var closeBtn2 = document.createElement('button');
+        closeBtn2.textContent = '\u2715';
+        closeBtn2.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;';
+        closeBtn2.onmouseover = function () { closeBtn2.style.background = 'rgba(255,67,54,0.8)'; };
+        closeBtn2.onmouseout = function () { closeBtn2.style.background = 'rgba(255,255,255,0.2)'; };
+        closeBtn2.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        header.appendChild(title);
+        header.appendChild(closeBtn2);
+
+        var body2 = document.createElement('div');
+        body2.style.cssText = 'padding: 16px; flex: 1; overflow-y: auto;';
+
+        var addedSummary = document.createElement('div');
+        addedSummary.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: rgba(40,167,69,0.25); border: 1px solid rgba(40,167,69,0.5); border-radius: 8px; margin-bottom: 12px;';
+        var addedIcon = document.createElement('span');
+        addedIcon.textContent = added.length > 0 ? '\u2713' : '\u2014';
+        addedIcon.style.cssText = 'color: #6bcf7f; font-size: 16px; font-weight: 700; flex-shrink: 0;';
+        var addedText = document.createElement('span');
+        addedText.textContent = added.length + ' name' + (added.length !== 1 ? 's' : '') + ' added to attendance.';
+        addedText.style.cssText = 'color: white; font-size: 13px;';
+        addedSummary.appendChild(addedIcon);
+        addedSummary.appendChild(addedText);
+        body2.appendChild(addedSummary);
+
+        if (duplicates.length > 0) {
+            var dupHeader = document.createElement('div');
+            dupHeader.style.cssText = 'display: flex; align-items: center; gap: 6px; margin-bottom: 8px;';
+            var dupIcon = document.createElement('span');
+            dupIcon.textContent = '\u26A0';
+            dupIcon.style.cssText = 'color: #ffd93d; font-size: 14px;';
+            var dupTitle = document.createElement('span');
+            dupTitle.textContent = duplicates.length + ' duplicate' + (duplicates.length !== 1 ? 's' : '') + ' skipped:';
+            dupTitle.style.cssText = 'color: #ffd93d; font-size: 13px; font-weight: 600;';
+            dupHeader.appendChild(dupIcon);
+            dupHeader.appendChild(dupTitle);
+            body2.appendChild(dupHeader);
+
+            var dupList = document.createElement('div');
+            dupList.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+            for (var i = 0; i < duplicates.length; i++) {
+                var dupRow = document.createElement('div');
+                dupRow.style.cssText = 'padding: 7px 10px; background: rgba(255,217,61,0.1); border: 1px solid rgba(255,217,61,0.3); border-radius: 6px; font-size: 12px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px;';
+                var dupInput = document.createElement('span');
+                dupInput.textContent = '\u201C' + duplicates[i].input + '\u201D';
+                dupInput.style.cssText = 'color: white; font-weight: 500;';
+                var dupArrow = document.createElement('span');
+                dupArrow.textContent = '\u2192 matches';
+                dupArrow.style.cssText = 'color: rgba(255,255,255,0.5);';
+                var dupMatch = document.createElement('span');
+                dupMatch.textContent = '\u201C' + duplicates[i].matchedWith + '\u201D';
+                dupMatch.style.cssText = 'color: #ffd93d; font-weight: 500;';
+                dupRow.appendChild(dupInput);
+                dupRow.appendChild(dupArrow);
+                dupRow.appendChild(dupMatch);
+                dupList.appendChild(dupRow);
+            }
+            body2.appendChild(dupList);
+        }
+
+        var footer2 = document.createElement('div');
+        footer2.style.cssText = 'padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.1); border-radius: 0 0 12px 12px; display: flex; justify-content: flex-end; flex-shrink: 0;';
+
+        var okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 20px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;';
+        okBtn.onmouseover = function () { okBtn.style.background = 'rgba(255,255,255,0.3)'; };
+        okBtn.onmouseout = function () { okBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        okBtn.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        footer2.appendChild(okBtn);
+        container.appendChild(header);
+        container.appendChild(body2);
+        container.appendChild(footer2);
+        overlay.appendChild(container);
+
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        overlay.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+
+        document.body.appendChild(overlay);
+        okBtn.focus();
+    }
+
+    // ─── Attendance: XLSX Export (OOXML ZIP) ────────────────────────────
+    function xlsxCrc32(data) {
+        var table = [];
+        for (var n = 0; n < 256; n++) {
+            var c = n;
+            for (var k = 0; k < 8; k++) { c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); }
+            table[n] = c;
+        }
+        var crc = 0xFFFFFFFF;
+        for (var i = 0; i < data.length; i++) { crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8); }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function xlsxBuildZip(files) {
+        function w16(b, p, v) { b[p] = v & 0xFF; b[p + 1] = (v >>> 8) & 0xFF; }
+        function w32(b, p, v) { b[p] = v & 0xFF; b[p + 1] = (v >>> 8) & 0xFF; b[p + 2] = (v >>> 16) & 0xFF; b[p + 3] = (v >>> 24) & 0xFF; }
+        var totalLocal = 0, totalCentral = 0;
+        for (var i = 0; i < files.length; i++) {
+            totalLocal += 30 + files[i].nameBytes.length + files[i].data.length;
+            totalCentral += 46 + files[i].nameBytes.length;
+        }
+        var buf = new Uint8Array(totalLocal + totalCentral + 22);
+        var pos = 0, offsets = [];
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            offsets.push(pos);
+            w32(buf, pos, 0x04034b50); pos += 4;
+            w16(buf, pos, 20); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w32(buf, pos, f.crc); pos += 4;
+            w32(buf, pos, f.data.length); pos += 4;
+            w32(buf, pos, f.data.length); pos += 4;
+            w16(buf, pos, f.nameBytes.length); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            buf.set(f.nameBytes, pos); pos += f.nameBytes.length;
+            buf.set(f.data, pos); pos += f.data.length;
+        }
+        var cdStart = pos;
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i];
+            w32(buf, pos, 0x02014b50); pos += 4;
+            w16(buf, pos, 20); pos += 2;
+            w16(buf, pos, 20); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w32(buf, pos, f.crc); pos += 4;
+            w32(buf, pos, f.data.length); pos += 4;
+            w32(buf, pos, f.data.length); pos += 4;
+            w16(buf, pos, f.nameBytes.length); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w16(buf, pos, 0); pos += 2;
+            w32(buf, pos, 0); pos += 4;
+            w32(buf, pos, offsets[i]); pos += 4;
+            buf.set(f.nameBytes, pos); pos += f.nameBytes.length;
+        }
+        var cdEnd = pos;
+        w32(buf, pos, 0x06054b50); pos += 4;
+        w16(buf, pos, 0); pos += 2;
+        w16(buf, pos, 0); pos += 2;
+        w16(buf, pos, files.length); pos += 2;
+        w16(buf, pos, files.length); pos += 2;
+        w32(buf, pos, cdEnd - cdStart); pos += 4;
+        w32(buf, pos, cdStart); pos += 4;
+        w16(buf, pos, 0);
+        return buf;
+    }
+
+    function generateXLSX(participants) {
+        var enc = new TextEncoder();
+        var strings = ['#', 'Name'];
+        for (var i = 0; i < participants.length; i++) { strings.push(participants[i].name); }
+        function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+        var ssXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="' + strings.length + '" uniqueCount="' + strings.length + '">';
+        for (var i = 0; i < strings.length; i++) { ssXml += '<si><t>' + esc(strings[i]) + '</t></si>'; }
+        ssXml += '</sst>';
+
+        var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+            '<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="35" customWidth="1"/></cols>' +
+            '<sheetData>' +
+            '<row r="1"><c r="A1" t="s" s="1"><v>0</v></c><c r="B1" t="s" s="1"><v>1</v></c></row>';
+        for (var i = 0; i < participants.length; i++) {
+            var r = i + 2;
+            sheetXml += '<row r="' + r + '"><c r="A' + r + '"><v>' + (i + 1) + '</v></c><c r="B' + r + '" t="s"><v>' + (i + 2) + '</v></c></row>';
+        }
+        sheetXml += '</sheetData></worksheet>';
+
+        var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+            '<Default Extension="xml" ContentType="application/xml"/>' +
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+            '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+            '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' +
+            '</Types>';
+
+        var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+            '</Relationships>';
+
+        var workbook = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+            '<sheets><sheet name="Attendance" sheetId="1" r:id="rId1"/></sheets>' +
+            '</workbook>';
+
+        var wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+            '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+            '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>' +
+            '</Relationships>';
+
+        var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+            '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+            '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>' +
+            '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+            '<fill><patternFill patternType="solid"><fgColor rgb="FF667EEA"/></patternFill></fill></fills>' +
+            '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+            '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+            '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+            '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>' +
+            '</styleSheet>';
+
+        var fileList = [
+            { name: '[Content_Types].xml', content: contentTypes },
+            { name: '_rels/.rels', content: rels },
+            { name: 'xl/workbook.xml', content: workbook },
+            { name: 'xl/_rels/workbook.xml.rels', content: wbRels },
+            { name: 'xl/worksheets/sheet1.xml', content: sheetXml },
+            { name: 'xl/styles.xml', content: styles },
+            { name: 'xl/sharedStrings.xml', content: ssXml }
+        ];
+        var zipEntries = [];
+        for (var i = 0; i < fileList.length; i++) {
+            var nb = enc.encode(fileList[i].name);
+            var db = enc.encode(fileList[i].content);
+            zipEntries.push({ nameBytes: nb, data: db, crc: xlsxCrc32(db) });
+        }
+        return xlsxBuildZip(zipEntries);
     }
 
     function exportAttendanceToXLSX() {
@@ -214,8 +638,8 @@
             addLogMessage('exportAttendanceToXLSX: no participants to export', 'warn');
             return;
         }
-        var xml = generateXLSX(sorted);
-        var blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+        var xlsxData = generateXLSX(sorted);
+        var blob = new Blob([xlsxData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         var now = new Date();
@@ -236,8 +660,11 @@
     function checkAttendanceInit() {
         addLogMessage('checkAttendanceInit: starting attendance check', 'log');
         attendanceState.isRunning = true;
-        attendanceState.allParticipants = [];
-        attendanceState.seenNames = new Set();
+        var hadSaved = loadAttendanceFromStorage();
+        if (!hadSaved) {
+            attendanceState.allParticipants = [];
+            attendanceState.seenNames = new Set();
+        }
         attendanceState.scanCount = 0;
         attendanceState.sortMode = 'page';
 
@@ -253,6 +680,9 @@
             if (newCount > 0) {
                 refreshAttendanceList();
                 updateAttendanceCount();
+            } else {
+                var infoEl = document.getElementById('attendance-scan-info');
+                if (infoEl) infoEl.textContent = 'Scans: ' + attendanceState.scanCount;
             }
         }, 5000);
         addLogMessage('checkAttendanceInit: auto-scan started (every 5s)', 'log');
@@ -267,21 +697,364 @@
         }
     }
 
-    // ─── Attendance: Panel UI ───────────────────────────────────────────
+    // ─── Attendance: Persistence ───────────────────────────────────────
+    var ATTENDANCE_STORAGE_KEY = 'msteams-attendance-participants';
+
+    function saveAttendanceToStorage() {
+        try {
+            localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(attendanceState.allParticipants));
+        } catch (e) {
+            addLogMessage('saveAttendanceToStorage: failed: ' + e, 'error');
+        }
+    }
+
+    function loadAttendanceFromStorage() {
+        try {
+            var raw = localStorage.getItem(ATTENDANCE_STORAGE_KEY);
+            if (!raw) return false;
+            var saved = JSON.parse(raw);
+            if (!Array.isArray(saved) || saved.length === 0) return false;
+            attendanceState.allParticipants = saved;
+            attendanceState.seenNames = new Set();
+            for (var i = 0; i < saved.length; i++) {
+                attendanceState.seenNames.add(saved[i].name.toLowerCase());
+            }
+            addLogMessage('loadAttendanceFromStorage: restored ' + saved.length + ' participant(s)', 'log');
+            return true;
+        } catch (e) {
+            addLogMessage('loadAttendanceFromStorage: failed: ' + e, 'error');
+            return false;
+        }
+    }
+
+    function clearAttendance() {
+        attendanceState.allParticipants = [];
+        attendanceState.seenNames = new Set();
+        attendanceState.scanCount = 0;
+        localStorage.removeItem(ATTENDANCE_STORAGE_KEY);
+        refreshAttendanceList();
+        updateAttendanceCount();
+        refreshComparisonPanel();
+        addLogMessage('clearAttendance: attendance list cleared', 'log');
+    }
+
+    function showClearAllWarning() {
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 25000; display: flex; align-items: center; justify-content: center; pointer-events: none;';
+
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 0; width: 380px; max-width: 94%; box-shadow: 0 15px 35px rgba(0,0,0,0.4); display: flex; flex-direction: column; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto;';
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; cursor: move; flex-shrink: 0;';
+
+        var title = document.createElement('h3');
+        title.textContent = 'Clear All Attendance';
+        title.style.cssText = 'margin: 0; color: white; font-size: 15px; font-weight: 600;';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = '\u2715';
+        closeBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;';
+        closeBtn.onmouseover = function () { closeBtn.style.background = 'rgba(255,255,255,0.35)'; };
+        closeBtn.onmouseout = function () { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        closeBtn.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        var body = document.createElement('div');
+        body.style.cssText = 'padding: 20px 16px;';
+
+        var msg = document.createElement('p');
+        msg.textContent = 'This will permanently clear the entire attendance list, including saved data. This cannot be undone.';
+        msg.style.cssText = 'color: rgba(255,255,255,0.9); margin: 0; font-size: 13px; line-height: 1.6;';
+        body.appendChild(msg);
+
+        var warnFooter = document.createElement('div');
+        warnFooter.style.cssText = 'padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.1); border-radius: 0 0 12px 12px; display: flex; justify-content: flex-end; gap: 8px;';
+
+        var noBtn = document.createElement('button');
+        noBtn.textContent = 'No, Keep List';
+        noBtn.style.cssText = 'background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;';
+        noBtn.onmouseover = function () { noBtn.style.background = 'rgba(255,255,255,0.25)'; };
+        noBtn.onmouseout = function () { noBtn.style.background = 'rgba(255,255,255,0.15)'; };
+        noBtn.onclick = function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+
+        var yesBtn = document.createElement('button');
+        yesBtn.textContent = 'Yes, Clear All';
+        yesBtn.style.cssText = 'background: rgba(180,20,30,0.9); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;';
+        yesBtn.onmouseover = function () { yesBtn.style.background = 'rgba(180,20,30,1)'; };
+        yesBtn.onmouseout = function () { yesBtn.style.background = 'rgba(180,20,30,0.9)'; };
+        yesBtn.onclick = function () {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            clearAttendance();
+        };
+
+        warnFooter.appendChild(noBtn);
+        warnFooter.appendChild(yesBtn);
+        container.appendChild(header);
+        container.appendChild(body);
+        container.appendChild(warnFooter);
+        overlay.appendChild(container);
+
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        overlay.style.pointerEvents = 'none';
+        container.style.pointerEvents = 'auto';
+        makeDraggable(container, header);
+
+        document.body.appendChild(overlay);
+        noBtn.focus();
+
+        var escHandler = function (e) {
+            if (e.key === 'Escape' && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+                document.removeEventListener('keydown', escHandler, true);
+            }
+        };
+        document.addEventListener('keydown', escHandler, true);
+    }
+
+    // ─── Attendance: Comparison State + Panels ───────────────────────────────
+    var comparisonState = {
+        inputNames: [],
+        active: false,
+        searchQuery: '',
+        rawInput: ''
+    };
+
+    function normalizeForComparison(name) {
+        return name.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function buildInputPanel() {
+        var wrapper = document.getElementById('msteams-attendance-wrapper');
+        if (!wrapper || document.getElementById('msteams-input-panel')) return;
+        var panel = document.createElement('div');
+        panel.id = 'msteams-input-panel';
+        panel.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; width: 280px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.3);';
+        var ipHeader = document.createElement('div');
+        ipHeader.style.cssText = 'display: flex; align-items: center; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; flex-shrink: 0;';
+        var ipTitle = document.createElement('h3');
+        ipTitle.textContent = 'Roster Input';
+        ipTitle.style.cssText = 'margin: 0; color: white; font-size: 15px; font-weight: 600; letter-spacing: 0.2px;';
+        ipHeader.appendChild(ipTitle);
+        var ipBody = document.createElement('div');
+        ipBody.style.cssText = 'padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; overflow: hidden;';
+        var ipInstructions = document.createElement('p');
+        ipInstructions.textContent = 'Paste your roster below, one name per line, then press Confirm to compare against live attendance.';
+        ipInstructions.style.cssText = 'color: rgba(255,255,255,0.6); font-size: 11px; margin: 0; line-height: 1.5;';
+        var textarea = document.createElement('textarea');
+        textarea.id = 'msteams-roster-textarea';
+        textarea.placeholder = 'Maria Sanchez\nSaori Taniguchi\n...';
+        textarea.style.cssText = 'flex: 1; min-height: 180px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; color: white; font-size: 12px; padding: 10px; box-sizing: border-box; resize: vertical; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; outline: none; line-height: 1.6;';
+        textarea.onfocus = function () { textarea.style.borderColor = 'rgba(255,255,255,0.65)'; };
+        textarea.onblur = function () { textarea.style.borderColor = 'rgba(255,255,255,0.25)'; };
+        if (comparisonState.rawInput) { textarea.value = comparisonState.rawInput; }
+        ipBody.appendChild(ipInstructions);
+        ipBody.appendChild(textarea);
+        var ipFooter = document.createElement('div');
+        ipFooter.style.cssText = 'padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.1); border-radius: 0 0 12px 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;';
+        var inputCount = document.createElement('span');
+        inputCount.id = 'msteams-roster-count';
+        inputCount.style.cssText = 'color: rgba(255,255,255,0.4); font-size: 11px;';
+        if (comparisonState.rawInput) {
+            var priorLines = comparisonState.rawInput.split('\n').filter(function (l) { return l.trim(); });
+            inputCount.textContent = priorLines.length + ' name(s)';
+        }
+        textarea.addEventListener('input', function () {
+            var ls = textarea.value.split('\n').filter(function (l) { return l.trim(); });
+            inputCount.textContent = ls.length ? ls.length + ' name(s)' : '';
+        });
+        var confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 7px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;';
+        confirmBtn.onmouseover = function () { confirmBtn.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; };
+        confirmBtn.onmouseout = function () { confirmBtn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        confirmBtn.onclick = function () { processComparisonInput(textarea.value); };
+        ipFooter.appendChild(inputCount);
+        ipFooter.appendChild(confirmBtn);
+        panel.appendChild(ipHeader);
+        panel.appendChild(ipBody);
+        panel.appendChild(ipFooter);
+        wrapper.appendChild(panel);
+    }
+
+    function processComparisonInput(rawInput) {
+        var lines = rawInput.split('\n');
+        var seen = new Set();
+        var inputNames = [];
+        for (var i = 0; i < lines.length; i++) {
+            var raw = lines[i].trim();
+            if (!raw) continue;
+            var norm = normalizeForComparison(raw);
+            if (!seen.has(norm)) { seen.add(norm); inputNames.push({ display: raw, normalized: norm }); }
+        }
+        comparisonState.inputNames = inputNames;
+        comparisonState.active = true;
+        comparisonState.rawInput = rawInput;
+        comparisonState.searchQuery = '';
+        var searchEl = document.getElementById('msteams-comparison-search');
+        if (searchEl) searchEl.value = '';
+        var countEl = document.getElementById('msteams-roster-count');
+        if (countEl) countEl.textContent = inputNames.length + ' name(s)';
+        addLogMessage('processComparisonInput: ' + inputNames.length + ' unique name(s)', 'log');
+        buildComparisonPanel();
+        refreshComparisonPanel();
+    }
+
+    function buildComparisonPanel() {
+        var wrapper = document.getElementById('msteams-attendance-wrapper');
+        if (!wrapper) return;
+        var existing = document.getElementById('msteams-comparison-panel');
+        if (existing) { existing.style.display = 'flex'; return; }
+        var panel = document.createElement('div');
+        panel.id = 'msteams-comparison-panel';
+        panel.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; width: 320px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.3);';
+        var cpHeader = document.createElement('div');
+        cpHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; flex-shrink: 0;';
+        var cpTitle = document.createElement('h3');
+        cpTitle.textContent = 'Roster Comparison';
+        cpTitle.style.cssText = 'margin: 0; color: white; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap;';
+        var statsLabel = document.createElement('span');
+        statsLabel.id = 'msteams-comparison-stats';
+        statsLabel.style.cssText = 'color: rgba(255,255,255,0.5); font-size: 11px; margin-left: 8px; flex-shrink: 0;';
+        cpHeader.appendChild(cpTitle);
+        cpHeader.appendChild(statsLabel);
+        var searchBar = document.createElement('div');
+        searchBar.style.cssText = 'padding: 8px 16px; background: rgba(0,0,0,0.1); flex-shrink: 0;';
+        var searchInput = document.createElement('input');
+        searchInput.id = 'msteams-comparison-search';
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search names…';
+        searchInput.style.cssText = 'width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 12px; padding: 6px 10px; box-sizing: border-box; outline: none; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
+        searchInput.onfocus = function () { searchInput.style.borderColor = 'rgba(255,255,255,0.55)'; };
+        searchInput.onblur = function () { searchInput.style.borderColor = 'rgba(255,255,255,0.2)'; };
+        searchInput.addEventListener('input', function () {
+            comparisonState.searchQuery = searchInput.value.toLowerCase().trim();
+            refreshComparisonPanel();
+        });
+        searchBar.appendChild(searchInput);
+        var cpList = document.createElement('div');
+        cpList.id = 'msteams-comparison-list';
+        cpList.style.cssText = 'flex: 1; overflow-y: auto; padding: 8px 14px;';
+        panel.appendChild(cpHeader);
+        panel.appendChild(searchBar);
+        panel.appendChild(cpList);
+        wrapper.appendChild(panel);
+    }
+
+    function refreshComparisonPanel() {
+        var listEl = document.getElementById('msteams-comparison-list');
+        if (!listEl || !comparisonState.active) return;
+        var attendanceNormSet = new Set();
+        for (var i = 0; i < attendanceState.allParticipants.length; i++) {
+            attendanceNormSet.add(normalizeForComparison(attendanceState.allParticipants[i].name));
+        }
+        var inputNormSet = new Set();
+        for (var i = 0; i < comparisonState.inputNames.length; i++) {
+            inputNormSet.add(comparisonState.inputNames[i].normalized);
+        }
+        var seenAO = new Set();
+        var attendanceOnly = [];
+        for (var i = 0; i < attendanceState.allParticipants.length; i++) {
+            var n = normalizeForComparison(attendanceState.allParticipants[i].name);
+            if (!inputNormSet.has(n) && !seenAO.has(n)) {
+                seenAO.add(n);
+                attendanceOnly.push({ display: attendanceState.allParticipants[i].name, normalized: n });
+            }
+        }
+        var matchCount = 0;
+        for (var i = 0; i < comparisonState.inputNames.length; i++) {
+            if (attendanceNormSet.has(comparisonState.inputNames[i].normalized)) matchCount++;
+        }
+        var statsEl = document.getElementById('msteams-comparison-stats');
+        if (statsEl) statsEl.textContent = matchCount + '⁄' + comparisonState.inputNames.length + ' present';
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        var query = comparisonState.searchQuery || '';
+        var hasVisible = false;
+        if (comparisonState.inputNames.length > 0) {
+            var lbl1 = document.createElement('div');
+            lbl1.textContent = 'Roster (' + comparisonState.inputNames.length + ')';
+            lbl1.style.cssText = 'color: rgba(255,255,255,0.42); font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 4px 2px 6px;';
+            listEl.appendChild(lbl1);
+        }
+        for (var i = 0; i < comparisonState.inputNames.length; i++) {
+            var item = comparisonState.inputNames[i];
+            var present = attendanceNormSet.has(item.normalized);
+            if (query && item.display.toLowerCase().indexOf(query) === -1) continue;
+            hasVisible = true;
+            var row = document.createElement('div');
+            row.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); margin-bottom: 2px;';
+            row.onmouseover = function () { this.style.background = 'rgba(255,255,255,0.11)'; };
+            row.onmouseout = function () { this.style.background = 'rgba(255,255,255,0.05)'; };
+            var icon = document.createElement('span');
+            icon.textContent = present ? '' : '';
+            icon.style.cssText = 'font-size: 12px; flex-shrink: 0; width: 16px; text-align: center; color: ' + (present ? '#6bcf7f' : 'rgba(255,255,255,0.28)') + ';';
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = item.display;
+            nameSpan.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; font-size: 12px; font-weight: ' + (present ? '500' : '400') + '; color: ' + (present ? 'white' : 'rgba(255,255,255,0.42)') + ';';
+            row.appendChild(icon);
+            row.appendChild(nameSpan);
+            listEl.appendChild(row);
+        }
+        if (attendanceOnly.length > 0) {
+            var sep = document.createElement('div');
+            sep.style.cssText = 'border-top: 1px solid rgba(255,255,255,0.13); margin: 8px 0 4px;';
+            listEl.appendChild(sep);
+            var lbl2 = document.createElement('div');
+            lbl2.textContent = 'Attendance Only (' + attendanceOnly.length + ')';
+            lbl2.style.cssText = 'color: rgba(255,165,70,0.7); font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; padding: 0 2px 6px;';
+            listEl.appendChild(lbl2);
+            for (var i = 0; i < attendanceOnly.length; i++) {
+                var item2 = attendanceOnly[i];
+                if (query && item2.display.toLowerCase().indexOf(query) === -1) continue;
+                hasVisible = true;
+                var row2 = document.createElement('div');
+                row2.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,140,35,0.08); border-left: 2px solid rgba(255,140,35,0.3); margin-bottom: 2px;';
+                row2.onmouseover = function () { this.style.background = 'rgba(255,140,35,0.15)'; };
+                row2.onmouseout = function () { this.style.background = 'rgba(255,140,35,0.08)'; };
+                var icon2 = document.createElement('span');
+                icon2.textContent = '';
+                icon2.style.cssText = 'font-size: 7px; flex-shrink: 0; width: 16px; text-align: center; color: rgba(255,140,35,0.55);';
+                var nameSpan2 = document.createElement('span');
+                nameSpan2.textContent = item2.display;
+                nameSpan2.style.cssText = 'flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; font-size: 12px; font-weight: 400; color: rgba(255,190,120,0.85);';
+                row2.appendChild(icon2);
+                row2.appendChild(nameSpan2);
+                listEl.appendChild(row2);
+            }
+        }
+        if (query && !hasVisible) {
+            var noRes = document.createElement('div');
+            noRes.textContent = 'No names match “' + query + '”';
+            noRes.style.cssText = 'color: rgba(255,255,255,0.3); font-size: 12px; text-align: center; padding: 28px 0; font-style: italic;';
+            listEl.appendChild(noRes);
+        } else if (!query && comparisonState.inputNames.length === 0 && attendanceOnly.length === 0) {
+            var emptyNote = document.createElement('div');
+            emptyNote.textContent = 'No names to compare yet.';
+            emptyNote.style.cssText = 'color: rgba(255,255,255,0.3); font-size: 12px; text-align: center; padding: 28px 0; font-style: italic;';
+            listEl.appendChild(emptyNote);
+        }
+    }
+
+    // ─── Attendance: Panel UI ─────────────────────────────────────────
     function showAttendancePanel() {
         addLogMessage('showAttendancePanel: creating attendance panel', 'log');
 
-        var existingModal = document.getElementById('msteams-attendance-modal');
-        if (existingModal && existingModal.parentNode) {
-            existingModal.parentNode.removeChild(existingModal);
+        var existingWrapper = document.getElementById('msteams-attendance-wrapper');
+        if (existingWrapper && existingWrapper.parentNode) {
+            existingWrapper.parentNode.removeChild(existingWrapper);
         }
 
-        var modal = document.createElement('div');
-        modal.id = 'msteams-attendance-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 20000; display: flex; align-items: center; justify-content: center; pointer-events: none;';
+        var wrapper = document.createElement('div');
+        wrapper.id = 'msteams-attendance-wrapper';
+        wrapper.style.cssText = 'position: fixed; display: flex; flex-direction: row; align-items: flex-start; gap: 8px; z-index: 20000; pointer-events: none;';
 
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 500px; max-width: 94%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 500px; flex-shrink: 0; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'attendance-panel-title');
@@ -303,7 +1076,8 @@
         closeButton.onmouseout = function () { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
         closeButton.onclick = function () {
             addLogMessage('showAttendancePanel: hidden by user (scanning continues)', 'log');
-            modal.style.display = 'none';
+            var wr = document.getElementById('msteams-attendance-wrapper');
+            if (wr) wr.style.display = 'none';
         };
 
         header.appendChild(title);
@@ -355,6 +1129,14 @@
             refreshAttendanceList();
         };
 
+        // Add Names button
+        var addNamesBtn = document.createElement('button');
+        addNamesBtn.textContent = '+ Add Names';
+        addNamesBtn.style.cssText = 'background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.3s ease; white-space: nowrap;';
+        addNamesBtn.onmouseover = function () { addNamesBtn.style.background = 'rgba(255,255,255,0.25)'; };
+        addNamesBtn.onmouseout = function () { addNamesBtn.style.background = 'rgba(255,255,255,0.15)'; };
+        addNamesBtn.onclick = function () { showManualAddModal(); };
+
         // Copy button
         var copyBtn = document.createElement('button');
         copyBtn.textContent = 'Copy';
@@ -384,6 +1166,7 @@
         };
 
         rightToolbar.appendChild(sortBtn);
+        rightToolbar.appendChild(addNamesBtn);
         rightToolbar.appendChild(copyBtn);
         rightToolbar.appendChild(exportBtn);
 
@@ -462,8 +1245,20 @@
             }
         };
 
+        var clearAllBtn = document.createElement('button');
+        clearAllBtn.textContent = 'Clear All';
+        clearAllBtn.style.cssText = 'background: rgba(120,20,20,0.5); border: 1px solid rgba(220,53,69,0.6); color: rgba(255,180,180,1); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.3s ease;';
+        clearAllBtn.onmouseover = function () { clearAllBtn.style.background = 'rgba(180,20,30,0.85)'; clearAllBtn.style.color = 'white'; };
+        clearAllBtn.onmouseout = function () { clearAllBtn.style.background = 'rgba(120,20,20,0.5)'; clearAllBtn.style.color = 'rgba(255,180,180,1)'; };
+        clearAllBtn.onclick = function () { showClearAllWarning(); };
+
+        var footerRight = document.createElement('div');
+        footerRight.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+        footerRight.appendChild(stopBtn);
+        footerRight.appendChild(clearAllBtn);
+
         footer.appendChild(scanInfo);
-        footer.appendChild(stopBtn);
+        footer.appendChild(footerRight);
 
         // Assemble
         container.appendChild(header);
@@ -471,23 +1266,25 @@
         container.appendChild(listContainer);
         container.appendChild(footer);
 
-        modal.appendChild(container);
+        wrapper.appendChild(container);
 
-        container.style.position = 'fixed';
-        container.style.top = '50%';
-        container.style.left = '50%';
-        container.style.transform = 'translate(-50%, -50%)';
-        modal.style.pointerEvents = 'none';
+        wrapper.style.top = '50%';
+        wrapper.style.left = '50%';
+        wrapper.style.transform = 'translate(-50%, -50%)';
+        wrapper.style.pointerEvents = 'none';
         container.style.pointerEvents = 'auto';
-        makeDraggable(container, header);
+        makeDraggable(wrapper, header);
 
-        document.body.appendChild(modal);
+        document.body.appendChild(wrapper);
+        buildInputPanel();
+        if (comparisonState.active) { buildComparisonPanel(); refreshComparisonPanel(); }
         addLogMessage('showAttendancePanel: panel displayed with ' + sorted.length + ' participants', 'log');
 
         var escHandler = function (e) {
             if (e.key === 'Escape') {
                 addLogMessage('showAttendancePanel: hidden via Escape (scanning continues)', 'log');
-                modal.style.display = 'none';
+                var wr = document.getElementById('msteams-attendance-wrapper');
+                if (wr) wr.style.display = 'none';
             }
         };
         document.addEventListener('keydown', escHandler, true);
@@ -527,6 +1324,7 @@
             emptyMsg.style.cssText = 'color: rgba(255, 255, 255, 0.5); font-size: 13px; text-align: center; padding: 40px 0; font-style: italic;';
             list.appendChild(emptyMsg);
         }
+        refreshComparisonPanel();
     }
 
     function updateAttendanceCount() {
@@ -846,18 +1644,19 @@
     var attendanceToggleHandler = null;
 
     function toggleAttendancePanelVisibility() {
-        var modal = document.getElementById('msteams-attendance-modal');
-        if (!modal) {
+        var wrapper = document.getElementById('msteams-attendance-wrapper');
+        if (!wrapper) {
             addLogMessage('F4: no attendance panel exists yet', 'warn');
             return;
         }
-        if (modal.style.display === 'none') {
-            modal.style.display = 'flex';
+        if (wrapper.style.display === 'none') {
+            wrapper.style.display = 'flex';
             refreshAttendanceList();
             updateAttendanceCount();
+            refreshComparisonPanel();
             addLogMessage('F4: attendance panel shown', 'log');
         } else {
-            modal.style.display = 'none';
+            wrapper.style.display = 'none';
             addLogMessage('F4: attendance panel hidden (scanning continues)', 'log');
         }
     }
