@@ -5,8 +5,8 @@
 // @version 2.2.3
 // @description
 // @match https://us.v2.researchbinders.com/*
-// @updateURL    https://raw.githubusercontent.com/vctruong100/Automator/main/Florence%20Automator.js
-// @downloadURL  https://raw.githubusercontent.com/vctruong100/Automator/main/Florence%20Automator.js
+// @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
+// @downloadURL  https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
 // @run-at document-idle
 // @grant GM.openInTab
 // @grant GM_openInTab
