@@ -5,6 +5,8 @@
 // @version 2.2.3
 // @description
 // @match https://us.v2.researchbinders.com/*
+// @updateURL    https://raw.githubusercontent.com/vctruong100/Automator/main/Florence%20Automator.js
+// @downloadURL  https://raw.githubusercontent.com/vctruong100/Automator/main/Florence%20Automator.js
 // @run-at document-idle
 // @grant GM.openInTab
 // @grant GM_openInTab
@@ -16748,6 +16750,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     let dragOffsetX = 0;
     let dragOffsetY = 0;
     let logMessages = [];
+    let HELP_MODAL_OPEN = false;
     let lastScrollPosition = 0;
 
     const originalLog = console.log;
@@ -17089,10 +17092,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 }
                 button.onclick = def.handler;
                 container.appendChild(button);
-            } else {
-                const spacer = document.createElement('div');
-                spacer.style.cssText = 'visibility:hidden; min-height: 44px;';
-                container.appendChild(spacer);
             }
         }
     }
@@ -17971,7 +17970,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             justify-content: center;
             transition: all 0.3s ease;
         `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
         closeButton.onmouseout = () => closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
         closeButton.onclick = () => document.body.removeChild(modal);
 
@@ -18091,12 +18090,156 @@ function showResponsibilitiesProgressPanel(rolesData) {
             isDraggingModal = false;
         });
     }
+
+    function openHelpPopup() {
+        if (HELP_MODAL_OPEN) return;
+        HELP_MODAL_OPEN = true;
+
+        var helpSections = [
+            {
+                title: 'Document Log',
+                features: [
+                    { label: 'Add Signatures', desc: 'Automatically adds signature entries to the document log for selected staff members — no manual clicking through each person.' },
+                    { label: 'Add Training Log Staff Entries', desc: 'Adds staff entries to the electronic training log (eLog) in bulk. Enter a list of names and the automator fills them in for you.' },
+                    { label: 'Get Log Data', desc: 'Retrieves and displays training log data from the current document, useful for reviewing or verifying log entries.' },
+                    { label: 'Verify Names', desc: 'Checks that staff names in the log match expected values and highlights any mismatches for review.' }
+                ]
+            },
+            {
+                title: 'Delegation of Authority (DoA)',
+                features: [
+                    { label: 'Add DoA Log Staff Entries', desc: 'Adds staff entries to the Delegation of Authority log in bulk, saving you from entering each person manually.' },
+                    { label: 'Set Role Resp.', desc: 'Sets the role & responsibilities in the delegation log template. Useful for assigning tasks to all roles all at once.' },
+                    { label: 'Add Start Date (DOA)', desc: 'Automatically fills in the start date field for DoA log entries so you don\'t have to enter it manually for each row.' },
+                    { label: 'Select Signed Checkbox (DOA)', desc: 'Selects the checkbox for rows that have staff signatures. This is used to request PI Signatures for Start Date.' },
+                    { label: 'Update Role Resp. (DOA)', desc: 'Updates existing role responsibilities in the DoA log, replacing old values with new ones across multiple entries at once.' }
+                ]
+            },
+            {
+                title: 'Task & Responsibility Management',
+                features: [
+                    { label: 'Clean Task List', desc: 'Clean up the pasted task list by trimming extra spacing, replacing "and" with "&", removing all special characters like & or /, etc.' },
+                    { label: 'Select Checkboxes', desc: 'Automatically selects specified checkboxes on the current page based on criteria you provide, or bulk select all.' }
+                ]
+            }
+        ];
+
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);';
+
+        var modal = document.createElement('div');
+        modal.style.cssText = 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border-radius: 16px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); width: 90vw; max-width: 720px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(102,126,234,0.4);';
+
+        var mHeader = document.createElement('div');
+        mHeader.style.cssText = 'padding: 20px 24px; background: rgba(102,126,234,0.15); border-bottom: 1px solid rgba(102,126,234,0.3); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;';
+
+        var mTitle = document.createElement('div');
+        mTitle.innerHTML = '<span style="font-size:20px;font-weight:700;color:white;font-family:Segoe UI,sans-serif;">Florence Automator</span><span style="font-size:14px;color:rgba(255,255,255,0.6);margin-left:10px;">Help Guide</span>';
+
+        var closeX = document.createElement('button');
+        closeX.textContent = '\u2715';
+        closeX.style.cssText = 'background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; transition: background 0.2s; flex-shrink: 0;';
+        closeX.onmouseover = function() { closeX.style.background = 'rgba(255,67,54,0.7)'; };
+        closeX.onmouseout = function() { closeX.style.background = 'rgba(255,255,255,0.1)'; };
+        closeX.onclick = function() { closeHelpModal(); };
+        mHeader.appendChild(mTitle);
+        mHeader.appendChild(closeX);
+
+        var searchWrap = document.createElement('div');
+        searchWrap.style.cssText = 'padding: 16px 24px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;';
+
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search features\u2026';
+        searchInput.style.cssText = 'width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.08); border: 1px solid rgba(102,126,234,0.4); color: white; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-family: Segoe UI,sans-serif; outline: none;';
+        searchWrap.appendChild(searchInput);
+
+        var body = document.createElement('div');
+        body.style.cssText = 'overflow-y: auto; padding: 20px 24px; flex: 1;';
+
+        function renderSections(filter) {
+            body.innerHTML = '';
+            var lf = (filter || '').toLowerCase();
+            var anyVisible = false;
+            for (var s = 0; s < helpSections.length; s++) {
+                var sec = helpSections[s];
+                var visFeatures = sec.features.filter(function(f) {
+                    return !lf || f.label.toLowerCase().indexOf(lf) !== -1 || f.desc.toLowerCase().indexOf(lf) !== -1;
+                });
+                if (visFeatures.length === 0) continue;
+                anyVisible = true;
+                var secTitle = document.createElement('div');
+                secTitle.textContent = sec.title;
+                secTitle.style.cssText = 'color: rgba(120,140,255,1); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px; font-family: Segoe UI,sans-serif;';
+                body.appendChild(secTitle);
+                var grid = document.createElement('div');
+                grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 12px; margin-bottom: 24px;';
+                for (var fi = 0; fi < visFeatures.length; fi++) {
+                    (function(feat) {
+                        var card = document.createElement('div');
+                        card.style.cssText = 'background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 14px 16px; transition: border-color 0.2s;';
+                        card.onmouseover = function() { card.style.borderColor = 'rgba(102,126,234,0.6)'; };
+                        card.onmouseout = function() { card.style.borderColor = 'rgba(255,255,255,0.12)'; };
+                        var fl = document.createElement('div');
+                        fl.textContent = feat.label;
+                        fl.style.cssText = 'color: white; font-size: 14px; font-weight: 600; margin-bottom: 6px; font-family: Segoe UI,sans-serif;';
+                        var fd = document.createElement('div');
+                        fd.textContent = feat.desc;
+                        fd.style.cssText = 'color: rgba(255,255,255,0.65); font-size: 12px; line-height: 1.5; font-family: Segoe UI,sans-serif;';
+                        card.appendChild(fl);
+                        card.appendChild(fd);
+                        grid.appendChild(card);
+                    })(visFeatures[fi]);
+                }
+                body.appendChild(grid);
+            }
+            if (!anyVisible) {
+                var noRes = document.createElement('div');
+                noRes.textContent = 'No features match your search.';
+                noRes.style.cssText = 'color: rgba(255,255,255,0.5); text-align: center; padding: 40px; font-family: Segoe UI,sans-serif;';
+                body.appendChild(noRes);
+            }
+        }
+
+        renderSections('');
+        searchInput.oninput = function() { renderSections(searchInput.value); };
+
+        var mFooter = document.createElement('div');
+        mFooter.style.cssText = 'padding: 14px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.08); text-align: right; flex-shrink: 0;';
+
+        var closeFooter = document.createElement('button');
+        closeFooter.textContent = 'Close';
+        closeFooter.style.cssText = 'background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border: none; color: white; padding: 10px 28px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: Segoe UI,sans-serif;';
+        closeFooter.onclick = function() { closeHelpModal(); };
+        mFooter.appendChild(closeFooter);
+
+        modal.appendChild(mHeader);
+        modal.appendChild(searchWrap);
+        modal.appendChild(body);
+        modal.appendChild(mFooter);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        function closeHelpModal() {
+            HELP_MODAL_OPEN = false;
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            document.removeEventListener('keydown', escHandler);
+        }
+
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) closeHelpModal(); });
+
+        var escHandler = function(e) { if (e.key === 'Escape') closeHelpModal(); };
+        document.addEventListener('keydown', escHandler);
+
+        setTimeout(function() { searchInput.focus(); }, 50);
+    }
+
     function createGUI() {
         originalLog.call(console, '[Florence] createGUI: called');
         var existingGui = document.getElementById(FLORENCE_GUI_ID);
         if (existingGui) {
             if (existingGui.parentNode === document.body) {
-                originalLog.call(console, '[Florence] createGUI: GUI already exists on document.body, skipping creation');
+                originalLog.call(console, '[Florence] createGUI: GUI already exists on document.body, skipping');
                 return;
             }
             originalLog.call(console, '[Florence] createGUI: stale GUI found in wrong parent, removing');
@@ -18118,7 +18261,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         display: none;
         flex-direction: column;
-        overflow: hidden;
+        overflow: visible;
         transform-origin: top left;
     `;
 
@@ -18164,6 +18307,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         var headerRight = document.createElement('div');
         headerRight.style.cssText = 'display: flex; align-items: center; gap: 4px; flex-shrink: 0;';
+        var helpBtn = document.createElement('button');
+        helpBtn.textContent = '?';
+        helpBtn.title = 'Help Guide';
+        helpBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        helpBtn.onmouseover = function() { helpBtn.style.background = 'rgba(255,255,255,0.4)'; };
+        helpBtn.onmouseout = function() { helpBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        helpBtn.onclick = function() { openHelpPopup(); };
+        headerRight.appendChild(helpBtn);
         headerRight.appendChild(closeButton);
         header.appendChild(title);
         header.appendChild(headerRight);
@@ -18254,14 +18405,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const logBox = document.createElement('div');
         logBox.id = 'florence-log-box';
         logBox.style.cssText = `
-        flex: 1;
         padding: 12px;
         background: rgba(0, 0, 0, 0.3);
         overflow-y: auto;
         font-family: 'Consolas', 'Monaco', monospace;
         font-size: 11px;
         line-height: 1.4;
-        max-height: 200px;
+        height: 150px;
+        min-height: 60px;
+        max-height: 500px;
+        resize: vertical;
+        box-sizing: border-box;
     `;
 
         guiContainer.appendChild(header);

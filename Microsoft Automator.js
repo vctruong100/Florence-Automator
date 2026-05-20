@@ -19,7 +19,8 @@
         allParticipants: [],          // { name: string, firstSeen: number, pageOrder: number }
         seenNames: new Set(),
         sortMode: 'page',             // 'page' | 'alpha'
-        scanCount: 0
+        scanCount: 0,
+        isScrollScanning: false       // true while a scroll-and-scan pass is in progress
     };
 
     // ─── GUI / Config Constants ─────────────────────────────────────────
@@ -157,6 +158,62 @@
             saveAttendanceToStorage();
         }
         return newCount;
+    }
+
+    // ─── Attendance: Scroll-and-Scan ────────────────────────────────────
+    function getActiveScrollWrapper() {
+        var drillIn = document.querySelector('[data-tid="calling-roster-in-call-drill-in-wrapper"]');
+        if (drillIn) {
+            var drillWrapper = drillIn.querySelector('[data-tid="scrollable-wrapper"]');
+            if (drillWrapper) return drillWrapper;
+        }
+        return document.querySelector('[data-tid="scrollable-wrapper"]');
+    }
+
+    function scrollAndScanAll(callback) {
+        var scrollWrapper = getActiveScrollWrapper();
+        if (!scrollWrapper) {
+            var n = scanParticipants();
+            if (callback) callback(n);
+            return;
+        }
+
+        if (attendanceState.isScrollScanning) {
+            if (callback) callback(0);
+            return;
+        }
+        attendanceState.isScrollScanning = true;
+
+        var originalScrollTop = scrollWrapper.scrollTop;
+        var stepSize = Math.max(Math.floor((scrollWrapper.clientHeight || 300) * 0.75), 150);
+        var SETTLE_MS = 450;
+        var totalNew = 0;
+
+        scrollWrapper.scrollTop = 0;
+
+        function step() {
+            if (!attendanceState.isRunning) {
+                scrollWrapper.scrollTop = originalScrollTop;
+                attendanceState.isScrollScanning = false;
+                if (callback) callback(totalNew);
+                return;
+            }
+
+            totalNew += scanParticipants();
+
+            var maxScroll = scrollWrapper.scrollHeight - scrollWrapper.clientHeight;
+            if (maxScroll <= 0 || scrollWrapper.scrollTop >= maxScroll - 5) {
+                scrollWrapper.scrollTop = originalScrollTop;
+                attendanceState.isScrollScanning = false;
+                if (callback) callback(totalNew);
+                return;
+            }
+
+            scrollWrapper.scrollTop = Math.min(scrollWrapper.scrollTop + stepSize, maxScroll);
+            setTimeout(step, SETTLE_MS);
+        }
+
+        setTimeout(step, SETTLE_MS);
     }
 
     function getSortedParticipants() {
@@ -676,16 +733,17 @@
         }
         attendanceState.intervalId = setInterval(function () {
             if (!attendanceState.isRunning) return;
-            var newCount = scanParticipants();
-            if (newCount > 0) {
-                refreshAttendanceList();
-                updateAttendanceCount();
-            } else {
-                var infoEl = document.getElementById('attendance-scan-info');
-                if (infoEl) infoEl.textContent = 'Scans: ' + attendanceState.scanCount;
-            }
+            scrollAndScanAll(function (newCount) {
+                if (newCount > 0) {
+                    refreshAttendanceList();
+                    updateAttendanceCount();
+                } else {
+                    var infoEl = document.getElementById('attendance-scan-info');
+                    if (infoEl) infoEl.textContent = 'Scans: ' + attendanceState.scanCount;
+                }
+            });
         }, 5000);
-        addLogMessage('checkAttendanceInit: auto-scan started (every 5s)', 'log');
+        addLogMessage('checkAttendanceInit: auto-scan with scroll started (every 5s)', 'log');
     }
 
     function stopAttendance() {
@@ -1190,7 +1248,7 @@
         if (sorted.length === 0) {
             var emptyMsg = document.createElement('div');
             emptyMsg.id = 'attendance-empty-msg';
-            emptyMsg.textContent = 'No participants found yet. Scanning every 5 seconds\u2026';
+            emptyMsg.textContent = 'No participants found yet. Auto-scrolling and scanning every 5s\u2026';
             emptyMsg.style.cssText = 'color: rgba(255, 255, 255, 0.5); font-size: 13px; text-align: center; padding: 40px 0; font-style: italic;';
             list.appendChild(emptyMsg);
         }
@@ -1226,13 +1284,14 @@
                 attendanceState.isRunning = true;
                 attendanceState.intervalId = setInterval(function () {
                     if (!attendanceState.isRunning) return;
-                    var newCount = scanParticipants();
-                    if (newCount > 0) {
-                        refreshAttendanceList();
-                        updateAttendanceCount();
-                    }
-                    var infoEl = document.getElementById('attendance-scan-info');
-                    if (infoEl) infoEl.textContent = 'Scans: ' + attendanceState.scanCount;
+                    scrollAndScanAll(function (newCount) {
+                        if (newCount > 0) {
+                            refreshAttendanceList();
+                            updateAttendanceCount();
+                        }
+                        var infoEl = document.getElementById('attendance-scan-info');
+                        if (infoEl) infoEl.textContent = 'Scans: ' + attendanceState.scanCount;
+                    });
                 }, 5000);
                 stopBtn.textContent = 'Stop Scanning';
                 stopBtn.style.background = 'rgba(220, 53, 69, 0.6)';
@@ -1320,7 +1379,7 @@
         if (sorted.length === 0) {
             var emptyMsg = document.createElement('div');
             emptyMsg.id = 'attendance-empty-msg';
-            emptyMsg.textContent = 'No participants found yet. Scanning every 5 seconds\u2026';
+            emptyMsg.textContent = 'No participants found yet. Auto-scrolling and scanning every 5s\u2026';
             emptyMsg.style.cssText = 'color: rgba(255, 255, 255, 0.5); font-size: 13px; text-align: center; padding: 40px 0; font-style: italic;';
             list.appendChild(emptyMsg);
         }
@@ -2349,8 +2408,29 @@
             msteamsInitDebounceTimer = null;
         }
         msteamsCleanupExisting();
+        var aw = document.getElementById('msteams-attendance-wrapper');
+        if (aw && aw.parentNode) aw.parentNode.removeChild(aw);
+        var mm = document.getElementById('msteams-manual-add-modal');
+        if (mm && mm.parentNode) mm.parentNode.removeChild(mm);
+        var cm = document.getElementById(CFG_SELECTORS.configModalId);
+        if (cm && cm.parentNode) cm.parentNode.removeChild(cm);
         msteamsInitialized = false;
+        msteamsNavListenersRegistered = false;
+        msteamsKeybindListenerRegistered = false;
+        console.log = originalLog;
+        console.error = originalError;
+        console.warn = originalWarn;
     }
+
+    // ─── Console hot-reload hook ─────────────────────────────────────────
+    // Usage (DevTools console):
+    //   1. window.__msteamsDestroy()   ← tears down current instance
+    //   2. Paste the updated script IIFE and run it
+    window.__msteamsDestroy = function () {
+        msteamsTeardown();
+        delete window.__msteamsDestroy;
+        originalLog.call(console, '[MSTeams] Destroyed. Paste the updated script into the console to reload.');
+    };
 
     function msteamsWatchForReparent() {
         if (msteamsReparentObserver) {
@@ -2440,6 +2520,7 @@
     }
 
     function init() {
+        // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire scrip
         var inTop = isTopWindow();
         originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
 
