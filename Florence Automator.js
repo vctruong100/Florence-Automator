@@ -80,7 +80,7 @@
     };
 
     const ELOG_FORM_TIMEOUTS = {
-        waitOpenMs: 10000,
+        waitOpenMs: 10000, 
         waitListMs: 6000,
         waitOptionRenderMs: 3000,
         waitSaveAfterClickMs: 8000,

@@ -1138,7 +1138,15 @@
             if (wr) wr.style.display = 'none';
         };
 
-        header.appendChild(title);
+        var titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        titleRow.appendChild(title);
+        var f4Badge = document.createElement('span');
+        f4Badge.textContent = 'F4';
+        f4Badge.title = 'Press F4 to hide or show this panel';
+        f4Badge.style.cssText = 'background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.5); font-size: 10px; font-weight: 600; padding: 2px 5px; border-radius: 3px; font-family: monospace; user-select: none; cursor: default; flex-shrink: 0;';
+        titleRow.appendChild(f4Badge);
+        header.appendChild(titleRow);
         header.appendChild(closeButton);
 
         // Toolbar (count + sort + export)
@@ -1726,6 +1734,7 @@
         }
         attendanceToggleHandler = function (e) {
             if (e.key === 'F4') {
+                if (cfgState.modalOpen) return;
                 e.preventDefault();
                 e.stopPropagation();
                 toggleAttendancePanelVisibility();
