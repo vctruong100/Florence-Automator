@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.0
+// @version 1.0.1
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
@@ -1766,9 +1766,13 @@
             }
             var canonical = canonicalizeKeyEvent(e);
             if (canonical.code !== cfgState.currentCode) { return; }
+            originalLog.call(console, '[MSTeams] F2 keybind handler: matched, preventing default and toggling');
             e.preventDefault();
             e.stopPropagation();
-            if (cfgState.debounceTimer) { return; }
+            if (cfgState.debounceTimer) {
+                originalLog.call(console, '[MSTeams] F2 keybind handler: debounced, ignoring');
+                return;
+            }
             addLogMessage('attachGlobalKeybindListener: keybind matched code=' + canonical.code + ', toggling', 'log');
             cfgState.debounceTimer = setTimeout(function () {
                 cfgState.debounceTimer = null;
@@ -1799,24 +1803,40 @@
     }
 
     function toggleMainPanelVisibility() {
+        addLogMessage('toggleMainPanelVisibility: called', 'log');
         var gui = document.getElementById(MSTEAMS_GUI_ID);
         if (!gui) {
+            addLogMessage('toggleMainPanelVisibility: GUI not found, creating', 'log');
             guiVisible = true;
             localStorage.setItem('msteams-gui-visible', 'true');
             createGUI();
             gui = document.getElementById(MSTEAMS_GUI_ID);
-            if (gui) { gui.style.display = 'flex'; }
+            if (gui) {
+                gui.style.display = 'flex';
+                addLogMessage('toggleMainPanelVisibility: GUI created and shown', 'log');
+            } else {
+                addLogMessage('toggleMainPanelVisibility: ERROR - createGUI failed to create element', 'error');
+            }
             return;
         }
         if (gui.parentNode && gui.parentNode !== document.body) {
+            var wasVisible = gui.style.display !== 'none';
             msteamsCleanupExisting();
-            guiVisible = true;
-            localStorage.setItem('msteams-gui-visible', 'true');
-            createGUI();
-            gui = document.getElementById(MSTEAMS_GUI_ID);
-            if (gui) { gui.style.display = 'flex'; }
+            if (wasVisible) {
+                guiVisible = false;
+                localStorage.setItem('msteams-gui-visible', 'false');
+                addLogMessage('toggleMainPanelVisibility: GUI was trapped+visible, hiding', 'log');
+            } else {
+                guiVisible = true;
+                localStorage.setItem('msteams-gui-visible', 'true');
+                createGUI();
+                gui = document.getElementById(MSTEAMS_GUI_ID);
+                if (gui) { gui.style.display = 'flex'; }
+                addLogMessage('toggleMainPanelVisibility: GUI was trapped+hidden, recreated and shown', 'log');
+            }
             return;
         }
+        guiVisible = gui.style.display !== 'none';
         guiVisible = !guiVisible;
         localStorage.setItem('msteams-gui-visible', guiVisible ? 'true' : 'false');
         if (guiVisible) {
@@ -2163,6 +2183,10 @@
         cfgState.currentLabel = stored.label;
         addLogMessage('configInit: loaded keybind code=' + cfgState.currentCode + ' label=' + cfgState.currentLabel, 'log');
         attachGlobalKeybindListener();
+        originalLog.call(console, '[MSTeams] configInit: keybind listener attached for ' + cfgState.currentLabel);
+        if (cfgState.currentCode === 'F2') {
+            originalLog.call(console, '[MSTeams] WARNING: F2 conflicts with another script (APS). Recommend changing to F3 via config icon.');
+        }
     }
 
     // ─── Main GUI ───────────────────────────────────────────────────────
