@@ -2,10 +2,12 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.2
+// @version 1.0.3
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
+// @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
+// @downloadURL  https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
 // @run-at document-idle
 // @grant none
 // ==/UserScript==
