@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.4
+// @version 1.0.5
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
@@ -105,7 +105,7 @@
     };
 
     const CFG_KEYS = {
-        defaultCode: 'F2',
+        defaultCode: 'F3',
         disallowed: ['F5', 'F11', 'F12', 'Backspace'],
         ignoreWhenEditableSelectors: 'input, textarea, [contenteditable=""], [contenteditable="true"], [role="textbox"]'
     };
@@ -121,8 +121,8 @@
     ];
 
     var cfgState = {
-        currentCode: 'F2',
-        currentLabel: 'F2',
+        currentCode: 'F3',
+        currentLabel: 'F3',
         globalKeybindHandler: null,
         keybindSuspended: false,
         debounceTimer: null,
@@ -1823,6 +1823,7 @@
         }
         if (gui.parentNode && gui.parentNode !== document.body) {
             var wasVisible = gui.style.display !== 'none';
+            var attendanceWasRunning = attendanceState.isRunning;
             msteamsCleanupExisting();
             if (wasVisible) {
                 guiVisible = false;
@@ -1835,6 +1836,12 @@
                 gui = document.getElementById(MSTEAMS_GUI_ID);
                 if (gui) { gui.style.display = 'flex'; }
                 addLogMessage('toggleMainPanelVisibility: GUI was trapped+hidden, recreated and shown', 'log');
+            }
+            if (attendanceWasRunning) {
+                showAttendancePanel();
+                refreshAttendanceList();
+                updateAttendanceCount();
+                addLogMessage('toggleMainPanelVisibility: attendance panel recreated after cleanup', 'log');
             }
             return;
         }
@@ -2489,6 +2496,7 @@
         msteamsInitDebounceTimer = setTimeout(function () {
             msteamsInitDebounceTimer = null;
             var existingGui = document.getElementById(MSTEAMS_GUI_ID);
+            var attendanceWasRunning = attendanceState.isRunning;
             if (existingGui) {
                 if (existingGui.parentNode && existingGui.parentNode !== document.body) {
                     msteamsCleanupExisting();
@@ -2496,6 +2504,11 @@
                         createGUI();
                         var newGui = document.getElementById(MSTEAMS_GUI_ID);
                         if (newGui) { newGui.style.display = 'flex'; }
+                    }
+                    if (attendanceWasRunning) {
+                        showAttendancePanel();
+                        refreshAttendanceList();
+                        updateAttendanceCount();
                     }
                 }
             } else {
