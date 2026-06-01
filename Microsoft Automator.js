@@ -2,13 +2,11 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.9
+// @version 1.0.0
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
-// @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
-// @downloadURL  https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
-// @run-at document-end
+// @run-at document-idle
 // @grant none
 // ==/UserScript==
 
@@ -57,26 +55,20 @@
         }
     }
 
-    function setupConsoleOverrides() {
-        try {
-            console.log = function (...args) {
-                originalLog.apply(console, args);
-                addLogMessage(args.join(' '), 'log');
-            };
+    console.log = function (...args) {
+        originalLog.apply(console, args);
+        addLogMessage(args.join(' '), 'log');
+    };
 
-            console.error = function (...args) {
-                originalError.apply(console, args);
-                addLogMessage(args.join(' '), 'error');
-            };
+    console.error = function (...args) {
+        originalError.apply(console, args);
+        addLogMessage(args.join(' '), 'error');
+    };
 
-            console.warn = function (...args) {
-                originalWarn.apply(console, args);
-                addLogMessage(args.join(' '), 'warn');
-            };
-        } catch (e) {
-            originalError.call(console, '[MSTeams] Failed to override console methods:', e);
-        }
-    }
+    console.warn = function (...args) {
+        originalWarn.apply(console, args);
+        addLogMessage(args.join(' '), 'warn');
+    };
 
     // ─── Config Selectors & Labels ──────────────────────────────────────
     const CFG_SELECTORS = {
@@ -111,7 +103,7 @@
     };
 
     const CFG_KEYS = {
-        defaultCode: 'F3',
+        defaultCode: 'F2',
         disallowed: ['F5', 'F11', 'F12', 'Backspace'],
         ignoreWhenEditableSelectors: 'input, textarea, [contenteditable=""], [contenteditable="true"], [role="textbox"]'
     };
@@ -127,8 +119,8 @@
     ];
 
     var cfgState = {
-        currentCode: 'F3',
-        currentLabel: 'F3',
+        currentCode: 'F2',
+        currentLabel: 'F2',
         globalKeybindHandler: null,
         keybindSuspended: false,
         debounceTimer: null,
@@ -190,12 +182,6 @@
             if (callback) callback(0);
             return;
         }
-        
-        if (!attendanceState.isRunning) {
-            if (callback) callback(0);
-            return;
-        }
-        
         attendanceState.isScrollScanning = true;
 
         var originalScrollTop = scrollWrapper.scrollTop;
@@ -763,7 +749,6 @@
     function stopAttendance() {
         addLogMessage('stopAttendance: stopping attendance check', 'log');
         attendanceState.isRunning = false;
-        attendanceState.isScrollScanning = false;
         if (attendanceState.intervalId) {
             clearInterval(attendanceState.intervalId);
             attendanceState.intervalId = null;
@@ -1178,17 +1163,9 @@
         scanIndicator.textContent = '\u25CF Scanning';
         scanIndicator.style.cssText = 'color: #6bcf7f; font-size: 11px; font-weight: 500; animation: msteamsPulse 2s infinite;';
 
-        if (!document.getElementById('msteams-pulse-animation')) {
-            try {
-                var styleTag = document.createElement('style');
-                styleTag.id = 'msteams-pulse-animation';
-                styleTag.appendChild(document.createTextNode('@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }'));
-                document.head.appendChild(styleTag);
-            } catch (e) {
-                originalLog.call(console, '[MSTeams] Failed to inject animation style (Trusted Types):', e);
-                scanIndicator.style.animation = 'none';
-            }
-        }
+        var styleTag = document.createElement('style');
+        styleTag.textContent = '@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }';
+        document.head.appendChild(styleTag);
 
         var leftToolbar = document.createElement('div');
         leftToolbar.style.cssText = 'display: flex; align-items: center; gap: 10px;';
@@ -1789,13 +1766,9 @@
             }
             var canonical = canonicalizeKeyEvent(e);
             if (canonical.code !== cfgState.currentCode) { return; }
-            originalLog.call(console, '[MSTeams] F2 keybind handler: matched, preventing default and toggling');
             e.preventDefault();
             e.stopPropagation();
-            if (cfgState.debounceTimer) {
-                originalLog.call(console, '[MSTeams] F2 keybind handler: debounced, ignoring');
-                return;
-            }
+            if (cfgState.debounceTimer) { return; }
             addLogMessage('attachGlobalKeybindListener: keybind matched code=' + canonical.code + ', toggling', 'log');
             cfgState.debounceTimer = setTimeout(function () {
                 cfgState.debounceTimer = null;
@@ -1826,47 +1799,24 @@
     }
 
     function toggleMainPanelVisibility() {
-        addLogMessage('toggleMainPanelVisibility: called', 'log');
         var gui = document.getElementById(MSTEAMS_GUI_ID);
         if (!gui) {
-            addLogMessage('toggleMainPanelVisibility: GUI not found, creating', 'log');
             guiVisible = true;
             localStorage.setItem('msteams-gui-visible', 'true');
             createGUI();
             gui = document.getElementById(MSTEAMS_GUI_ID);
-            if (gui) {
-                gui.style.display = 'flex';
-                addLogMessage('toggleMainPanelVisibility: GUI created and shown', 'log');
-            } else {
-                addLogMessage('toggleMainPanelVisibility: ERROR - createGUI failed to create element', 'error');
-            }
+            if (gui) { gui.style.display = 'flex'; }
             return;
         }
         if (gui.parentNode && gui.parentNode !== document.body) {
-            var wasVisible = gui.style.display !== 'none';
-            var attendanceWasRunning = attendanceState.isRunning;
             msteamsCleanupExisting();
-            if (wasVisible) {
-                guiVisible = false;
-                localStorage.setItem('msteams-gui-visible', 'false');
-                addLogMessage('toggleMainPanelVisibility: GUI was trapped+visible, hiding', 'log');
-            } else {
-                guiVisible = true;
-                localStorage.setItem('msteams-gui-visible', 'true');
-                createGUI();
-                gui = document.getElementById(MSTEAMS_GUI_ID);
-                if (gui) { gui.style.display = 'flex'; }
-                addLogMessage('toggleMainPanelVisibility: GUI was trapped+hidden, recreated and shown', 'log');
-            }
-            if (attendanceWasRunning) {
-                showAttendancePanel();
-                refreshAttendanceList();
-                updateAttendanceCount();
-                addLogMessage('toggleMainPanelVisibility: attendance panel recreated after cleanup', 'log');
-            }
+            guiVisible = true;
+            localStorage.setItem('msteams-gui-visible', 'true');
+            createGUI();
+            gui = document.getElementById(MSTEAMS_GUI_ID);
+            if (gui) { gui.style.display = 'flex'; }
             return;
         }
-        guiVisible = gui.style.display !== 'none';
         guiVisible = !guiVisible;
         localStorage.setItem('msteams-gui-visible', guiVisible ? 'true' : 'false');
         if (guiVisible) {
@@ -2213,10 +2163,6 @@
         cfgState.currentLabel = stored.label;
         addLogMessage('configInit: loaded keybind code=' + cfgState.currentCode + ' label=' + cfgState.currentLabel, 'log');
         attachGlobalKeybindListener();
-        originalLog.call(console, '[MSTeams] configInit: keybind listener attached for ' + cfgState.currentLabel);
-        if (cfgState.currentCode === 'F2') {
-            originalLog.call(console, '[MSTeams] WARNING: F2 conflicts with another script (APS). Recommend changing to F3 via config icon.');
-        }
     }
 
     // ─── Main GUI ───────────────────────────────────────────────────────
@@ -2517,7 +2463,6 @@
         msteamsInitDebounceTimer = setTimeout(function () {
             msteamsInitDebounceTimer = null;
             var existingGui = document.getElementById(MSTEAMS_GUI_ID);
-            var attendanceWasRunning = attendanceState.isRunning;
             if (existingGui) {
                 if (existingGui.parentNode && existingGui.parentNode !== document.body) {
                     msteamsCleanupExisting();
@@ -2525,11 +2470,6 @@
                         createGUI();
                         var newGui = document.getElementById(MSTEAMS_GUI_ID);
                         if (newGui) { newGui.style.display = 'flex'; }
-                    }
-                    if (attendanceWasRunning) {
-                        showAttendancePanel();
-                        refreshAttendanceList();
-                        updateAttendanceCount();
                     }
                 }
             } else {
@@ -2589,57 +2529,43 @@
     }
 
     function init() {
-        try {
-            // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire script
-            var inTop = isTopWindow();
-            originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
-            
-            if (!inTop) {
-                originalLog.call(console, '[MSTeams] init: skipping initialization in iframe');
-                return;
-            }
+        // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire scrip
+        var inTop = isTopWindow();
+        originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
 
-            if (msteamsInitialized) {
-                msteamsEnsureSingleInstance();
-                return;
-            }
-            msteamsInitialized = true;
-            originalLog.call(console, '[MSTeams] init: initializing Microsoft Automator');
-            
-            setupConsoleOverrides();
-
-            msteamsCleanupExisting();
-
-            if (!msteamsKeybindListenerRegistered) {
-                msteamsKeybindListenerRegistered = true;
-                configInit();
-            }
-
-            msteamsRegisterNavListeners();
-
-            var storedVisible = localStorage.getItem('msteams-gui-visible');
-            guiVisible = storedVisible === null ? true : storedVisible === 'true';
-            if (guiVisible) {
-                originalLog.call(console, '[MSTeams] init: guiVisible=true, creating GUI');
-                createGUI();
-                var gui = document.getElementById(MSTEAMS_GUI_ID);
-                if (gui) { gui.style.display = 'flex'; }
-                localStorage.setItem('msteams-gui-visible', 'true');
-            }
-
-            msteamsWatchForReparent();
-
-            originalLog.call(console, '[MSTeams] init: Microsoft Automator loaded. Press ' + cfgState.currentLabel + ' to toggle GUI.');
-        } catch (error) {
-            originalError.call(console, '[MSTeams] Initialization failed:', error);
-            originalError.call(console, '[MSTeams] Stack:', error.stack);
+        if (msteamsInitialized) {
+            msteamsEnsureSingleInstance();
+            return;
         }
+        msteamsInitialized = true;
+        originalLog.call(console, '[MSTeams] init: initializing Microsoft Automator');
+
+        msteamsCleanupExisting();
+
+        if (!msteamsKeybindListenerRegistered) {
+            msteamsKeybindListenerRegistered = true;
+            configInit();
+        }
+
+        msteamsRegisterNavListeners();
+
+        var storedVisible = localStorage.getItem('msteams-gui-visible');
+        guiVisible = storedVisible === null ? true : storedVisible === 'true';
+        if (guiVisible) {
+            originalLog.call(console, '[MSTeams] init: guiVisible=true, creating GUI');
+            createGUI();
+            var gui = document.getElementById(MSTEAMS_GUI_ID);
+            if (gui) { gui.style.display = 'flex'; }
+            localStorage.setItem('msteams-gui-visible', 'true');
+        }
+
+        msteamsWatchForReparent();
+
+        originalLog.call(console, '[MSTeams] init: Microsoft Automator loaded. Press ' + cfgState.currentLabel + ' to toggle GUI.');
     }
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init, { once: true });
-    } else if (document.readyState === "interactive" || document.readyState === "complete") {
-        setTimeout(init, 100);
     } else {
         setTimeout(init, 0);
     }
