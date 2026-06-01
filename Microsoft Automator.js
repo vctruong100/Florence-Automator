@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.8
+// @version 1.0.9
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
@@ -57,20 +57,26 @@
         }
     }
 
-    console.log = function (...args) {
-        originalLog.apply(console, args);
-        addLogMessage(args.join(' '), 'log');
-    };
+    function setupConsoleOverrides() {
+        try {
+            console.log = function (...args) {
+                originalLog.apply(console, args);
+                addLogMessage(args.join(' '), 'log');
+            };
 
-    console.error = function (...args) {
-        originalError.apply(console, args);
-        addLogMessage(args.join(' '), 'error');
-    };
+            console.error = function (...args) {
+                originalError.apply(console, args);
+                addLogMessage(args.join(' '), 'error');
+            };
 
-    console.warn = function (...args) {
-        originalWarn.apply(console, args);
-        addLogMessage(args.join(' '), 'warn');
-    };
+            console.warn = function (...args) {
+                originalWarn.apply(console, args);
+                addLogMessage(args.join(' '), 'warn');
+            };
+        } catch (e) {
+            originalError.call(console, '[MSTeams] Failed to override console methods:', e);
+        }
+    }
 
     // ─── Config Selectors & Labels ──────────────────────────────────────
     const CFG_SELECTORS = {
@@ -1173,10 +1179,15 @@
         scanIndicator.style.cssText = 'color: #6bcf7f; font-size: 11px; font-weight: 500; animation: msteamsPulse 2s infinite;';
 
         if (!document.getElementById('msteams-pulse-animation')) {
-            var styleTag = document.createElement('style');
-            styleTag.id = 'msteams-pulse-animation';
-            styleTag.appendChild(document.createTextNode('@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }'));
-            document.head.appendChild(styleTag);
+            try {
+                var styleTag = document.createElement('style');
+                styleTag.id = 'msteams-pulse-animation';
+                styleTag.appendChild(document.createTextNode('@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }'));
+                document.head.appendChild(styleTag);
+            } catch (e) {
+                originalLog.call(console, '[MSTeams] Failed to inject animation style (Trusted Types):', e);
+                scanIndicator.style.animation = 'none';
+            }
         }
 
         var leftToolbar = document.createElement('div');
@@ -2578,44 +2589,51 @@
     }
 
     function init() {
-        // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire script
-        var inTop = isTopWindow();
-        originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
-        
-        if (!inTop) {
-            originalLog.call(console, '[MSTeams] init: skipping initialization in iframe');
-            return;
+        try {
+            // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire script
+            var inTop = isTopWindow();
+            originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
+            
+            if (!inTop) {
+                originalLog.call(console, '[MSTeams] init: skipping initialization in iframe');
+                return;
+            }
+
+            if (msteamsInitialized) {
+                msteamsEnsureSingleInstance();
+                return;
+            }
+            msteamsInitialized = true;
+            originalLog.call(console, '[MSTeams] init: initializing Microsoft Automator');
+            
+            setupConsoleOverrides();
+
+            msteamsCleanupExisting();
+
+            if (!msteamsKeybindListenerRegistered) {
+                msteamsKeybindListenerRegistered = true;
+                configInit();
+            }
+
+            msteamsRegisterNavListeners();
+
+            var storedVisible = localStorage.getItem('msteams-gui-visible');
+            guiVisible = storedVisible === null ? true : storedVisible === 'true';
+            if (guiVisible) {
+                originalLog.call(console, '[MSTeams] init: guiVisible=true, creating GUI');
+                createGUI();
+                var gui = document.getElementById(MSTEAMS_GUI_ID);
+                if (gui) { gui.style.display = 'flex'; }
+                localStorage.setItem('msteams-gui-visible', 'true');
+            }
+
+            msteamsWatchForReparent();
+
+            originalLog.call(console, '[MSTeams] init: Microsoft Automator loaded. Press ' + cfgState.currentLabel + ' to toggle GUI.');
+        } catch (error) {
+            originalError.call(console, '[MSTeams] Initialization failed:', error);
+            originalError.call(console, '[MSTeams] Stack:', error.stack);
         }
-
-        if (msteamsInitialized) {
-            msteamsEnsureSingleInstance();
-            return;
-        }
-        msteamsInitialized = true;
-        originalLog.call(console, '[MSTeams] init: initializing Microsoft Automator');
-
-        msteamsCleanupExisting();
-
-        if (!msteamsKeybindListenerRegistered) {
-            msteamsKeybindListenerRegistered = true;
-            configInit();
-        }
-
-        msteamsRegisterNavListeners();
-
-        var storedVisible = localStorage.getItem('msteams-gui-visible');
-        guiVisible = storedVisible === null ? true : storedVisible === 'true';
-        if (guiVisible) {
-            originalLog.call(console, '[MSTeams] init: guiVisible=true, creating GUI');
-            createGUI();
-            var gui = document.getElementById(MSTEAMS_GUI_ID);
-            if (gui) { gui.style.display = 'flex'; }
-            localStorage.setItem('msteams-gui-visible', 'true');
-        }
-
-        msteamsWatchForReparent();
-
-        originalLog.call(console, '[MSTeams] init: Microsoft Automator loaded. Press ' + cfgState.currentLabel + ' to toggle GUI.');
     }
 
     if (document.readyState === "loading") {
