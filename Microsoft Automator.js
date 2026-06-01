@@ -2,13 +2,13 @@
 // ==UserScript==
 // @name Microsoft Automator
 // @namespace vinh.msteams.automator
-// @version 1.0.6
+// @version 1.0.8
 // @description Attendance tracker for Microsoft Teams meetings
 // @match https://teams.microsoft.com/*
 // @match https://teams.cloud.microsoft/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
 // @downloadURL  https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Microsoft%20Automator.js
-// @run-at document-idle
+// @run-at document-end
 // @grant none
 // ==/UserScript==
 
@@ -184,6 +184,12 @@
             if (callback) callback(0);
             return;
         }
+        
+        if (!attendanceState.isRunning) {
+            if (callback) callback(0);
+            return;
+        }
+        
         attendanceState.isScrollScanning = true;
 
         var originalScrollTop = scrollWrapper.scrollTop;
@@ -751,6 +757,7 @@
     function stopAttendance() {
         addLogMessage('stopAttendance: stopping attendance check', 'log');
         attendanceState.isRunning = false;
+        attendanceState.isScrollScanning = false;
         if (attendanceState.intervalId) {
             clearInterval(attendanceState.intervalId);
             attendanceState.intervalId = null;
@@ -1165,9 +1172,12 @@
         scanIndicator.textContent = '\u25CF Scanning';
         scanIndicator.style.cssText = 'color: #6bcf7f; font-size: 11px; font-weight: 500; animation: msteamsPulse 2s infinite;';
 
-        var styleTag = document.createElement('style');
-        styleTag.textContent = '@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }';
-        document.head.appendChild(styleTag);
+        if (!document.getElementById('msteams-pulse-animation')) {
+            var styleTag = document.createElement('style');
+            styleTag.id = 'msteams-pulse-animation';
+            styleTag.appendChild(document.createTextNode('@keyframes msteamsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }'));
+            document.head.appendChild(styleTag);
+        }
 
         var leftToolbar = document.createElement('div');
         leftToolbar.style.cssText = 'display: flex; align-items: center; gap: 10px;';
@@ -2568,9 +2578,14 @@
     }
 
     function init() {
-        // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire scrip
+        // Run "window.__msteamsDestroy()" to destroy current instance; then copy and paste the entire script
         var inTop = isTopWindow();
         originalLog.call(console, '[MSTeams] init: context=' + (inTop ? 'top' : 'iframe'));
+        
+        if (!inTop) {
+            originalLog.call(console, '[MSTeams] init: skipping initialization in iframe');
+            return;
+        }
 
         if (msteamsInitialized) {
             msteamsEnsureSingleInstance();
@@ -2605,6 +2620,8 @@
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else if (document.readyState === "interactive" || document.readyState === "complete") {
+        setTimeout(init, 100);
     } else {
         setTimeout(init, 0);
     }
