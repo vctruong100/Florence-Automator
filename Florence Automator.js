@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.7
+// @version 2.2.8
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
@@ -170,7 +170,7 @@
         waitAfterTasksToggleMs: 200,
         maxSelectDurationMs: 8000,
         scrollIdleMs: 140,
-        waitAfterSaveMs: 1500
+        waitAfterSaveMs: 4000
     };
 
     const DOA_RETRY = {
@@ -9611,6 +9611,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         ensureDoAAddEntryFormOpen()
             .then(function() {
             if (doaState.isPaused) { addLogMessage('processNextDoAFromQueue: paused after form open', 'log'); return Promise.reject('__paused__'); }
+            var addBtn = document.querySelector(DOA_SELECTORS.addEntryBtn);
+            var memberInput = document.querySelector(DOA_SELECTORS.memberInput);
+            if (addBtn && !memberInput) {
+                addLogMessage('processNextDoAFromQueue: form was closed unexpectedly (delayed save), reopening', 'warn');
+                return ensureDoAAddEntryFormOpen();
+            }
             addLogMessage('processNextDoAFromQueue: form open, opening dropdown', 'log');
             return ensureDoAMemberDropdownOpen();
         })
