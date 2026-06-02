@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.6
+// @version 2.2.7
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
@@ -75,6 +75,8 @@
         listContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list, cdk-virtual-scroll-viewport',
         virtualViewport: 'cdk-virtual-scroll-viewport, .cdk-virtual-scroll-viewport',
         optionItem: 'cdk-virtual-scroll-viewport li.filtered-select__list__item, cdk-virtual-scroll-viewport li, .filtered-select__list li, cdk-virtual-scroll-viewport [role="option"], .filtered-select__list [role="option"]',
+        memberCaretBtn: 'button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]',
+        memberClearBtn: 'button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn',
         saveAndAddAnotherBtn: 'button.btn.btn-primary',
         modalOrFormRoot: '.modal.show, .document-log-entries, body'
     };
@@ -138,6 +140,8 @@
         listContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list, cdk-virtual-scroll-viewport',
         virtualViewport: 'cdk-virtual-scroll-viewport, .cdk-virtual-scroll-viewport',
         optionItem: 'cdk-virtual-scroll-viewport li.filtered-select__list__item, cdk-virtual-scroll-viewport li, .filtered-select__list li, cdk-virtual-scroll-viewport [role="option"], .filtered-select__list [role="option"]',
+        memberCaretBtn: 'button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]',
+        memberClearBtn: 'button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn',
         roleClearBtn: 'i.fa-times.test-clearBtn',
         roleSearchInput: 'input.filtered-select__input[placeholder*="Search"]',
         roleOptionItem: '.filtered-select__list__item, [role="option"], .cdk-virtual-scroll-viewport .filtered-select__list__item',
@@ -1083,6 +1087,22 @@
                 addLogMessage('addSortToggleToSubpanel: opened failure names popup for ' + listId, 'log');
             };
             btnContainer.appendChild(filterBtn);
+            var statusFilterBtn = document.createElement('button');
+            statusFilterBtn.id = listId + '-status-filter-btn';
+            statusFilterBtn.textContent = 'Filter \u25BC';
+            statusFilterBtn.setAttribute('aria-label', 'Filter by status');
+            statusFilterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0; position: relative;';
+            statusFilterBtn.onmouseover = function() {
+                statusFilterBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+            };
+            statusFilterBtn.onmouseout = function() {
+                statusFilterBtn.style.background = 'rgba(255, 255, 255, 0.12)';
+            };
+            statusFilterBtn.onclick = function() {
+                showStatusFilterDropdown(listId, statusFilterBtn);
+                addLogMessage('addSortToggleToSubpanel: opened status filter for ' + listId, 'log');
+            };
+            btnContainer.appendChild(statusFilterBtn);
             titleRow.appendChild(btnContainer);
         } else {
             titleRow.appendChild(toggleBtn);
@@ -1231,6 +1251,173 @@
         overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); } };
         document.body.appendChild(overlay);
         addLogMessage('showFailureNamesPopup: showed ' + failedEntries.length + ' failed entries for ' + listId, 'log');
+    }
+
+    function showStatusFilterDropdown(listId, buttonEl) {
+        var existingDropdown = document.getElementById(listId + '-status-filter-dropdown');
+        if (existingDropdown) {
+            existingDropdown.remove();
+            return;
+        }
+        var list = document.getElementById(listId);
+        if (!list) { return; }
+        var items = list.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        var statusSet = new Set();
+        for (var i = 0; i < items.length; i++) {
+            var badge = items[i].querySelector('.elog-status-badge');
+            if (badge) {
+                var statusText = badge.textContent.trim();
+                if (statusText) { statusSet.add(statusText); }
+            }
+        }
+        var statuses = Array.from(statusSet).sort();
+        if (statuses.length === 0) { return; }
+        var dropdown = document.createElement('div');
+        dropdown.id = listId + '-status-filter-dropdown';
+        dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);';
+        var filterState = {};
+        for (var si = 0; si < statuses.length; si++) {
+            filterState[statuses[si]] = true;
+        }
+        var applyFilter = function() {
+            for (var i = 0; i < items.length; i++) {
+                var badge = items[i].querySelector('.elog-status-badge');
+                if (!badge) {
+                    items[i].style.display = 'flex';
+                    continue;
+                }
+                var statusText = badge.textContent.trim();
+                items[i].style.display = filterState[statusText] ? 'flex' : 'none';
+            }
+        };
+        var header = document.createElement('div');
+        header.style.cssText = 'padding: 12px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08);';
+        var headerTitle = document.createElement('div');
+        headerTitle.textContent = 'Filter by Status';
+        headerTitle.style.cssText = 'color: white; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
+        header.appendChild(headerTitle);
+        var selectAllRow = document.createElement('div');
+        selectAllRow.style.cssText = 'display: flex; gap: 6px;';
+        var selectAllBtn = document.createElement('button');
+        selectAllBtn.textContent = 'All';
+        selectAllBtn.style.cssText = 'flex: 1; background: rgba(107, 207, 127, 0.15); border: 1px solid rgba(107, 207, 127, 0.3); color: #6bcf7f; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
+        selectAllBtn.onmouseover = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.25)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.5)'; };
+        selectAllBtn.onmouseout = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.15)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.3)'; };
+        selectAllBtn.onclick = function() {
+            for (var si = 0; si < statuses.length; si++) {
+                filterState[statuses[si]] = true;
+            }
+            var checkboxes = dropdown.querySelectorAll('input[type=\"checkbox\"]');
+            for (var ci = 0; ci < checkboxes.length; ci++) {
+                checkboxes[ci].checked = true;
+            }
+            applyFilter();
+        };
+        var deselectAllBtn = document.createElement('button');
+        deselectAllBtn.textContent = 'None';
+        deselectAllBtn.style.cssText = 'flex: 1; background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: #ff6b6b; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
+        deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.25)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.5)'; };
+        deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.15)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.3)'; };
+        deselectAllBtn.onclick = function() {
+            for (var si = 0; si < statuses.length; si++) {
+                filterState[statuses[si]] = false;
+            }
+            var checkboxes = dropdown.querySelectorAll('input[type=\"checkbox\"]');
+            for (var ci = 0; ci < checkboxes.length; ci++) {
+                checkboxes[ci].checked = false;
+            }
+            applyFilter();
+        };
+        selectAllRow.appendChild(selectAllBtn);
+        selectAllRow.appendChild(deselectAllBtn);
+        header.appendChild(selectAllRow);
+        dropdown.appendChild(header);
+        var scrollContainer = document.createElement('div');
+        scrollContainer.style.cssText = 'max-height: 280px; overflow-y: auto; padding: 8px 0;';
+        for (var si = 0; si < statuses.length; si++) {
+            var statusRow = document.createElement('div');
+            statusRow.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; transition: background 0.15s ease; user-select: none;';
+            statusRow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.08)'; };
+            statusRow.onmouseout = function() { this.style.background = 'transparent'; };
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.setAttribute('data-status', statuses[si]);
+            checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #6bcf7f; flex-shrink: 0; cursor: pointer; margin: 0;';
+            checkbox.onclick = function(e) { e.stopPropagation(); };
+            checkbox.onchange = (function(status) {
+                return function(e) {
+                    filterState[status] = this.checked;
+                    applyFilter();
+                    e.stopPropagation();
+                };
+            })(statuses[si]);
+            var label = document.createElement('span');
+            label.textContent = statuses[si];
+            label.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
+            statusRow.onclick = (function(cb) {
+                return function(e) {
+                    if (e.target !== cb) {
+                        cb.checked = !cb.checked;
+                        var event = new Event('change', { bubbles: true });
+                        cb.dispatchEvent(event);
+                    }
+                };
+            })(checkbox);
+            statusRow.appendChild(checkbox);
+            statusRow.appendChild(label);
+            scrollContainer.appendChild(statusRow);
+        }
+        dropdown.appendChild(scrollContainer);
+        var footer = document.createElement('div');
+        footer.style.cssText = 'padding: 10px 14px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.08);';
+        var copyFilteredBtn = document.createElement('button');
+        copyFilteredBtn.innerHTML = '<span style=\"margin-right: 6px;\">\u2398</span>Copy Filtered';
+        copyFilteredBtn.style.cssText = 'width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);';
+        copyFilteredBtn.onmouseover = function() { copyFilteredBtn.style.transform = 'translateY(-1px)'; copyFilteredBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'; };
+        copyFilteredBtn.onmouseout = function() { copyFilteredBtn.style.transform = 'translateY(0)'; copyFilteredBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)'; };
+        copyFilteredBtn.onclick = function() {
+            var filteredEntries = [];
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].style.display !== 'none') {
+                    var entryInfo = items[i].getAttribute('data-entry-info');
+                    if (entryInfo) {
+                        filteredEntries.push(entryInfo);
+                    } else {
+                        var sortName = items[i].getAttribute('data-sort-name') || '';
+                        if (sortName) { filteredEntries.push(sortName); }
+                    }
+                }
+            }
+            if (filteredEntries.length > 0) {
+                var textarea = document.createElement('textarea');
+                textarea.value = filteredEntries.join('\\n');
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                var originalHTML = copyFilteredBtn.innerHTML;
+                copyFilteredBtn.innerHTML = '<span style=\"margin-right: 6px;\">\u2713</span>Copied ' + filteredEntries.length + ' entries!';
+                copyFilteredBtn.style.background = 'linear-gradient(135deg, #6bcf7f 0%, #4caf50 100%)';
+                setTimeout(function() { copyFilteredBtn.innerHTML = originalHTML; copyFilteredBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; }, 2000);
+            }
+        };
+        footer.appendChild(copyFilteredBtn);
+        dropdown.appendChild(footer);
+        buttonEl.style.position = 'relative';
+        buttonEl.appendChild(dropdown);
+        var closeDropdown = function(e) {
+            if (!dropdown.contains(e.target) && e.target !== buttonEl) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        };
+        setTimeout(function() {
+            document.addEventListener('click', closeDropdown);
+        }, 100);
+        addLogMessage('showStatusFilterDropdown: created dropdown for ' + listId + ' with ' + statuses.length + ' statuses', 'log');
     }
 
     function initializeRightPanel() {
@@ -1795,8 +1982,12 @@
                     }
                     // No match found - retry if we haven't exhausted retries
                     if (retryCount < maxRetries) {
-                        addLogMessage(stepLabel + ': no match, retrying after clear (retry ' + (retryCount + 1) + '/' + maxRetries + ')', 'log');
-                        clearFilteredInput(inputEl);
+                        addLogMessage(stepLabel + ': no match, retrying with clear X button (retry ' + (retryCount + 1) + '/' + maxRetries + ')', 'log');
+                        var cleared = clickFilteredSelectClearButton(inputEl);
+                        if (!cleared) {
+                            addLogMessage(stepLabel + ': clear X button not found, using clearFilteredInput fallback', 'warn');
+                            clearFilteredInput(inputEl);
+                        }
                         var retryTid = setTimeout(function() {
                             typeIntoFilteredInput(inputEl, term);
                             var retryFilterTid = setTimeout(function() {
@@ -2038,6 +2229,42 @@
         });
     }
 
+    function clickFilteredSelectCaret(inputEl, state) {
+        if (!inputEl) { return false; }
+        var scope = inputEl.closest('filtered-select') || inputEl.parentElement;
+        var caret = null;
+        if (scope) {
+            caret = scope.querySelector('button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]');
+        }
+        if (!caret) {
+            caret = document.querySelector('button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]');
+        }
+        if (caret && caret.getAttribute('aria-expanded') !== 'true') {
+            addLogMessage('clickFilteredSelectCaret: clicking caret to force-open dropdown', 'log');
+            caret.click();
+            return true;
+        }
+        return false;
+    }
+
+    function clickFilteredSelectClearButton(inputEl) {
+        if (!inputEl) { return false; }
+        var scope = inputEl.closest('filtered-select') || inputEl.parentElement;
+        var clearBtn = null;
+        if (scope) {
+            clearBtn = scope.querySelector('button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn');
+        }
+        if (!clearBtn) {
+            clearBtn = document.querySelector('button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn');
+        }
+        if (clearBtn) {
+            addLogMessage('clickFilteredSelectClearButton: clicking clear X button to refresh dropdown', 'log');
+            clearBtn.click();
+            return true;
+        }
+        return false;
+    }
+
     function reopenDropdownIfClosed(state) {
         if (!state.activeDropdown) {
             return Promise.resolve();
@@ -2057,6 +2284,7 @@
         if (inputEl.value) {
             inputEl.dispatchEvent(new Event('input', { bubbles: true }));
         }
+        clickFilteredSelectCaret(inputEl, state);
         var savedListSelector = state.activeDropdown.listSelector;
         var waitMs = 3000;
         return new Promise(function(resolve) {
@@ -3132,7 +3360,7 @@
     }
 
     function verifyNamesInit() {
-        addLogMessage('verifyNamesInit: starting feature', 'log');
+        addLogMessage('verifyNamesInit: starting feature with scan-first approach', 'log');
         verifyState.focusReturnElement = document.getElementById('verify-names-btn');
         verifyState.abortController = new AbortController();
         resetVerifyState();
@@ -3143,8 +3371,12 @@
             showVerifyWarning();
             return;
         }
-        addLogMessage('verifyNamesInit: main table found, showing input panel', 'log');
-        showVerifyInputPanel();
+        addLogMessage('verifyNamesInit: main table found, starting scan immediately', 'log');
+        verifyState.isRunning = true;
+        verifyState.timer = createFeatureTimer('verify');
+        verifyState.timer.start();
+        showCollectingDataPanel('verify', VERIFY_LABELS.featureButton);
+        startVerifyScan();
     }
 
     function resetVerifyState() {
@@ -3672,47 +3904,145 @@
     }
 
     function startVerifyScan() {
-        addLogMessage('startVerifyScan: beginning scan with auto-scroll', 'log');
+        addLogMessage('startVerifyScan: beginning scan - looking for Add Entry button', 'log');
         verifyState.scannedNames = [];
         verifyState.seenNormalizedNames = new Set();
-        verifyWaitForElement(ELOG_SELECTORS.mainTable, ELOG_TIMEOUTS.waitTableMs)
-            .then(function(mainTable) {
-            addLogMessage('startVerifyScan: main table found', 'log');
-            return verifyWaitForElement(ELOG_SELECTORS.gridTable, ELOG_TIMEOUTS.waitGridMs);
-        })
-            .then(function(gridTable) {
-            addLogMessage('startVerifyScan: grid table found, starting auto-scroll scan', 'log');
-            verifyAutoScrollScan({
-                onRow: function(name, normalized) {
-                    addLogMessage('startVerifyScan: onRow callback for ' + name, 'log');
-                },
-                onProgress: function(data) {
-                    addLogMessage('startVerifyScan: progress - scanned ' + data.scanned, 'log');
-                },
-                onDone: function(data) {
-                    addLogMessage('startVerifyScan: done - total=' + data.total + ' reason=' + data.reason, 'log');
+        var addEntryBtn = document.querySelector('button.test-createLogEntryBtn, button.document-log-entries__btn');
+        if (addEntryBtn) {
+            var isDisabled = addEntryBtn.disabled || addEntryBtn.hasAttribute('disabled');
+            var isVisible = addEntryBtn.offsetParent !== null;
+            if (!isDisabled && isVisible) {
+                addLogMessage('startVerifyScan: Add Entry button found and clickable, clicking it', 'log');
+                addEntryBtn.click();
+                setTimeout(function() { verifyOpenDropdownAndScan(); }, 800);
+                return;
+            } else {
+                addLogMessage('startVerifyScan: Add Entry button found but disabled or hidden, skipping click', 'log');
+            }
+        } else {
+            addLogMessage('startVerifyScan: Add Entry button not found, assuming already clicked', 'log');
+        }
+        verifyOpenDropdownAndScan();
+    }
+
+    function verifyOpenDropdownAndScan() {
+        addLogMessage('verifyOpenDropdownAndScan: looking for Team Member dropdown', 'log');
+        var dropdownInput = document.querySelector('filtered-select input[placeholder*="Team Member"]');
+        if (!dropdownInput) {
+            addLogMessage('verifyOpenDropdownAndScan: dropdown input not found, retrying...', 'warn');
+            setTimeout(function() {
+                dropdownInput = document.querySelector('filtered-select input[placeholder*="Team Member"]');
+                if (!dropdownInput) {
+                    addLogMessage('verifyOpenDropdownAndScan: dropdown input still not found after retry', 'error');
                     removeCollectingDataPanel('verify');
-                    if (data.reason !== 'stopped' && verifyState.isRunning) {
-                        addLogMessage('startVerifyScan: scan complete, showing progress panel', 'log');
-                        showVerifyProgressPanel();
+                    showVerifyThreePanelLayout();
+                    var leftPanel = document.getElementById('verify-threepanel-left');
+                    if (leftPanel) {
+                        leftPanel.querySelector('.verify-panel-body').innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">Team Member dropdown not found. Please ensure you are on the correct page.</div>';
                     }
-                },
-                onError: function(error) {
-                    addLogMessage('startVerifyScan: error - ' + error.message, 'error');
-                    removeCollectingDataPanel('verify');
-                    showVerifyProgressPanel();
-                    updateVerifyScanStatus('Error', 'error');
-                    showVerifyInlineNotice('Error during auto-scroll scan: ' + error.message);
+                    return;
                 }
-            });
-        })
-            .catch(function(error) {
-            addLogMessage('startVerifyScan: error during scan: ' + error, 'error');
+                verifyClickDropdownAndWait(dropdownInput);
+            }, 500);
+            return;
+        }
+        verifyClickDropdownAndWait(dropdownInput);
+    }
+
+    function verifyClickDropdownAndWait(dropdownInput) {
+        var caretBtn = dropdownInput.closest('filtered-select').querySelector('button.test-caret, button.filtered-select__actions__btn');
+        if (caretBtn) {
+            var isExpanded = caretBtn.getAttribute('aria-expanded') === 'true';
+            if (!isExpanded) {
+                addLogMessage('verifyClickDropdownAndWait: clicking dropdown caret button', 'log');
+                caretBtn.click();
+            } else {
+                addLogMessage('verifyClickDropdownAndWait: dropdown already expanded', 'log');
+            }
+            setTimeout(function() { verifyScrollAndCollectNames(); }, 500);
+        } else {
+            addLogMessage('verifyClickDropdownAndWait: caret button not found, trying to focus input', 'log');
+            dropdownInput.focus();
+            dropdownInput.click();
+            setTimeout(function() { verifyScrollAndCollectNames(); }, 500);
+        }
+    }
+
+    function verifyScrollAndCollectNames() {
+        addLogMessage('verifyScrollAndCollectNames: looking for virtual scroll viewport', 'log');
+        var viewport = document.querySelector('filtered-select cdk-virtual-scroll-viewport, cdk-virtual-scroll-viewport');
+        if (!viewport) {
+            addLogMessage('verifyScrollAndCollectNames: viewport not found', 'error');
             removeCollectingDataPanel('verify');
-            showVerifyProgressPanel();
-            updateVerifyScanStatus('Error', 'error');
-            showVerifyInlineNotice('An error occurred during scanning. The table may not be fully loaded.');
-        });
+            showVerifyThreePanelLayout();
+            var leftPanel = document.getElementById('verify-threepanel-left');
+            if (leftPanel) {
+                leftPanel.querySelector('.verify-panel-body').innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">Dropdown list not found. Please try again.</div>';
+            }
+            return;
+        }
+        addLogMessage('verifyScrollAndCollectNames: viewport found, starting proper scroll collection', 'log');
+        var lastScrollTop = -1;
+        var lastSnapshot = '';
+        var passCount = 0;
+        var maxPasses = 5;
+        function collectVisibleNames() {
+            var items = viewport.querySelectorAll('li.filtered-select__list__item, li[role="option"]');
+            var currentTexts = [];
+            for (var i = 0; i < items.length; i++) {
+                var textSpan = items[i].querySelector('.filtered-select__list__item__text');
+                var nameText = textSpan ? textSpan.textContent.trim() : items[i].textContent.trim();
+                if (nameText) {
+                    currentTexts.push(nameText);
+                    var normalized = elogNormalizeName(nameText);
+                    if (!verifyState.seenNormalizedNames.has(normalized)) {
+                        verifyState.seenNormalizedNames.add(normalized);
+                        verifyState.scannedNames.push(nameText);
+                        addLogMessage('verifyScrollAndCollectNames: collected name "' + nameText + '"', 'log');
+                    }
+                }
+            }
+            return currentTexts.join('|');
+        }
+        function scrollStep() {
+            if (!verifyState.isRunning) {
+                addLogMessage('verifyScrollAndCollectNames: stopped by user', 'warn');
+                removeCollectingDataPanel('verify');
+                showVerifyThreePanelLayout();
+                return;
+            }
+            var snapshot = collectVisibleNames();
+            var curTop = viewport.scrollTop;
+            if (curTop === lastScrollTop && snapshot === lastSnapshot) {
+                passCount++;
+                addLogMessage('verifyScrollAndCollectNames: no progress, pass ' + passCount, 'log');
+            } else {
+                passCount = 0;
+            }
+            if (passCount >= maxPasses) {
+                addLogMessage('verifyScrollAndCollectNames: scan complete - collected ' + verifyState.scannedNames.length + ' unique names', 'log');
+                removeCollectingDataPanel('verify');
+                showVerifyThreePanelLayout();
+                return;
+            }
+            lastScrollTop = curTop;
+            lastSnapshot = snapshot;
+            var step = Math.round(viewport.clientHeight * 0.8);
+            if (step < 50) step = 200;
+            var maxScroll = viewport.scrollHeight - viewport.clientHeight;
+            var newTop = Math.min(curTop + step, maxScroll);
+            if (newTop <= curTop && curTop > 0) {
+                addLogMessage('verifyScrollAndCollectNames: reached bottom, wrapping to top for final pass', 'log');
+                newTop = 0;
+                lastScrollTop = -1;
+                lastSnapshot = '';
+                passCount++;
+            }
+            viewport.scrollTop = newTop;
+            addLogMessage('verifyScrollAndCollectNames: scrolled to ' + newTop + ' (max=' + maxScroll + ', step=' + step + ')', 'log');
+            setTimeout(scrollStep, 300);
+        }
+        setTimeout(scrollStep, 400);
     }
 
     function updateVerifyScanStatus(statusText, statusType) {
@@ -3746,6 +4076,392 @@
         notice.style.cssText = 'background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: white; font-size: 13px; line-height: 1.4;';
         notice.textContent = message;
         container.appendChild(notice);
+    }
+
+    function showVerifyThreePanelLayout() {
+        addLogMessage('showVerifyThreePanelLayout: creating 3-panel layout', 'log');
+        var modal = document.createElement('div');
+        modal.id = 'verify-threepanel-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; width: 95%; max-width: 1600px; height: 90%; max-height: 900px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; overflow: hidden;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        container.setAttribute('aria-labelledby', 'verify-threepanel-title');
+        var header = document.createElement('div');
+        header.style.cssText = 'padding: 20px 24px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center;';
+        var titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        var title = document.createElement('h3');
+        title.id = 'verify-threepanel-title';
+        title.textContent = 'Verify Names';
+        title.style.cssText = 'margin: 0; color: white; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;';
+        var badge = document.createElement('span');
+        badge.textContent = verifyState.scannedNames.length + ' names collected';
+        badge.style.cssText = 'background: rgba(107, 207, 127, 0.2); color: #6bcf7f; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;';
+        titleRow.appendChild(title);
+        titleRow.appendChild(badge);
+        var closeButton = document.createElement('button');
+        closeButton.innerHTML = '✕';
+        closeButton.setAttribute('aria-label', 'Close panel');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.1)'; };
+        closeButton.onclick = function() {
+            addLogMessage('showVerifyThreePanelLayout: closed by user', 'warn');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            stopVerify();
+            if (verifyState.focusReturnElement) { verifyState.focusReturnElement.focus(); }
+        };
+        header.appendChild(titleRow);
+        header.appendChild(closeButton);
+        var content = document.createElement('div');
+        content.style.cssText = 'flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 20px; overflow: hidden;';
+        var leftPanel = createVerifyPanelWithSearch('Collected Names (' + verifyState.scannedNames.length + ')', 'verify-threepanel-left');
+        var middlePanel = createVerifyMiddlePanel();
+        var rightPanel = createVerifyResultsPanel();
+        content.appendChild(leftPanel);
+        content.appendChild(middlePanel);
+        content.appendChild(rightPanel);
+        populateVerifyCollectedNames();
+        container.appendChild(header);
+        container.appendChild(content);
+        modal.appendChild(container);
+        document.body.appendChild(modal);
+        addLogMessage('showVerifyThreePanelLayout: 3-panel layout created', 'log');
+    }
+
+    function createVerifyPanelWithSearch(titleText, bodyId) {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        var panelHeader = document.createElement('div');
+        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        var panelTitle = document.createElement('h4');
+        panelTitle.textContent = titleText;
+        panelTitle.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search names...';
+        searchInput.id = bodyId + '-search';
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 12px; outline: none;';
+        searchInput.oninput = function() { filterVerifyCollectedNames(searchInput.value); };
+        panelHeader.appendChild(panelTitle);
+        panelHeader.appendChild(searchInput);
+        var panelBody = document.createElement('div');
+        panelBody.id = bodyId;
+        panelBody.className = 'verify-panel-body';
+        panelBody.style.cssText = 'flex: 1; overflow-y: auto; padding: 12px;';
+        panel.appendChild(panelHeader);
+        panel.appendChild(panelBody);
+        return panel;
+    }
+
+    function createVerifyResultsPanel() {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        var panelHeader = document.createElement('div');
+        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        var titleRow = document.createElement('div');
+        titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
+        var panelTitle = document.createElement('h4');
+        panelTitle.textContent = 'Results';
+        panelTitle.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        var buttonRow = document.createElement('div');
+        buttonRow.style.cssText = 'display: flex; gap: 6px;';
+        var filterBtn = document.createElement('button');
+        filterBtn.innerHTML = '⚙ Filter';
+        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
+        filterBtn.onmouseover = function() { filterBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        filterBtn.onmouseout = function() { filterBtn.style.background = 'rgba(255, 255, 255, 0.1)'; };
+        filterBtn.onclick = function(e) { toggleVerifyFilterDropdown(e); };
+        var copyBtn = document.createElement('button');
+        copyBtn.innerHTML = '📋 Copy';
+        copyBtn.id = 'verify-copy-btn';
+        copyBtn.style.cssText = 'background: rgba(102, 126, 234, 0.3); border: 1px solid rgba(102, 126, 234, 0.5); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
+        copyBtn.onmouseover = function() { copyBtn.style.background = 'rgba(102, 126, 234, 0.5)'; };
+        copyBtn.onmouseout = function() { copyBtn.style.background = 'rgba(102, 126, 234, 0.3)'; };
+        copyBtn.onclick = function() { copyVerifyFilteredResults(); };
+        buttonRow.appendChild(filterBtn);
+        buttonRow.appendChild(copyBtn);
+        titleRow.appendChild(panelTitle);
+        titleRow.appendChild(buttonRow);
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search results...';
+        searchInput.id = 'verify-results-search';
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 12px; outline: none;';
+        searchInput.oninput = function() { filterVerifyResults(searchInput.value); };
+        panelHeader.appendChild(titleRow);
+        panelHeader.appendChild(searchInput);
+        var panelBody = document.createElement('div');
+        panelBody.id = 'verify-threepanel-right';
+        panelBody.className = 'verify-panel-body';
+        panelBody.style.cssText = 'flex: 1; overflow-y: auto; padding: 12px;';
+        panel.appendChild(panelHeader);
+        panel.appendChild(panelBody);
+        return panel;
+    }
+
+    function createVerifyMiddlePanel() {
+        var panel = document.createElement('div');
+        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        var panelHeader = document.createElement('div');
+        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        var panelTitle = document.createElement('h4');
+        panelTitle.textContent = 'Paste Names to Verify';
+        panelTitle.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        panelHeader.appendChild(panelTitle);
+        var panelBody = document.createElement('div');
+        panelBody.style.cssText = 'flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px;';
+        var description = document.createElement('p');
+        description.style.cssText = 'color: rgba(255, 255, 255, 0.7); margin: 0; font-size: 12px; line-height: 1.5;';
+        description.textContent = 'Paste staff names below (one per line or comma-separated). Click "Generate Results" to see which names were found in the collected list.';
+        var textarea = document.createElement('textarea');
+        textarea.id = 'verify-threepanel-input';
+        textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
+        textarea.setAttribute('aria-label', 'Staff names input for verification');
+        textarea.style.cssText = 'flex: 1; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 13px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: none; outline: none; transition: all 0.25s ease;';
+        textarea.onfocus = function() { textarea.style.borderColor = 'rgba(102, 126, 234, 0.6)'; textarea.style.background = 'rgba(255, 255, 255, 0.08)'; };
+        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.2)'; textarea.style.background = 'rgba(255, 255, 255, 0.05)'; };
+        var generateButton = document.createElement('button');
+        generateButton.textContent = 'Generate Results';
+        generateButton.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.3px; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);';
+        generateButton.onmouseover = function() { generateButton.style.transform = 'translateY(-2px)'; generateButton.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)'; };
+        generateButton.onmouseout = function() { generateButton.style.transform = 'translateY(0)'; generateButton.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'; };
+        generateButton.onclick = function() {
+            var inputText = textarea.value;
+            if (!inputText.trim()) {
+                alert('Please paste some names first.');
+                return;
+            }
+            generateVerifyResults(inputText);
+        };
+        panelBody.appendChild(description);
+        panelBody.appendChild(textarea);
+        panelBody.appendChild(generateButton);
+        panel.appendChild(panelHeader);
+        panel.appendChild(panelBody);
+        return panel;
+    }
+
+    var verifyAllResults = [];
+    var verifyCurrentFilter = 'All';
+
+    function populateVerifyCollectedNames() {
+        addLogMessage('populateVerifyCollectedNames: populating ' + verifyState.scannedNames.length + ' names', 'log');
+        var bodyEl = document.getElementById('verify-threepanel-left');
+        if (!bodyEl) return;
+        bodyEl.innerHTML = '';
+        if (verifyState.scannedNames.length === 0) {
+            bodyEl.innerHTML = '<div style="padding: 20px; color: rgba(255, 255, 255, 0.5); text-align: center;">No names collected</div>';
+            return;
+        }
+        var sorted = verifyState.scannedNames.slice().sort();
+        for (var i = 0; i < sorted.length; i++) {
+            var item = document.createElement('div');
+            item.className = 'verify-collected-item';
+            item.setAttribute('data-name', sorted[i].toLowerCase());
+            item.style.cssText = 'padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; margin-bottom: 6px; color: rgba(255, 255, 255, 0.9); font-size: 13px; transition: background 0.15s ease;';
+            item.textContent = sorted[i];
+            item.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
+            item.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.05)'; };
+            bodyEl.appendChild(item);
+        }
+    }
+
+    function filterVerifyCollectedNames(searchTerm) {
+        var items = document.querySelectorAll('.verify-collected-item');
+        var lowerSearch = searchTerm.toLowerCase().trim();
+        for (var i = 0; i < items.length; i++) {
+            var name = items[i].getAttribute('data-name');
+            if (!lowerSearch || name.indexOf(lowerSearch) !== -1) {
+                items[i].style.display = '';
+            } else {
+                items[i].style.display = 'none';
+            }
+        }
+    }
+
+    function generateVerifyResults(inputText) {
+        addLogMessage('generateVerifyResults: processing input with fuzzy matching', 'log');
+        var parsed = parseVerifyNamesInput(inputText);
+        if (parsed.length === 0) {
+            alert('No valid names found in the input.');
+            return;
+        }
+        var scannedPairMap = {};
+        for (var i = 0; i < verifyState.scannedNames.length; i++) {
+            var scannedName = verifyState.scannedNames[i];
+            var pairKey = normalizeFirstLastPair(scannedName);
+            if (!scannedPairMap[pairKey]) {
+                scannedPairMap[pairKey] = [];
+            }
+            scannedPairMap[pairKey].push(scannedName);
+        }
+        var scannedPairSet = new Set(Object.keys(scannedPairMap));
+        verifyAllResults = [];
+        for (var j = 0; j < parsed.length; j++) {
+            var nameObj = parsed[j];
+            var inputName = nameObj.display;
+            var candidates = buildCandidatePairKeys(inputName);
+            var matchedPairKey = null;
+            var matchedName = null;
+            for (var k = 0; k < candidates.pairKeys.length; k++) {
+                var candidateKey = candidates.pairKeys[k];
+                if (scannedPairSet.has(candidateKey)) {
+                    matchedPairKey = candidateKey;
+                    matchedName = scannedPairMap[candidateKey][0];
+                    break;
+                }
+            }
+            if (!matchedPairKey) {
+                matchedPairKey = findFuzzyMatchInPairs(candidates.pairKeys[0], scannedPairSet, 2);
+                if (matchedPairKey) {
+                    matchedName = scannedPairMap[matchedPairKey][0];
+                }
+            }
+            var status = matchedPairKey ? 'Found' : 'Not Found';
+            verifyAllResults.push({ 
+                name: inputName, 
+                status: status,
+                matchedName: matchedName || ''
+            });
+        }
+        verifyCurrentFilter = 'All';
+        populateVerifyResults();
+        addLogMessage('generateVerifyResults: generated ' + verifyAllResults.length + ' results', 'log');
+    }
+
+    function populateVerifyResults() {
+        var bodyEl = document.getElementById('verify-threepanel-right');
+        if (!bodyEl) return;
+        bodyEl.innerHTML = '';
+        if (verifyAllResults.length === 0) {
+            bodyEl.innerHTML = '<div style="padding: 20px; color: rgba(255, 255, 255, 0.5); text-align: center;">No results yet</div>';
+            return;
+        }
+        var searchTerm = '';
+        var searchInput = document.getElementById('verify-results-search');
+        if (searchInput) searchTerm = searchInput.value.toLowerCase().trim();
+        var filtered = verifyAllResults.filter(function(r) {
+            if (verifyCurrentFilter !== 'All' && r.status !== verifyCurrentFilter) return false;
+            if (searchTerm && r.name.toLowerCase().indexOf(searchTerm) === -1) return false;
+            return true;
+        });
+        for (var i = 0; i < filtered.length; i++) {
+            var result = filtered[i];
+            var item = document.createElement('div');
+            item.className = 'verify-result-item';
+            item.setAttribute('data-status', result.status);
+            item.style.cssText = 'padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; margin-bottom: 6px; transition: background 0.15s ease;';
+            item.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
+            item.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.05)'; };
+            var topRow = document.createElement('div');
+            topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;';
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = result.name;
+            nameSpan.style.cssText = 'color: white; font-size: 13px; font-weight: 500;';
+            var statusBadge = document.createElement('span');
+            statusBadge.textContent = result.status;
+            if (result.status === 'Found') {
+                statusBadge.style.cssText = 'background: rgba(107, 207, 127, 0.2); color: #6bcf7f; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
+            } else {
+                statusBadge.style.cssText = 'background: rgba(255, 107, 107, 0.2); color: #ff6b6b; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
+            }
+            topRow.appendChild(nameSpan);
+            topRow.appendChild(statusBadge);
+            item.appendChild(topRow);
+            if (result.matchedName) {
+                var matchRow = document.createElement('div');
+                matchRow.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; font-style: italic;';
+                matchRow.textContent = '→ Matched: ' + result.matchedName;
+                item.appendChild(matchRow);
+            }
+            bodyEl.appendChild(item);
+        }
+    }
+
+    function filterVerifyResults(searchTerm) {
+        populateVerifyResults();
+    }
+
+    function toggleVerifyFilterDropdown(e) {
+        e.stopPropagation();
+        var existing = document.getElementById('verify-filter-dropdown');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+        var dropdown = document.createElement('div');
+        dropdown.id = 'verify-filter-dropdown';
+        dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 8px; z-index: 10000; min-width: 150px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);';
+        var options = ['All', 'Found', 'Not Found'];
+        for (var i = 0; i < options.length; i++) {
+            var opt = options[i];
+            var label = document.createElement('label');
+            label.style.cssText = 'display: flex; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 6px; transition: background 0.2s; color: white; font-size: 13px;';
+            label.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
+            label.onmouseout = function() { this.style.background = 'transparent'; };
+            var checkbox = document.createElement('input');
+            checkbox.type = 'radio';
+            checkbox.name = 'verify-filter';
+            checkbox.value = opt;
+            checkbox.checked = (opt === verifyCurrentFilter);
+            checkbox.style.cssText = 'margin-right: 8px;';
+            checkbox.onchange = (function(val) {
+                return function() {
+                    verifyCurrentFilter = val;
+                    populateVerifyResults();
+                    var dd = document.getElementById('verify-filter-dropdown');
+                    if (dd) dd.remove();
+                };
+            })(opt);
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(opt));
+            dropdown.appendChild(label);
+        }
+        var btnRect = e.target.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (btnRect.bottom + 6) + 'px';
+        dropdown.style.left = (btnRect.left) + 'px';
+        document.body.appendChild(dropdown);
+        setTimeout(function() {
+            document.addEventListener('click', function closeDropdown() {
+                var dd = document.getElementById('verify-filter-dropdown');
+                if (dd) dd.remove();
+                document.removeEventListener('click', closeDropdown);
+            });
+        }, 100);
+    }
+
+    function copyVerifyFilteredResults() {
+        var items = document.querySelectorAll('.verify-result-item');
+        if (items.length === 0) {
+            alert('No results to copy.');
+            return;
+        }
+        var lines = [];
+        for (var i = 0; i < items.length; i++) {
+            var nameSpan = items[i].querySelector('span');
+            if (nameSpan) {
+                lines.push(nameSpan.textContent);
+            }
+        }
+        var text = lines.join('\n');
+        navigator.clipboard.writeText(text).then(function() {
+            var copyBtn = document.getElementById('verify-copy-btn');
+            if (copyBtn) {
+                var originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✓ Copied!';
+                copyBtn.style.background = 'rgba(107, 207, 127, 0.4)';
+                setTimeout(function() {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = 'rgba(102, 126, 234, 0.3)';
+                }, 2000);
+            }
+        }).catch(function(err) {
+            alert('Failed to copy: ' + err);
+        });
     }
 
     function initializeVerifyRightPanel() {
@@ -7540,7 +8256,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 pairKey: pairKey,
                 roleDisplay: roleNorm.display,
                 roleKey: roleNorm.key,
-                numbersSet: numbersSet
+                numbersSet: numbersSet,
+                originalLine: mergedLines[mi].trim()
             });
         }
         addLogMessage('parseDoAEntriesInput: parsed ' + results.length + ' candidates', 'log');
@@ -7774,7 +8491,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             item.setAttribute('data-role-display', candidate.roleDisplay || '');
             item.setAttribute('data-role-key', candidate.roleKey || '');
             item.setAttribute('data-responsibilities', numsArr.join(', '));
-            item.setAttribute('data-entry-info', candidate.display + '\t' + candidate.roleDisplay + '\t' + numsArr.join(', '));
+            // Store original pasted format for exact copy-back
+            item.setAttribute('data-entry-info', candidate.originalLine || (candidate.display + '\t' + candidate.roleDisplay + '\t' + numsArr.join(', ')));
             rightPanel.appendChild(item);
         }
         addLogMessage('initializeDoARightPanel: added ' + doaState.parsedCandidates.length + ' items', 'log');
@@ -8448,9 +9166,38 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 resolve(memberInput);
                 return;
             }
+            var gridTable = document.querySelector(DOA_SELECTORS.mainGridTable);
+            if (gridTable) {
+                var container = findScrollableContainer(gridTable);
+                if (container) {
+                    addLogMessage('ensureDoAAddEntryFormOpen: scrolling to bottom to reveal Add Entry button', 'log');
+                    var maxScroll = container.scrollHeight - container.clientHeight;
+                    container.scrollTo({ top: maxScroll, behavior: 'auto' });
+                    var scrollTid = setTimeout(function() {
+                        var addBtn = document.querySelector(DOA_SELECTORS.addEntryBtn);
+                        if (addBtn) {
+                            addLogMessage('ensureDoAAddEntryFormOpen: clicking Add Entry button', 'log');
+                            addBtn.click();
+                        } else {
+                            addLogMessage('ensureDoAAddEntryFormOpen: Add Entry button not found after scroll', 'warn');
+                        }
+                        doaWaitForElement(DOA_SELECTORS.memberInput, DOA_TIMEOUTS.waitOpenMs)
+                            .then(function(el) {
+                            addLogMessage('ensureDoAAddEntryFormOpen: member input found', 'log');
+                            resolve(el);
+                        })
+                            .catch(function(err) {
+                            addLogMessage('ensureDoAAddEntryFormOpen: timeout: ' + err, 'error');
+                            reject(err);
+                        });
+                    }, 400);
+                    doaState.timeouts.push(scrollTid);
+                    return;
+                }
+            }
             var addBtn = document.querySelector(DOA_SELECTORS.addEntryBtn);
             if (addBtn) {
-                addLogMessage('ensureDoAAddEntryFormOpen: clicking Add Entry button', 'log');
+                addLogMessage('ensureDoAAddEntryFormOpen: clicking Add Entry button (no scroll)', 'log');
                 addBtn.click();
             } else {
                 addLogMessage('ensureDoAAddEntryFormOpen: Add Entry button not found', 'warn');
@@ -8484,6 +9231,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     addLogMessage('ensureDoAMemberDropdownOpen: clicking input to open list', 'log');
                     inputEl.click();
                     inputEl.focus();
+                    clickFilteredSelectCaret(inputEl, doaState);
                 }
                 doaWaitForElement(DOA_SELECTORS.listContainer, DOA_TIMEOUTS.waitListMs)
                     .then(function(el) {
@@ -8588,11 +9336,26 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             addLogMessage('clickDoASaveAndAddAnother: button found, clicking', 'log');
             saveBtn.click();
-            var saveTid = setTimeout(function() {
-                addLogMessage('clickDoASaveAndAddAnother: save settle complete', 'log');
-                resolve(true);
-            }, DOA_TIMEOUTS.waitAfterSaveMs);
-            doaState.timeouts.push(saveTid);
+            var checkCount = 0;
+            var maxChecks = Math.ceil(DOA_TIMEOUTS.waitAfterSaveMs / 200);
+            function checkFormClosed() {
+                var memberInput = document.querySelector(DOA_SELECTORS.memberInput);
+                if (!memberInput) {
+                    addLogMessage('clickDoASaveAndAddAnother: form closed, save confirmed', 'log');
+                    resolve(true);
+                    return;
+                }
+                checkCount++;
+                if (checkCount >= maxChecks) {
+                    addLogMessage('clickDoASaveAndAddAnother: timeout waiting for form close, proceeding anyway', 'warn');
+                    resolve(true);
+                    return;
+                }
+                var checkTid = setTimeout(checkFormClosed, 200);
+                doaState.timeouts.push(checkTid);
+            }
+            var initialTid = setTimeout(checkFormClosed, 200);
+            doaState.timeouts.push(initialTid);
         });
     }
 
@@ -13289,7 +14052,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('tlogGeneratePanel3: generating for ' + pastedNames.length + ' names', 'log');
         var panel = document.getElementById('tlog-panel3');
         if (!panel) return;
-        var p3ColTemplate = '2fr 2fr 1fr 1fr';
+        var isDoAMode = tlogState.isDoAMode;
+        var p3ColTemplate = isDoAMode ? '2fr 2fr 1fr' : '2fr 2fr 1fr 1fr';
         var h4 = panel.querySelector('h4');
         panel.innerHTML = '';
         if (h4) panel.appendChild(h4);
@@ -13303,7 +14067,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         toolsRow.style.cssText = 'display: flex; gap: 6px; margin-bottom: 6px; flex-shrink: 0; align-items: center;';
         var p3Search = document.createElement('input');
         p3Search.type = 'text';
-        p3Search.placeholder = 'Search name, file, status, or date...';
+        p3Search.placeholder = isDoAMode ? 'Search name, file, or status...' : 'Search name, file, status, or date...';
         p3Search.style.cssText = 'flex: 1; padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
         var exportBtn3 = document.createElement('button');
         exportBtn3.textContent = '\u2913 Export';
@@ -13311,13 +14075,26 @@ function showResponsibilitiesProgressPanel(rolesData) {
         exportBtn3.style.cssText = 'background: rgba(107, 207, 127, 0.25); border: 1px solid rgba(107, 207, 127, 0.5); color: #6bcf7f; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; flex-shrink: 0;';
         exportBtn3.onmouseover = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.4)'; };
         exportBtn3.onmouseout = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.25)'; };
-        toolsRow.appendChild(p3Search);
-        toolsRow.appendChild(exportBtn3);
+        if (isDoAMode) {
+            var filterBtn3 = document.createElement('button');
+            filterBtn3.textContent = 'Filter \u25BC';
+            filterBtn3.title = 'Filter by status';
+            filterBtn3.id = 'tlog-panel3-filter-btn';
+            filterBtn3.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; position: relative;';
+            filterBtn3.onmouseover = function() { filterBtn3.style.background = 'rgba(255, 255, 255, 0.2)'; };
+            filterBtn3.onmouseout = function() { filterBtn3.style.background = 'rgba(255, 255, 255, 0.12)'; };
+            toolsRow.appendChild(p3Search);
+            toolsRow.appendChild(filterBtn3);
+            toolsRow.appendChild(exportBtn3);
+        } else {
+            toolsRow.appendChild(p3Search);
+            toolsRow.appendChild(exportBtn3);
+        }
         panel.appendChild(toolsRow);
         var colHeader = document.createElement('div');
         colHeader.id = 'tlog-panel3-header';
         colHeader.style.cssText = 'display: grid; grid-template-columns: ' + p3ColTemplate + '; gap: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px 4px 0 0; flex-shrink: 0;';
-        var p3Headers = ['Name', 'File Name', 'Status', 'Date Signed'];
+        var p3Headers = isDoAMode ? ['Name', 'File Name', 'Status'] : ['Name', 'File Name', 'Status', 'Date Signed'];
         var p3Sort = { col: -1, asc: true };
         var p3Heads = [];
         for (var phi = 0; phi < p3Headers.length; phi++) {
@@ -13337,6 +14114,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.appendChild(resultBody);
         var dataMap = {};
         var allDataKeys = [];
+        var pastedNamesSet = new Set();
         for (var ci = 0; ci < tlogState.collectedData.length; ci++) {
             var rec = tlogState.collectedData[ci];
             var key = rec.staffName.toLowerCase().trim();
@@ -13344,54 +14122,220 @@ function showResponsibilitiesProgressPanel(rolesData) {
             dataMap[key].push(rec);
         }
         var results = [];
-        for (var ni = 0; ni < pastedNames.length; ni++) {
-            var inputName = pastedNames[ni];
-            var lookupKey = inputName.toLowerCase().trim();
-            var entries = dataMap[lookupKey] || [];
-            if (entries.length === 0) {
-                var bestKey = null;
-                var bestDist = 3;
-                for (var ki = 0; ki < allDataKeys.length; ki++) {
-                    var dist = levenshteinDistance(lookupKey, allDataKeys[ki]);
-                    if (dist <= 2 && dist < bestDist) {
-                        bestDist = dist;
-                        bestKey = allDataKeys[ki];
+        if (isDoAMode) {
+            for (var ni = 0; ni < pastedNames.length; ni++) {
+                var inputName = pastedNames[ni];
+                var lookupKey = inputName.toLowerCase().trim();
+                pastedNamesSet.add(lookupKey);
+                var entries = dataMap[lookupKey] || [];
+                if (entries.length === 0) {
+                    var bestKey = null;
+                    var bestDist = 3;
+                    for (var ki = 0; ki < allDataKeys.length; ki++) {
+                        var dist = levenshteinDistance(lookupKey, allDataKeys[ki]);
+                        if (dist <= 2 && dist < bestDist) {
+                            bestDist = dist;
+                            bestKey = allDataKeys[ki];
+                        }
+                    }
+                    if (bestKey) {
+                        addLogMessage('tlogGeneratePanel3: fuzzy matched "' + inputName + '" -> "' + bestKey + '" (dist=' + bestDist + ')', 'log');
+                        entries = dataMap[bestKey];
                     }
                 }
-                if (bestKey) {
-                    addLogMessage('tlogGeneratePanel3: fuzzy matched "' + inputName + '" -> "' + bestKey + '" (dist=' + bestDist + ')', 'log');
-                    entries = dataMap[bestKey];
+                if (entries.length > 0) {
+                    for (var ei = 0; ei < entries.length; ei++) {
+                        results.push({ name: inputName, fileName: entries[ei].trainingItem, status: entries[ei].status, date: entries[ei].dateSigned, statusMessage: '' });
+                    }
+                } else {
+                    results.push({ name: inputName, fileName: '', status: 'Not in DoA Log', date: '', statusMessage: 'Not in DoA Log' });
                 }
             }
-            if (entries.length > 0) {
-                for (var ei = 0; ei < entries.length; ei++) {
-                    results.push({ name: inputName, fileName: entries[ei].trainingItem, status: entries[ei].status, date: entries[ei].dateSigned });
+            for (var ki2 = 0; ki2 < allDataKeys.length; ki2++) {
+                if (!pastedNamesSet.has(allDataKeys[ki2])) {
+                    var unpasted = dataMap[allDataKeys[ki2]];
+                    for (var ui = 0; ui < unpasted.length; ui++) {
+                        results.push({ name: unpasted[ui].staffName, fileName: unpasted[ui].trainingItem, status: unpasted[ui].status, date: unpasted[ui].dateSigned, statusMessage: 'Not in Pasted Staff Name' });
+                    }
                 }
-            } else {
-                results.push({ name: inputName, fileName: '', status: TLOG_LABELS.statusUnrequested, date: '' });
+            }
+        } else {
+            for (var ni2 = 0; ni2 < pastedNames.length; ni2++) {
+                var inputName2 = pastedNames[ni2];
+                var lookupKey2 = inputName2.toLowerCase().trim();
+                var entries2 = dataMap[lookupKey2] || [];
+                if (entries2.length === 0) {
+                    var bestKey2 = null;
+                    var bestDist2 = 3;
+                    for (var ki3 = 0; ki3 < allDataKeys.length; ki3++) {
+                        var dist2 = levenshteinDistance(lookupKey2, allDataKeys[ki3]);
+                        if (dist2 <= 2 && dist2 < bestDist2) {
+                            bestDist2 = dist2;
+                            bestKey2 = allDataKeys[ki3];
+                        }
+                    }
+                    if (bestKey2) {
+                        addLogMessage('tlogGeneratePanel3: fuzzy matched "' + inputName2 + '" -> "' + bestKey2 + '" (dist=' + bestDist2 + ')', 'log');
+                        entries2 = dataMap[bestKey2];
+                    }
+                }
+                if (entries2.length > 0) {
+                    for (var ei2 = 0; ei2 < entries2.length; ei2++) {
+                        results.push({ name: inputName2, fileName: entries2[ei2].trainingItem, status: entries2[ei2].status, date: entries2[ei2].dateSigned, statusMessage: '' });
+                    }
+                } else {
+                    results.push({ name: inputName2, fileName: '', status: TLOG_LABELS.statusUnrequested, date: '', statusMessage: '' });
+                }
             }
         }
         var lastFilteredP3 = results;
+        var p3StatusFilter = {};
         exportBtn3.onclick = function() {
-            var hdrs = ['Name', 'File Name', 'Status', 'Date Signed'];
+            var hdrs = isDoAMode ? ['Name', 'File Name', 'Status'] : ['Name', 'File Name', 'Status', 'Date Signed'];
             var rows = [];
             for (var xi = 0; xi < lastFilteredP3.length; xi++) {
-                rows.push([lastFilteredP3[xi].name, lastFilteredP3[xi].fileName, lastFilteredP3[xi].status, lastFilteredP3[xi].date]);
+                if (isDoAMode) {
+                    var displayStatus = lastFilteredP3[xi].statusMessage || lastFilteredP3[xi].status;
+                    rows.push([lastFilteredP3[xi].name, lastFilteredP3[xi].fileName, displayStatus]);
+                } else {
+                    rows.push([lastFilteredP3[xi].name, lastFilteredP3[xi].fileName, lastFilteredP3[xi].status, lastFilteredP3[xi].date]);
+                }
             }
             exportTableToExcel(hdrs, rows, 'CombinedResults.xls');
         };
+        if (isDoAMode && filterBtn3) {
+            filterBtn3.onclick = function() {
+                var existingDropdown = document.getElementById('tlog-panel3-filter-dropdown');
+                if (existingDropdown) {
+                    existingDropdown.remove();
+                    return;
+                }
+                var statusSet = new Set();
+                for (var i = 0; i < results.length; i++) {
+                    var displayStatus = results[i].statusMessage || results[i].status;
+                    if (displayStatus) { statusSet.add(displayStatus); }
+                }
+                var statuses = Array.from(statusSet).sort();
+                if (statuses.length === 0) { return; }
+                var dropdown = document.createElement('div');
+                dropdown.id = 'tlog-panel3-filter-dropdown';
+                dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);';
+                for (var si = 0; si < statuses.length; si++) {
+                    if (!p3StatusFilter.hasOwnProperty(statuses[si])) {
+                        p3StatusFilter[statuses[si]] = true;
+                    }
+                }
+                var header = document.createElement('div');
+                header.style.cssText = 'padding: 12px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08);';
+                var headerTitle = document.createElement('div');
+                headerTitle.textContent = 'Filter by Status';
+                headerTitle.style.cssText = 'color: white; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
+                header.appendChild(headerTitle);
+                var selectAllRow = document.createElement('div');
+                selectAllRow.style.cssText = 'display: flex; gap: 6px;';
+                var selectAllBtn = document.createElement('button');
+                selectAllBtn.textContent = 'All';
+                selectAllBtn.style.cssText = 'flex: 1; background: rgba(107, 207, 127, 0.15); border: 1px solid rgba(107, 207, 127, 0.3); color: #6bcf7f; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
+                selectAllBtn.onmouseover = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.25)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.5)'; };
+                selectAllBtn.onmouseout = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.15)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.3)'; };
+                selectAllBtn.onclick = function() {
+                    for (var si2 = 0; si2 < statuses.length; si2++) {
+                        p3StatusFilter[statuses[si2]] = true;
+                    }
+                    var checkboxes = dropdown.querySelectorAll('input[type=\"checkbox\"]');
+                    for (var ci2 = 0; ci2 < checkboxes.length; ci2++) {
+                        checkboxes[ci2].checked = true;
+                    }
+                    renderPanel3(p3Search.value);
+                };
+                var deselectAllBtn = document.createElement('button');
+                deselectAllBtn.textContent = 'None';
+                deselectAllBtn.style.cssText = 'flex: 1; background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: #ff6b6b; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
+                deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.25)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.5)'; };
+                deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.15)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.3)'; };
+                deselectAllBtn.onclick = function() {
+                    for (var si3 = 0; si3 < statuses.length; si3++) {
+                        p3StatusFilter[statuses[si3]] = false;
+                    }
+                    var checkboxes2 = dropdown.querySelectorAll('input[type=\"checkbox\"]');
+                    for (var ci3 = 0; ci3 < checkboxes2.length; ci3++) {
+                        checkboxes2[ci3].checked = false;
+                    }
+                    renderPanel3(p3Search.value);
+                };
+                selectAllRow.appendChild(selectAllBtn);
+                selectAllRow.appendChild(deselectAllBtn);
+                header.appendChild(selectAllRow);
+                dropdown.appendChild(header);
+                var scrollContainer = document.createElement('div');
+                scrollContainer.style.cssText = 'max-height: 280px; overflow-y: auto; padding: 8px 0;';
+                for (var si4 = 0; si4 < statuses.length; si4++) {
+                    var statusRow = document.createElement('div');
+                    statusRow.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; transition: background 0.15s ease; user-select: none;';
+                    statusRow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.08)'; };
+                    statusRow.onmouseout = function() { this.style.background = 'transparent'; };
+                    var checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = p3StatusFilter[statuses[si4]];
+                    checkbox.setAttribute('data-status', statuses[si4]);
+                    checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #6bcf7f; flex-shrink: 0; cursor: pointer; margin: 0;';
+                    checkbox.onclick = function(e) { e.stopPropagation(); };
+                    checkbox.onchange = (function(status) {
+                        return function(e) {
+                            p3StatusFilter[status] = this.checked;
+                            renderPanel3(p3Search.value);
+                            e.stopPropagation();
+                        };
+                    })(statuses[si4]);
+                    var label = document.createElement('span');
+                    label.textContent = statuses[si4];
+                    label.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
+                    statusRow.onclick = (function(cb) {
+                        return function(e) {
+                            if (e.target !== cb) {
+                                cb.checked = !cb.checked;
+                                var event = new Event('change', { bubbles: true });
+                                cb.dispatchEvent(event);
+                            }
+                        };
+                    })(checkbox);
+                    statusRow.appendChild(checkbox);
+                    statusRow.appendChild(label);
+                    scrollContainer.appendChild(statusRow);
+                }
+                dropdown.appendChild(scrollContainer);
+                filterBtn3.style.position = 'relative';
+                filterBtn3.appendChild(dropdown);
+                var closeDropdown = function(e) {
+                    if (!dropdown.contains(e.target) && e.target !== filterBtn3) {
+                        dropdown.remove();
+                        document.removeEventListener('click', closeDropdown);
+                    }
+                };
+                setTimeout(function() {
+                    document.addEventListener('click', closeDropdown);
+                }, 100);
+            };
+        }
         function renderPanel3(searchVal) {
-            var ct = p3ColTemplate || '2fr 2fr 1fr 1fr';
+            var ct = p3ColTemplate || (isDoAMode ? '2fr 2fr 1fr' : '2fr 2fr 1fr 1fr');
             resultBody.innerHTML = '';
             var frag = document.createDocumentFragment();
             var term = (searchVal || '').toLowerCase();
             var sorted = results.slice();
-            if (p3Sort.col >= 0) { sorted.sort(function(a, b) { var vA, vB; if (p3Sort.col === 0) { vA = a.name.toLowerCase(); vB = b.name.toLowerCase(); } else if (p3Sort.col === 1) { vA = a.fileName.toLowerCase(); vB = b.fileName.toLowerCase(); } else if (p3Sort.col === 2) { vA = a.status.toLowerCase(); vB = b.status.toLowerCase(); } else { vA = a.date.toLowerCase(); vB = b.date.toLowerCase(); } var c = vA < vB ? -1 : vA > vB ? 1 : 0; return p3Sort.asc ? c : -c; }); }
+            if (p3Sort.col >= 0) { sorted.sort(function(a, b) { var vA, vB; if (p3Sort.col === 0) { vA = a.name.toLowerCase(); vB = b.name.toLowerCase(); } else if (p3Sort.col === 1) { vA = a.fileName.toLowerCase(); vB = b.fileName.toLowerCase(); } else if (p3Sort.col === 2) { vA = (a.statusMessage || a.status).toLowerCase(); vB = (b.statusMessage || b.status).toLowerCase(); } else { vA = a.date.toLowerCase(); vB = b.date.toLowerCase(); } var c = vA < vB ? -1 : vA > vB ? 1 : 0; return p3Sort.asc ? c : -c; }); }
             var visible = [];
             for (var ri = 0; ri < sorted.length; ri++) {
                 var r = sorted[ri];
+                var displayStatus = isDoAMode ? (r.statusMessage || r.status) : r.status;
+                if (isDoAMode && Object.keys(p3StatusFilter).length > 0 && !p3StatusFilter[displayStatus]) {
+                    continue;
+                }
                 if (term) {
-                    var hit = r.name.toLowerCase().indexOf(term) !== -1 || r.fileName.toLowerCase().indexOf(term) !== -1 || r.status.toLowerCase().indexOf(term) !== -1 || r.date.toLowerCase().indexOf(term) !== -1;
+                    var hit = r.name.toLowerCase().indexOf(term) !== -1 || r.fileName.toLowerCase().indexOf(term) !== -1 || displayStatus.toLowerCase().indexOf(term) !== -1;
+                    if (!isDoAMode) {
+                        hit = hit || r.date.toLowerCase().indexOf(term) !== -1;
+                    }
                     if (!hit) continue;
                 }
                 visible.push(r);
@@ -13407,16 +14351,31 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 c2.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
                 c2.title = r.fileName;
                 var c3 = document.createElement('div');
-                c3.textContent = r.status;
-                var sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                c3.textContent = displayStatus;
+                var sc = '#aaa';
+                if (isDoAMode) {
+                    if (displayStatus === 'Not in DoA Log') {
+                        sc = '#ff6b6b';
+                    } else if (displayStatus === 'Not in Pasted Staff Name') {
+                        sc = '#ffa500';
+                    } else if (r.status === TLOG_LABELS.statusSigned) {
+                        sc = '#6bcf7f';
+                    } else if (r.status === TLOG_LABELS.statusPending) {
+                        sc = '#ffd93d';
+                    }
+                } else {
+                    sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                }
                 c3.style.cssText = 'color: ' + sc + '; font-size: 12px; font-weight: 600;';
-                var c4 = document.createElement('div');
-                c4.textContent = r.date || '';
-                c4.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
                 row.appendChild(c1);
                 row.appendChild(c2);
                 row.appendChild(c3);
-                row.appendChild(c4);
+                if (!isDoAMode) {
+                    var c4 = document.createElement('div');
+                    c4.textContent = r.date || '';
+                    c4.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                    row.appendChild(c4);
+                }
                 frag.appendChild(row);
             }
             lastFilteredP3 = visible;
@@ -16261,7 +17220,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var pairKey = normalizeFirstLastPair(displayName); if (!pairKey) { continue; }
             var roleNorm = normalizeRoleName(rolePart); if (!roleNorm.key) { continue; }
             var isDuplicate = seenPairKeys.has(pairKey); if (!isDuplicate) { seenPairKeys.add(pairKey); }
-            results.push({ display: displayName, pairKey: pairKey, roleDisplay: roleNorm.display, roleKey: roleNorm.key, numbersSet: numbersSet, status: isDuplicate ? UPDATEROLE_LABELS.statusDuplicate : UPDATEROLE_LABELS.statusPending, isDuplicate: isDuplicate });
+            results.push({ display: displayName, pairKey: pairKey, roleDisplay: roleNorm.display, roleKey: roleNorm.key, numbersSet: numbersSet, status: isDuplicate ? UPDATEROLE_LABELS.statusDuplicate : UPDATEROLE_LABELS.statusPending, isDuplicate: isDuplicate, originalLine: mergedLines[mi].trim() });
         }
         addLogMessage('parseUpdateRoleInput: parsed ' + results.length + ' candidates', 'log');
         return results;
@@ -16540,6 +17499,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var item = createListItem(labelText, statusText, candidate.isDuplicate ? 'duplicate' : 'pending', i + 1);
             item.setAttribute('data-pairkey', candidate.pairKey); item.setAttribute('data-input-order', String(i + 1)); item.setAttribute('data-sort-name', candidate.display);
             if (candidate.isDuplicate) { item.setAttribute('data-duplicate', 'true'); }
+            // Store original pasted format for exact copy-back
+            item.setAttribute('data-entry-info', candidate.originalLine || (candidate.display + '\t' + candidate.roleDisplay + '\t' + numsArr.join(', ')));
             rightPanel.appendChild(item);
         }
     }
