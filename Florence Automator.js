@@ -3995,7 +3995,8 @@
         panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
         const leftPanel = createSubpanel('Scanned Log Entries', 'verify-left-panel', 'verify-left-search');
         const rightPanel = createSubpanel('User Names Status', 'verify-right-panel', 'verify-right-search');
-        addSortToggleToSubpanel(rightPanel, 'verify-right-panel', 'verify-sort-toggle', 'verify-failure-filter', [VERIFY_LABELS.statusNotInDropdown]);
+        addSortToggleToSubpanel(rightPanel, 'verify-right-panel', 'verify-sort-toggle', 'verify-filter-btn', null);
+        addVerifyFilterButton(rightPanel);
         panelsContainer.appendChild(leftPanel);
         panelsContainer.appendChild(rightPanel);
         const summaryFooter = document.createElement('div');
@@ -4055,6 +4056,197 @@
             progressTitle.textContent = 'Verify Names - Verifying';
         }
         beginVerifyNames();
+    }
+
+    function addVerifyFilterButton(rightPanel) {
+        addLogMessage('addVerifyFilterButton: adding filter/copy button to verify panel', 'log');
+        var panelHeader = rightPanel.firstElementChild;
+        if (!panelHeader) { return; }
+        var titleRow = panelHeader.querySelector('div[style*="display: flex"]');
+        if (!titleRow) { return; }
+        var existingBtnContainer = titleRow.querySelector('div[style*="gap: 4px"]');
+        if (!existingBtnContainer) { return; }
+        var filterBtn = document.createElement('button');
+        filterBtn.id = 'verify-filter-btn';
+        filterBtn.textContent = 'Filter';
+        filterBtn.setAttribute('aria-label', 'Filter and copy names by status');
+        filterBtn.style.cssText = 'background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.4); color: rgba(102, 126, 234, 1); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0;';
+        filterBtn.onmouseover = function() { filterBtn.style.background = 'rgba(102, 126, 234, 0.3)'; };
+        filterBtn.onmouseout = function() { filterBtn.style.background = 'rgba(102, 126, 234, 0.2)'; };
+        filterBtn.onclick = function() { showVerifyFilterPopup(); };
+        existingBtnContainer.appendChild(filterBtn);
+    }
+
+    function showVerifyFilterPopup() {
+        addLogMessage('showVerifyFilterPopup: opening filter popup', 'log');
+        var existingPopup = document.getElementById('verify-filter-popup-overlay');
+        if (existingPopup) { existingPopup.remove(); }
+        var overlay = document.createElement('div');
+        overlay.id = 'verify-filter-popup-overlay';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; display: flex; align-items: center; justify-content: center;';
+        var popup = document.createElement('div');
+        popup.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 20px 24px; min-width: 420px; max-width: 650px; max-height: 75vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);';
+        var popupHeader = document.createElement('div');
+        popupHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        var popupTitle = document.createElement('h4');
+        popupTitle.textContent = 'Filter & Copy Names';
+        popupTitle.style.cssText = 'margin: 0; color: white; font-size: 16px; font-weight: 600;';
+        var popupCloseBtn = document.createElement('button');
+        popupCloseBtn.innerHTML = '\u2715';
+        popupCloseBtn.style.cssText = 'background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;';
+        popupCloseBtn.onmouseover = function() { popupCloseBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        popupCloseBtn.onmouseout = function() { popupCloseBtn.style.background = 'rgba(255,255,255,0.1)'; };
+        popupCloseBtn.onclick = function() { overlay.remove(); };
+        popupHeader.appendChild(popupTitle);
+        popupHeader.appendChild(popupCloseBtn);
+        popup.appendChild(popupHeader);
+        var statusFilters = [
+            { label: 'Exists in Dropdown', value: VERIFY_LABELS.statusExistsInDropdown, color: '#6bcf7f', bg: 'rgba(107, 207, 127, 0.2)' },
+            { label: 'Not in Dropdown', value: VERIFY_LABELS.statusNotInDropdown, color: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.2)' },
+            { label: 'Already in Table', value: VERIFY_LABELS.statusAlreadyInTable, color: '#ffa500', bg: 'rgba(255, 165, 0, 0.2)' },
+            { label: 'Duplicate', value: VERIFY_LABELS.statusDuplicate, color: '#9b59b6', bg: 'rgba(155, 89, 182, 0.2)' },
+            { label: 'Pending', value: VERIFY_LABELS.statusPending, color: '#ffd93d', bg: 'rgba(255, 217, 61, 0.2)' },
+            { label: 'Stopped', value: VERIFY_LABELS.statusStopped, color: '#aaa', bg: 'rgba(170, 170, 170, 0.2)' }
+        ];
+        var filtersContainer = document.createElement('div');
+        filtersContainer.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;';
+        for (var i = 0; i < statusFilters.length; i++) {
+            (function(filter) {
+                var filterCard = document.createElement('div');
+                filterCard.style.cssText = 'background: ' + filter.bg + '; border: 1px solid ' + filter.color + '40; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center;';
+                filterCard.onmouseover = function() { filterCard.style.background = filter.color + '30'; filterCard.style.borderColor = filter.color + '60'; };
+                filterCard.onmouseout = function() { filterCard.style.background = filter.bg; filterCard.style.borderColor = filter.color + '40'; };
+                var labelContainer = document.createElement('div');
+                labelContainer.style.cssText = 'display: flex; flex-direction: column;';
+                var labelText = document.createElement('span');
+                labelText.textContent = filter.label;
+                labelText.style.cssText = 'color: ' + filter.color + '; font-size: 13px; font-weight: 600; margin-bottom: 2px;';
+                var countText = document.createElement('span');
+                countText.id = 'verify-filter-count-' + filter.value.replace(/\s+/g, '-').toLowerCase();
+                countText.textContent = 'Counting...';
+                countText.style.cssText = 'color: rgba(255,255,255,0.5); font-size: 11px;';
+                labelContainer.appendChild(labelText);
+                labelContainer.appendChild(countText);
+                var copyBtn = document.createElement('button');
+                copyBtn.textContent = 'Copy';
+                copyBtn.style.cssText = 'background: ' + filter.color + '30; border: 1px solid ' + filter.color + '; color: ' + filter.color + '; padding: 4px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease;';
+                copyBtn.onmouseover = function(e) { e.stopPropagation(); copyBtn.style.background = filter.color + '50'; };
+                copyBtn.onmouseout = function(e) { e.stopPropagation(); copyBtn.style.background = filter.color + '30'; };
+                copyBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    copyVerifyNamesByStatus(filter.value, copyBtn);
+                };
+                filterCard.appendChild(labelContainer);
+                filterCard.appendChild(copyBtn);
+                filterCard.onclick = function() { filterVerifyPanelByStatus(filter.value); overlay.remove(); };
+                filtersContainer.appendChild(filterCard);
+            })(statusFilters[i]);
+        }
+        popup.appendChild(filtersContainer);
+        var showAllBtn = document.createElement('button');
+        showAllBtn.textContent = 'Show All Names';
+        showAllBtn.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s ease; margin-top: 4px;';
+        showAllBtn.onmouseover = function() { showAllBtn.style.opacity = '0.85'; };
+        showAllBtn.onmouseout = function() { showAllBtn.style.opacity = '1'; };
+        showAllBtn.onclick = function() { filterVerifyPanelByStatus(null); overlay.remove(); };
+        popup.appendChild(showAllBtn);
+        overlay.appendChild(popup);
+        overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); } };
+        document.body.appendChild(overlay);
+        updateVerifyFilterCounts();
+    }
+
+    function updateVerifyFilterCounts() {
+        var list = document.getElementById('verify-right-panel');
+        if (!list) { return; }
+        var items = list.querySelectorAll('.elog-list-item');
+        var counts = {};
+        for (var i = 0; i < items.length; i++) {
+            var badge = items[i].querySelector('.elog-status-badge');
+            var status = badge ? badge.textContent.trim() : '';
+            if (status) {
+                counts[status] = (counts[status] || 0) + 1;
+            }
+        }
+        var statusValues = [
+            VERIFY_LABELS.statusExistsInDropdown,
+            VERIFY_LABELS.statusNotInDropdown,
+            VERIFY_LABELS.statusAlreadyInTable,
+            VERIFY_LABELS.statusDuplicate,
+            VERIFY_LABELS.statusPending,
+            VERIFY_LABELS.statusStopped
+        ];
+        for (var si = 0; si < statusValues.length; si++) {
+            var status = statusValues[si];
+            var countEl = document.getElementById('verify-filter-count-' + status.replace(/\s+/g, '-').toLowerCase());
+            if (countEl) {
+                var count = counts[status] || 0;
+                countEl.textContent = count + ' name' + (count !== 1 ? 's' : '');
+            }
+        }
+    }
+
+    function filterVerifyPanelByStatus(statusFilter) {
+        addLogMessage('filterVerifyPanelByStatus: filtering by ' + (statusFilter || 'all'), 'log');
+        var list = document.getElementById('verify-right-panel');
+        if (!list) { return; }
+        var items = list.querySelectorAll('.elog-list-item');
+        var visibleCount = 0;
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (!statusFilter) {
+                item.style.display = 'flex';
+                visibleCount++;
+            } else {
+                var badge = item.querySelector('.elog-status-badge');
+                var badgeText = badge ? badge.textContent.trim() : '';
+                if (badgeText === statusFilter) {
+                    item.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+        }
+        addLogMessage('filterVerifyPanelByStatus: showing ' + visibleCount + ' of ' + items.length + ' items', 'log');
+    }
+
+    function copyVerifyNamesByStatus(statusFilter, buttonEl) {
+        addLogMessage('copyVerifyNamesByStatus: copying names with status ' + statusFilter, 'log');
+        var list = document.getElementById('verify-right-panel');
+        if (!list) { return; }
+        var items = list.querySelectorAll('.elog-list-item');
+        var names = [];
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var badge = item.querySelector('.elog-status-badge');
+            var badgeText = badge ? badge.textContent.trim() : '';
+            if (badgeText === statusFilter) {
+                var sortName = item.getAttribute('data-sort-name') || '';
+                if (sortName) { names.push(sortName); }
+            }
+        }
+        if (names.length === 0) {
+            buttonEl.textContent = 'None';
+            setTimeout(function() { buttonEl.textContent = 'Copy'; }, 1500);
+            return;
+        }
+        var textarea = document.createElement('textarea');
+        textarea.value = names.join('\n');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            buttonEl.textContent = 'Copied!';
+            addLogMessage('copyVerifyNamesByStatus: copied ' + names.length + ' names', 'log');
+        } catch (err) {
+            buttonEl.textContent = 'Failed';
+            addLogMessage('copyVerifyNamesByStatus: copy failed: ' + err, 'error');
+        }
+        document.body.removeChild(textarea);
+        setTimeout(function() { buttonEl.textContent = 'Copy'; }, 1500);
     }
 
     function buildVerifyQueue(userNamesArray) {
@@ -15098,8 +15290,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('ensureCorrectEditContextForCandidate: verifying for ' + candidate.display, 'log');
         try {
             var memberEls = document.querySelectorAll(STARTDATE_SELECTORS.memberDisplayInEdit);
+            var foundDisabledInput = false;
             for (var mi = 0; mi < memberEls.length; mi++) {
                 var el = memberEls[mi];
+                if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.disabled) {
+                    addLogMessage('ensureCorrectEditContextForCandidate: found disabled input field (name already verified before Edit), skipping verification', 'log');
+                    foundDisabledInput = true;
+                    continue;
+                }
                 var memberText = '';
                 if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                     memberText = el.value || '';
@@ -15121,8 +15319,26 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     return true;
                 }
             }
+            if (foundDisabledInput) {
+                addLogMessage('ensureCorrectEditContextForCandidate: disabled input detected, assuming correct context (name verified before Edit)', 'log');
+                return true;
+            }
             if (memberEls.length === 0) {
-                addLogMessage('ensureCorrectEditContextForCandidate: no member display found, returning false', 'warn');
+                addLogMessage('ensureCorrectEditContextForCandidate: no member display found via selector, checking for any disabled inputs', 'log');
+                var allDisabledInputs = document.querySelectorAll('input[disabled], textarea[disabled]');
+                addLogMessage('ensureCorrectEditContextForCandidate: found ' + allDisabledInputs.length + ' disabled inputs', 'log');
+                if (allDisabledInputs.length > 0) {
+                    for (var di = 0; di < allDisabledInputs.length; di++) {
+                        var disInput = allDisabledInputs[di];
+                        var tooltip = disInput.getAttribute('tooltip') || disInput.getAttribute('title') || '';
+                        addLogMessage('ensureCorrectEditContextForCandidate: disabled input ' + di + ' tooltip="' + tooltip + '"', 'log');
+                        if (tooltip.toLowerCase().indexOf('inactive') !== -1 || tooltip.toLowerCase().indexOf('signature') !== -1 || tooltip.toLowerCase().indexOf('permission') !== -1) {
+                            addLogMessage('ensureCorrectEditContextForCandidate: found disabled member field (no edit permission), assuming correct context', 'log');
+                            return true;
+                        }
+                    }
+                }
+                addLogMessage('ensureCorrectEditContextForCandidate: no member display or disabled field found, returning false', 'warn');
                 return false;
             }
             addLogMessage('ensureCorrectEditContextForCandidate: mismatch for ' + candidate.pairKey, 'error');
@@ -16452,35 +16668,59 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function updateRoleApplyTasks(numbersSet) {
-        addLogMessage('updateRoleApplyTasks: size=' + numbersSet.size, 'log');
+        addLogMessage('updateRoleApplyTasks: applying tasks, target count=' + numbersSet.size + ', tasks=' + Array.from(numbersSet).sort(function(a,b){return a-b;}).join(','), 'log');
         return new Promise(function(resolve) {
             var toggleBtn = document.querySelector(UPDATEROLE_SELECTORS.tasksToggleBtn);
-            if (!toggleBtn) { resolve(false); return; }
+            if (!toggleBtn) { addLogMessage('updateRoleApplyTasks: toggle button not found', 'error'); resolve(false); return; }
             toggleBtn.click();
             updateRoleWaitForElement(UPDATEROLE_SELECTORS.tasksMenu, UPDATEROLE_TIMEOUTS.waitTasksMenuMs).then(function(menu) {
-                var items = menu.querySelectorAll(UPDATEROLE_SELECTORS.tasksItem); var toggleQueue = [];
+                var items = menu.querySelectorAll(UPDATEROLE_SELECTORS.tasksItem);
+                var toUncheck = [];
+                var toCheck = [];
+                addLogMessage('updateRoleApplyTasks: found ' + items.length + ' task items in menu', 'log');
                 for (var ti = 0; ti < items.length; ti++) {
-                    var itemText = items[ti].textContent.trim(); var leadingNumMatch = itemText.match(/^(\d+)\./);
+                    var itemText = items[ti].textContent.trim();
+                    var leadingNumMatch = itemText.match(/^(\d+)\./);
                     if (!leadingNumMatch) { continue; }
-                    var taskNum = parseInt(leadingNumMatch[1], 10); var checkbox = items[ti].querySelector(UPDATEROLE_SELECTORS.tasksItemCheckbox);
+                    var taskNum = parseInt(leadingNumMatch[1], 10);
+                    var checkbox = items[ti].querySelector(UPDATEROLE_SELECTORS.tasksItemCheckbox);
                     if (!checkbox) { continue; }
-                    var isChecked = checkbox.checked; var shouldBeChecked = numbersSet.has(taskNum);
-                    if (shouldBeChecked && !isChecked) { toggleQueue.push({ element: checkbox, taskNum: taskNum }); }
-                    else if (!shouldBeChecked && isChecked) { toggleQueue.push({ element: checkbox, taskNum: taskNum }); }
+                    var isChecked = checkbox.checked;
+                    var shouldBeChecked = numbersSet.has(taskNum);
+                    if (shouldBeChecked && !isChecked) {
+                        toCheck.push({ element: checkbox, taskNum: taskNum });
+                    } else if (!shouldBeChecked && isChecked) {
+                        toUncheck.push({ element: checkbox, taskNum: taskNum });
+                    }
                 }
-                addLogMessage('updateRoleApplyTasks: ' + toggleQueue.length + ' toggles needed', 'log');
+                addLogMessage('updateRoleApplyTasks: need to uncheck ' + toUncheck.length + ' items: [' + toUncheck.map(function(t){return t.taskNum;}).join(',') + ']', 'log');
+                addLogMessage('updateRoleApplyTasks: need to check ' + toCheck.length + ' items: [' + toCheck.map(function(t){return t.taskNum;}).join(',') + ']', 'log');
+                var toggleQueue = toUncheck.concat(toCheck);
+                addLogMessage('updateRoleApplyTasks: total ' + toggleQueue.length + ' toggles needed', 'log');
                 var tqi = 0;
                 function processNextToggle() {
                     if (!updateRoleState.isRunning || updateRoleState.stopRequested) { resolve(false); return; }
                     if (tqi >= toggleQueue.length) {
-                        var closeBtn = document.querySelector(UPDATEROLE_SELECTORS.tasksToggleBtn); if (closeBtn) { closeBtn.click(); }
-                        var closeTid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(closeTid); return;
+                        addLogMessage('updateRoleApplyTasks: all toggles complete, closing menu', 'log');
+                        var closeBtn = document.querySelector(UPDATEROLE_SELECTORS.tasksToggleBtn);
+                        if (closeBtn) { closeBtn.click(); }
+                        var closeTid = setTimeout(function() { resolve(true); }, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs);
+                        updateRoleState.timeouts.push(closeTid);
+                        return;
                     }
-                    toggleQueue[tqi].element.click(); tqi++;
-                    var nextTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(nextTid);
+                    var current = toggleQueue[tqi];
+                    addLogMessage('updateRoleApplyTasks: toggling task ' + current.taskNum + ' (' + (tqi + 1) + '/' + toggleQueue.length + ')', 'log');
+                    current.element.click();
+                    tqi++;
+                    var nextTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs);
+                    updateRoleState.timeouts.push(nextTid);
                 }
-                var startTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs); updateRoleState.timeouts.push(startTid);
-            }).catch(function() { resolve(false); });
+                var startTid = setTimeout(processNextToggle, UPDATEROLE_TIMEOUTS.waitAfterTasksToggleMs);
+                updateRoleState.timeouts.push(startTid);
+            }).catch(function(err) {
+                addLogMessage('updateRoleApplyTasks: error - ' + err, 'error');
+                resolve(false);
+            });
         });
     }
 
