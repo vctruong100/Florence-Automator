@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.2.8
+// @version 2.3.2
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
@@ -1391,7 +1391,7 @@
             }
             if (filteredEntries.length > 0) {
                 var textarea = document.createElement('textarea');
-                textarea.value = filteredEntries.join('\\n');
+                textarea.value = filteredEntries.join('\n');
                 textarea.style.position = 'fixed';
                 textarea.style.left = '-9999px';
                 document.body.appendChild(textarea);
@@ -1947,7 +1947,13 @@
         var maxRetries = 2; // Allow 2 retries per term for high volume reliability
 
         if (termIndex >= searchTerms.length) {
-            addLogMessage(logPrefix + ': all ' + searchTerms.length + ' search terms exhausted after retries, marking as not found', 'log');
+            // Check if "No Matching Results" is shown
+            var noResultsEl = document.querySelector('li.filtered-select__list__no-results');
+            if (noResultsEl && noResultsEl.textContent.trim().toLowerCase().includes('no matching results')) {
+                addLogMessage(logPrefix + ': all search terms exhausted, "No Matching Results" confirmed, skipping to next name', 'warn');
+            } else {
+                addLogMessage(logPrefix + ': all ' + searchTerms.length + ' search terms exhausted after retries, marking as not found', 'log');
+            }
             clearFilteredInput(inputEl);
             resolve(false);
             return;
@@ -1970,6 +1976,13 @@
                         return;
                     }
                     var match = scanFilteredOptionsForMatch(targetPairKey, selectors, candidates);
+                    if (match && match.noResults) {
+                        addLogMessage(stepLabel + ': "No Matching Results" detected, clearing input and skipping to next name', 'warn');
+                        clearFilteredInput(inputEl);
+                        state.activeDropdown = null;
+                        resolve(false);
+                        return;
+                    }
                     if (match) {
                         addLogMessage(stepLabel + ': found (' + match.matchType + ')', 'log');
                         state.activeDropdown = null;
@@ -1982,6 +1995,28 @@
                     }
                     // No match found - retry if we haven't exhausted retries
                     if (retryCount < maxRetries) {
+                        var scope = inputEl.closest('filtered-select') || inputEl.parentElement;
+                        var caret = scope ? scope.querySelector('button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]') : null;
+                        var isDropdownStuck = caret && caret.getAttribute('aria-expanded') === 'true';
+                        
+                        if (isDropdownStuck && retryCount === 0) {
+                            addLogMessage(stepLabel + ': dropdown stuck open (mispositioned), force-closing and reopening (retry ' + (retryCount + 1) + '/' + maxRetries + ')', 'warn');
+                            forceCloseAndReopenDropdown(inputEl, state);
+                            var reopenTid = setTimeout(function() {
+                                clearFilteredInput(inputEl);
+                                var clearTid = setTimeout(function() {
+                                    typeIntoFilteredInput(inputEl, term);
+                                    var retryFilterTid = setTimeout(function() {
+                                        tryNameSearchTermsSequentially(searchTerms, termIndex, inputEl, targetPairKey, selectors, timeouts, state, candidates, logPrefix, resolve, retryCount + 1);
+                                    }, timeouts.waitFilterMs);
+                                    state.timeouts.push(retryFilterTid);
+                                }, timeouts.settleMs);
+                                state.timeouts.push(clearTid);
+                            }, 600);
+                            state.timeouts.push(reopenTid);
+                            return;
+                        }
+                        
                         addLogMessage(stepLabel + ': no match, retrying with clear X button (retry ' + (retryCount + 1) + '/' + maxRetries + ')', 'log');
                         var cleared = clickFilteredSelectClearButton(inputEl);
                         if (!cleared) {
@@ -1996,6 +2031,15 @@
                             state.timeouts.push(retryFilterTid);
                         }, timeouts.settleMs);
                         state.timeouts.push(retryTid);
+                        return;
+                    }
+                    // Before moving to next term, check if "No Matching Results" is shown
+                    var noResultsEl = document.querySelector('li.filtered-select__list__no-results');
+                    if (noResultsEl && noResultsEl.textContent.trim().toLowerCase().includes('no matching results')) {
+                        addLogMessage(stepLabel + ': "No Matching Results" detected after retries, clearing input and skipping to next name', 'warn');
+                        clearFilteredInput(inputEl);
+                        state.activeDropdown = null;
+                        resolve(false);
                         return;
                     }
                     addLogMessage(stepLabel + ': not found after retries, trying next term', 'log');
@@ -2265,6 +2309,30 @@
         return false;
     }
 
+    function forceCloseAndReopenDropdown(inputEl, state) {
+        if (!inputEl) { return; }
+        addLogMessage('forceCloseAndReopenDropdown: closing dropdown to fix positioning', 'warn');
+        var scope = inputEl.closest('filtered-select') || inputEl.parentElement;
+        var caret = null;
+        if (scope) {
+            caret = scope.querySelector('button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]');
+        }
+        if (!caret) {
+            caret = document.querySelector('button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]');
+        }
+        if (caret && caret.getAttribute('aria-expanded') === 'true') {
+            addLogMessage('forceCloseAndReopenDropdown: clicking caret to close', 'log');
+            caret.click();
+        }
+        setTimeout(function() {
+            if (caret) {
+                addLogMessage('forceCloseAndReopenDropdown: clicking caret to reopen', 'log');
+                caret.click();
+            }
+            inputEl.focus();
+        }, 300);
+    }
+
     function reopenDropdownIfClosed(state) {
         if (!state.activeDropdown) {
             return Promise.resolve();
@@ -2354,6 +2422,11 @@
 
     function scanFilteredOptionsForMatch(targetPairKey, selectorSet, candidatePairKeys) {
         var matchKeys = candidatePairKeys && candidatePairKeys.length > 0 ? candidatePairKeys : [targetPairKey];
+        var noResultsEl = document.querySelector('li.filtered-select__list__no-results');
+        if (noResultsEl && noResultsEl.textContent.trim().toLowerCase().includes('no matching results')) {
+            addLogMessage('scanFilteredOptionsForMatch: "No Matching Results" message detected', 'warn');
+            return { noResults: true };
+        }
         var options = document.querySelectorAll(selectorSet.optionItem);
         addLogMessage('scanFilteredOptionsForMatch: checking ' + options.length + ' options against candidates=[' + matchKeys.join(', ') + ']', 'log');
         for (var oi = 0; oi < options.length; oi++) {
