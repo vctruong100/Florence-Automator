@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.3.2
+// @version 2.3.7
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
@@ -142,7 +142,7 @@
         optionItem: 'cdk-virtual-scroll-viewport li.filtered-select__list__item, cdk-virtual-scroll-viewport li, .filtered-select__list li, cdk-virtual-scroll-viewport [role="option"], .filtered-select__list [role="option"]',
         memberCaretBtn: 'button.test-caret, button.filtered-select__actions__btn[aria-label="Toggle dropdown"]',
         memberClearBtn: 'button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn',
-        roleClearBtn: 'i.fa-times.test-clearBtn',
+        roleClearBtn: 'button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn',
         roleSearchInput: 'input.filtered-select__input[placeholder*="Search"]',
         roleOptionItem: '.filtered-select__list__item, [role="option"], .cdk-virtual-scroll-viewport .filtered-select__list__item',
         roleOptionText: '.filtered-select__list__item__text',
@@ -4196,11 +4196,11 @@
         content.appendChild(leftPanel);
         content.appendChild(middlePanel);
         content.appendChild(rightPanel);
-        populateVerifyCollectedNames();
         container.appendChild(header);
         container.appendChild(content);
         modal.appendChild(container);
         document.body.appendChild(modal);
+        populateVerifyCollectedNames();
         addLogMessage('showVerifyThreePanelLayout: 3-panel layout created', 'log');
     }
 
@@ -4318,7 +4318,7 @@
     }
 
     var verifyAllResults = [];
-    var verifyCurrentFilter = 'All';
+    var verifyCurrentFilter = 'Found';
 
     function populateVerifyCollectedNames() {
         addLogMessage('populateVerifyCollectedNames: populating ' + verifyState.scannedNames.length + ' names', 'log');
@@ -4400,7 +4400,7 @@
                 matchedName: matchedName || ''
             });
         }
-        verifyCurrentFilter = 'All';
+        verifyCurrentFilter = 'Found';
         populateVerifyResults();
         addLogMessage('generateVerifyResults: generated ' + verifyAllResults.length + ' results', 'log');
     }
@@ -4417,7 +4417,9 @@
         var searchInput = document.getElementById('verify-results-search');
         if (searchInput) searchTerm = searchInput.value.toLowerCase().trim();
         var filtered = verifyAllResults.filter(function(r) {
-            if (verifyCurrentFilter !== 'All' && r.status !== verifyCurrentFilter) return false;
+            if (verifyCurrentFilter === 'Found' || verifyCurrentFilter === 'Not Found') {
+                if (r.status !== verifyCurrentFilter) return false;
+            }
             if (searchTerm && r.name.toLowerCase().indexOf(searchTerm) === -1) return false;
             return true;
         });
@@ -4467,8 +4469,18 @@
         }
         var dropdown = document.createElement('div');
         dropdown.id = 'verify-filter-dropdown';
-        dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 8px; z-index: 10000; min-width: 150px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);';
-        var options = ['All', 'Found', 'Not Found'];
+        dropdown.style.cssText = `
+            position: fixed;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 1px solid rgba(255,255,255,.15);
+            border-radius: 10px;
+            padding: 8px;
+            min-width: 75px;
+            width: max-content;
+            z-index: 30000;
+        `;
+        dropdown.onclick = function(evt) { evt.stopPropagation(); };
+        var options = ['Found', 'Not Found'];
         for (var i = 0; i < options.length; i++) {
             var opt = options[i];
             var label = document.createElement('label');
@@ -5446,6 +5458,7 @@
         dropListContainer: '.cdk-drop-list.doa-log-form-step__drop-list-container',
         roleColumns: '.doa-log-form-step__column.roles__column',
         roleSearchInput: 'input.filtered-select__input[placeholder*="Search"]',
+        roleClearBtn: 'button.test-clearBtn[aria-label="Clear selection"], button.filtered-select__actions__btn.test-clearBtn',
         roleListContainer: 'ul.filtered-select__list.u-z-index-1060, ul.filtered-select__list',
         virtualViewport: 'cdk-virtual-scroll-viewport.cdk-virtual-scroll-viewport, .filtered-select__list',
         roleOptionItem: '.filtered-select__list__item, [role="option"], .cdk-virtual-scroll-viewport .filtered-select__list__item',
@@ -6634,6 +6647,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         inputEl.dispatchEvent(new Event('focus', { bubbles: true }));
     }
 
+    function clearExistingRoleSelection(columnEl) {
+        addLogMessage('clearExistingRoleSelection: checking for existing role selection', 'log');
+        var clearBtn = columnEl.querySelector(RESP_SELECTORS.roleClearBtn);
+        if (clearBtn) {
+            addLogMessage('clearExistingRoleSelection: found clear button, clicking to remove existing selection', 'log');
+            clearBtn.click();
+            return true;
+        }
+        addLogMessage('clearExistingRoleSelection: no clear button found, no existing selection', 'log');
+        return false;
+    }
+
     function ensureRoleListOpenForColumn(columnEl) {
         addLogMessage('ensureRoleListOpenForColumn: ensuring open in target column', 'log');
         return dismissRoleListDropdown(columnEl).then(function() {
@@ -6661,6 +6686,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         inputEl = allInputs[0];
                     }
                 }
+                clearExistingRoleSelection(columnEl);
                 if (inputEl) {
                     addLogMessage('ensureRoleListOpenForColumn: triggering input open in column (attempt ' + (retries + 1) + ')', 'log');
                     triggerAngularInputOpen(inputEl);
@@ -17662,11 +17688,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function updateRoleSelectRole(roleDisplay, roleKey) {
         addLogMessage('updateRoleSelectRole: roleKey=' + roleKey, 'log');
         return new Promise(function(resolve) {
-            var clearBtn = document.querySelector(UPDATEROLE_SELECTORS.roleClearBtn);
-            if (clearBtn) { clearBtn.click(); }
+            var roleInput = document.querySelector(UPDATEROLE_SELECTORS.roleSearchInput);
+            if (!roleInput) { resolve(false); return; }
+            var roleContainer = roleInput.closest('.filtered-select, filtered-select');
+            if (roleContainer) {
+                var clearBtn = roleContainer.querySelector(UPDATEROLE_SELECTORS.roleClearBtn);
+                if (clearBtn) {
+                    addLogMessage('updateRoleSelectRole: clearing existing role selection', 'log');
+                    clearBtn.click();
+                }
+            }
             var delayTid = setTimeout(function() {
-                var roleInput = document.querySelector(UPDATEROLE_SELECTORS.roleSearchInput);
-                if (!roleInput) { resolve(false); return; }
                 roleInput.click(); roleInput.focus();
                 updateRoleWaitForElement(UPDATEROLE_SELECTORS.listContainer, UPDATEROLE_TIMEOUTS.waitRoleListMs).then(function() {
                     var viewportEl = document.querySelector(UPDATEROLE_SELECTORS.virtualViewport);
@@ -17702,7 +17734,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     }
                     var initTid = setTimeout(scanRoles, UPDATEROLE_TIMEOUTS.scrollIdleMs); updateRoleState.timeouts.push(initTid);
                 }).catch(function() { resolve(false); });
-            }, 500);
+            }, 800);
             updateRoleState.timeouts.push(delayTid);
         });
     }
@@ -17992,6 +18024,556 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     // ─── End Update Role Responsibilities ────────────────────────────────────────
 
+    // ─── Update Automate (DOA) ───────────────────────────────────────────────────
+
+    const UPDATEDOA_LABELS = {
+        featureButton: 'Update Automate (DOA)', inputTitle: 'Update Automate (DOA)',
+        warningTitle: 'DOA Automation Panel Not Found',
+        warningMessage: 'The current page does not contain the DOA Automation team edit panel with the required sections. Please open the DoA automation modal so that the team members section is visible before using this feature.',
+        statusPending: 'Pending', statusLocating: 'Locating', statusSettingRole: 'Setting Role', statusSettingTasks: 'Setting Tasks',
+        statusCompleted: 'Completed', statusNotFound: 'Not Found', statusFailed: 'Failed',
+        statusRoleFailed: 'Role Failed', statusTasksFailed: 'Tasks Failed',
+        statusStopped: 'Stopped', statusDuplicate: 'Duplicate (ignored)',
+        progressInProgress: 'In Progress', progressComplete: 'Complete', progressStopped: 'Stopped'
+    };
+
+    const UPDATEDOA_SELECTORS = {
+        modalRoot: 'div[role="document"].doa-automation-modal.modal-dialog.modal-lg',
+        logPickerSection: '#doa-log-picker-container',
+        teamMembersContainer: '#study-site-team-members',
+        memberRow: '#study-team-member',
+        memberNameEl: '.doa-automation-team-edit__team-members__member__name-email',
+        roleSearchInput: 'input.filtered-select__input[placeholder="Search Study Role"]',
+        roleClearBtn: DOA_SELECTORS.roleClearBtn,
+        roleOptionItem: DOA_SELECTORS.roleOptionItem,
+        roleOptionText: DOA_SELECTORS.roleOptionText,
+        listContainer: DOA_SELECTORS.listContainer,
+        virtualViewport: DOA_SELECTORS.virtualViewport,
+        tasksToggleBtn: 'button.dropdown-toggle.doa-automation-team-edit_select-options-dropdown-button'
+    };
+
+    const UPDATEDOA_TIMEOUTS = {
+        settleMs: 350,
+        waitRoleListMs: 6000,
+        waitTasksMenuOpenMs: 1000,
+        waitAfterTasksToggleMs: 200,
+        maxSelectDurationMs: 8000,
+        scrollIdleMs: 140,
+        waitAfterSelectRoleMs: 800
+    };
+
+    var updateDoaState = {
+        isRunning: false, stopRequested: false, observers: [], timeouts: [], intervals: [], eventListeners: [], idleCallbackIds: [],
+        focusReturnElement: null, parsedCandidates: [], collectedMembers: [],
+        counters: { total: 0, saved: 0, notFound: 0, failures: 0, pending: 0 },
+        roleListScrollTop: 0, timer: null
+    };
+
+    function resetUpdateDoaState() {
+        addLogMessage('resetUpdateDoaState: resetting state', 'log');
+        updateDoaState.isRunning = false; updateDoaState.stopRequested = false;
+        updateDoaState.observers = []; updateDoaState.timeouts = []; updateDoaState.intervals = [];
+        updateDoaState.eventListeners = []; updateDoaState.idleCallbackIds = [];
+        updateDoaState.parsedCandidates = []; updateDoaState.collectedMembers = [];
+        updateDoaState.counters = { total: 0, saved: 0, notFound: 0, failures: 0, pending: 0 };
+        updateDoaState.roleListScrollTop = 0;
+    }
+
+    function updateDoaWaitForElement(selector, timeout) {
+        return new Promise(function(resolve, reject) {
+            var element = document.querySelector(selector);
+            if (element) { resolve(element); return; }
+            var observer = new MutationObserver(function(mutations, obs) {
+                var el = document.querySelector(selector);
+                if (el) { obs.disconnect(); var idx = updateDoaState.observers.indexOf(obs); if (idx > -1) { updateDoaState.observers.splice(idx, 1); } resolve(el); }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            updateDoaState.observers.push(observer);
+            var timeoutId = setTimeout(function() { observer.disconnect(); var idx = updateDoaState.observers.indexOf(observer); if (idx > -1) { updateDoaState.observers.splice(idx, 1); } reject(new Error('Timeout waiting for ' + selector)); }, timeout);
+            updateDoaState.timeouts.push(timeoutId);
+        });
+    }
+
+    function updateDoaAriaLive(message) { var lr = document.getElementById('updatedoa-aria-live'); if (lr) { lr.textContent = message; } }
+
+    function collectDoaTeamMembers() {
+        addLogMessage('collectDoaTeamMembers: collecting from team members container', 'log');
+        var container = document.querySelector(UPDATEDOA_SELECTORS.teamMembersContainer);
+        if (!container) { addLogMessage('collectDoaTeamMembers: container not found', 'warn'); return []; }
+        var memberEls = container.querySelectorAll(UPDATEDOA_SELECTORS.memberRow);
+        var members = [];
+        for (var i = 0; i < memberEls.length; i++) {
+            var el = memberEls[i];
+            var nameEls = el.querySelectorAll(UPDATEDOA_SELECTORS.memberNameEl);
+            var name = nameEls.length > 0 ? nameEls[0].textContent.trim() : '';
+            if (!name) { continue; }
+            var pairKey = normalizeFirstLastPair(name);
+            if (!pairKey) { continue; }
+            members.push({ name: name, pairKey: pairKey, element: el });
+        }
+        addLogMessage('collectDoaTeamMembers: found ' + members.length + ' members', 'log');
+        return members;
+    }
+
+    function showUpdateDoaWarning() {
+        addLogMessage('showUpdateDoaWarning: creating warning popup', 'log');
+        var modal = document.createElement('div'); modal.id = 'updatedoa-warning-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'alertdialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-warning-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
+        var title = document.createElement('h3'); title.id = 'updatedoa-warning-title'; title.textContent = UPDATEDOA_LABELS.warningTitle;
+        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close warning');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        var closeWarning = function() { if (modal.parentNode) { document.body.removeChild(modal); } if (updateDoaState.focusReturnElement) { updateDoaState.focusReturnElement.focus(); } };
+        closeButton.onclick = closeWarning; header.appendChild(title); header.appendChild(closeButton);
+        var messageDiv = document.createElement('p'); messageDiv.textContent = UPDATEDOA_LABELS.warningMessage;
+        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        var okButton = document.createElement('button'); okButton.textContent = 'OK';
+        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
+        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.onclick = closeWarning;
+        var keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
+        document.addEventListener('keydown', keyHandler); updateDoaState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
+        container.appendChild(header); container.appendChild(messageDiv); container.appendChild(okButton); modal.appendChild(container);
+        container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal); okButton.focus();
+    }
+
+    function showUpdateDoaInputPanel() {
+        addLogMessage('showUpdateDoaInputPanel: creating input panel', 'log');
+        var modal = document.createElement('div'); modal.id = 'updatedoa-input-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div');
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-input-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updatedoa-input-title'; titleEl.textContent = UPDATEDOA_LABELS.inputTitle;
+        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close panel');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateDoa(); };
+        header.appendChild(titleEl); header.appendChild(closeButton);
+        var description = document.createElement('p');
+        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.append('Rules:'); description.appendChild(document.createElement('br'));
+        var lines = ['Paste tab-separated data with three columns: Staff Name, Study Role, Responsibilities.', 'Each row must be on a separate line. Responsibilities can be numbers separated by commas, spaces, or ranges (e.g. 1-5).', 'Role abbreviations (RN, RA, QA, PI) and keyword matching are supported.', 'After clicking Continue, do not click anywhere else on the page.'];
+        for (var i = 0; i < lines.length; i++) { description.appendChild(document.createTextNode('\u2022 ' + lines[i])); if (i < lines.length - 1) { description.appendChild(document.createElement('br')); } }
+        var membersInfo = document.createElement('p');
+        membersInfo.style.cssText = 'color: rgba(255, 255, 255, 0.75); margin: 8px 0 12px 0; font-size: 12px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;';
+        membersInfo.textContent = '\u2139 ' + updateDoaState.collectedMembers.length + ' team member' + (updateDoaState.collectedMembers.length !== 1 ? 's' : '') + ' collected from the DOA automation panel.';
+        var namesLabel = document.createElement('label'); namesLabel.setAttribute('for', 'updatedoa-data-input');
+        namesLabel.textContent = 'Staff Name \u2003 Study Role \u2003 Responsibilities (tab-separated)';
+        namesLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        var textarea = document.createElement('textarea'); textarea.id = 'updatedoa-data-input';
+        textarea.placeholder = 'John Smith\tResearch Nurse\t1, 2, 3\nJane Doe\tPI\t1-10';
+        textarea.setAttribute('aria-label', 'Staff data input with tab-separated columns');
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box; tab-size: 16;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
+        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        var parseStatusDiv = document.createElement('div'); parseStatusDiv.id = 'updatedoa-parse-status';
+        parseStatusDiv.setAttribute('aria-live', 'polite');
+        parseStatusDiv.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 12px; margin-top: 4px; min-height: 18px;';
+        var continueButton = document.createElement('button'); continueButton.textContent = 'Continue'; continueButton.disabled = true;
+        continueButton.setAttribute('aria-label', 'Continue with role update');
+        continueButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        var updateContinueState = function() {
+            var parsed = parseUpdateRoleInput(textarea.value);
+            var validCount = 0; for (var vi = 0; vi < parsed.length; vi++) { if (!parsed[vi].isDuplicate) { validCount++; } }
+            if (validCount > 0) {
+                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#6bcf7f';
+                continueButton.disabled = false; continueButton.style.opacity = '1'; continueButton.style.cursor = 'pointer';
+            } else if (textarea.value.trim().length > 0) {
+                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#ffd93d';
+                continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed';
+            } else { parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed'; }
+        };
+        textarea.addEventListener('input', updateContinueState); updateDoaState.eventListeners.push({ element: textarea, type: 'input', handler: updateContinueState });
+        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
+        continueButton.onmouseout = function() { continueButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueButton.onclick = function() {
+            if (continueButton.disabled) { return; }
+            var parsed = parseUpdateRoleInput(textarea.value);
+            if (parsed.length === 0) { return; }
+            updateDoaState.parsedCandidates = parsed;
+            addLogMessage('showUpdateDoaInputPanel: parsedCandidates=' + parsed.length, 'log');
+            if (modal.parentNode) { document.body.removeChild(modal); }
+            updateDoaState.isRunning = true; updateDoaState.timer = createFeatureTimer('updatedoa'); updateDoaState.timer.start();
+            showUpdateDoaProgressPanel();
+        };
+        var clearButton = document.createElement('button'); clearButton.textContent = 'Clear All'; clearButton.setAttribute('aria-label', 'Clear all inputs');
+        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
+        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.onclick = function() { textarea.value = ''; parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; textarea.focus(); };
+        var keyHandler = function(e) { if (e.key === 'Escape') { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateDoa(); } };
+        document.addEventListener('keydown', keyHandler); updateDoaState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
+        var buttonContainer = document.createElement('div'); buttonContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end;';
+        buttonContainer.appendChild(clearButton); buttonContainer.appendChild(continueButton);
+        container.appendChild(header); container.appendChild(description); container.appendChild(membersInfo); container.appendChild(namesLabel); container.appendChild(textarea); container.appendChild(parseStatusDiv); container.appendChild(buttonContainer);
+        modal.appendChild(container); container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal); textarea.focus();
+    }
+
+    function showUpdateDoaProgressPanel() {
+        addLogMessage('showUpdateDoaProgressPanel: creating progress panel', 'log');
+        updateDoaState.isRunning = true;
+        var modal = document.createElement('div'); modal.id = 'updatedoa-progress-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        var container = document.createElement('div'); container.id = 'updatedoa-progress-container';
+        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-progress-title');
+        var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
+        var titleContainer = document.createElement('div'); titleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updatedoa-progress-title'; titleEl.textContent = UPDATEDOA_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var statusBadge = document.createElement('span'); statusBadge.id = 'updatedoa-status-badge'; statusBadge.textContent = UPDATEDOA_LABELS.progressInProgress;
+        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        titleContainer.appendChild(titleEl); titleContainer.appendChild(statusBadge);
+        var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close and stop');
+        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.onclick = function() { stopUpdateDoa(); };
+        header.appendChild(titleContainer); header.appendChild(closeButton);
+        var panelsContainer = document.createElement('div'); panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
+        var leftPanel = createSubpanel('Team Members', 'updatedoa-left-panel', 'updatedoa-left-search');
+        var rightPanel = createSubpanel('Update Status', 'updatedoa-right-panel', 'updatedoa-right-search');
+        addSortToggleToSubpanel(rightPanel, 'updatedoa-right-panel', 'updatedoa-sort-toggle', 'updatedoa-failure-filter', [UPDATEDOA_LABELS.statusNotFound, UPDATEDOA_LABELS.statusFailed, UPDATEDOA_LABELS.statusRoleFailed, UPDATEDOA_LABELS.statusTasksFailed]);
+        panelsContainer.appendChild(leftPanel); panelsContainer.appendChild(rightPanel);
+        var summaryFooter = document.createElement('div'); summaryFooter.id = 'updatedoa-summary-footer'; summaryFooter.setAttribute('aria-label', 'Processing summary');
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        var nonDuplicateCount = 0;
+        for (var ndi = 0; ndi < updateDoaState.parsedCandidates.length; ndi++) { if (!updateDoaState.parsedCandidates[ndi].isDuplicate) { nonDuplicateCount++; } }
+        updateDoaState.counters = { total: nonDuplicateCount, saved: 0, notFound: 0, failures: 0, pending: nonDuplicateCount };
+        var summaryItems = [
+            { id: 'updatedoa-summary-total', label: 'Total', value: String(nonDuplicateCount) }, { id: 'updatedoa-summary-saved', label: 'Updated', value: '0' },
+            { id: 'updatedoa-summary-notfound', label: 'Not Found', value: '0' }, { id: 'updatedoa-summary-failed', label: 'Failed', value: '0' },
+            { id: 'updatedoa-summary-pending', label: 'Pending', value: String(nonDuplicateCount) }, { id: 'updatedoa-summary-percent', label: 'Progress', value: '0%' }
+        ];
+        for (var si = 0; si < summaryItems.length; si++) {
+            var sItem = document.createElement('div'); sItem.style.cssText = 'text-align: center;';
+            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            sItem.appendChild(vSpan); sItem.appendChild(lSpan); summaryFooter.appendChild(sItem);
+        }
+        var ariaLiveRegion = document.createElement('div'); ariaLiveRegion.id = 'updatedoa-aria-live'; ariaLiveRegion.setAttribute('aria-live', 'polite'); ariaLiveRegion.setAttribute('aria-atomic', 'true');
+        ariaLiveRegion.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;';
+        container.appendChild(header); container.appendChild(panelsContainer); container.appendChild(summaryFooter);
+        if (updateDoaState.timer) { container.appendChild(updateDoaState.timer.createDisplay()); updateDoaState.timer.setTotal(nonDuplicateCount); }
+        container.appendChild(ariaLiveRegion); modal.appendChild(container);
+        container.style.position = 'fixed'; container.style.top = '50%'; container.style.left = '50%'; container.style.transform = 'translate(-50%, -50%)';
+        modal.style.pointerEvents = 'none'; container.style.pointerEvents = 'auto'; makeDraggable(container, header); document.body.appendChild(modal);
+        populateUpdateDoaLeftPanel(); initializeUpdateDoaRightPanel(); closeButton.focus();
+        beginUpdateDoaQueue();
+    }
+
+    function populateUpdateDoaLeftPanel() {
+        var leftPanel = document.getElementById('updatedoa-left-panel'); if (!leftPanel) { return; } leftPanel.innerHTML = '';
+        for (var i = 0; i < updateDoaState.collectedMembers.length; i++) { var item = createListItem(updateDoaState.collectedMembers[i].name, null, null, i + 1); leftPanel.appendChild(item); }
+    }
+
+    function initializeUpdateDoaRightPanel() {
+        var rightPanel = document.getElementById('updatedoa-right-panel'); if (!rightPanel) { return; } rightPanel.innerHTML = '';
+        for (var i = 0; i < updateDoaState.parsedCandidates.length; i++) {
+            var candidate = updateDoaState.parsedCandidates[i];
+            var statusText = candidate.isDuplicate ? UPDATEDOA_LABELS.statusDuplicate : UPDATEDOA_LABELS.statusPending;
+            var numsArr = Array.from(candidate.numbersSet).sort(function(a, b) { return a - b; });
+            var labelText = candidate.display + ' | ' + candidate.roleDisplay + ' | [' + numsArr.join(', ') + ']';
+            var item = createListItem(labelText, statusText, candidate.isDuplicate ? 'duplicate' : 'pending', i + 1);
+            item.setAttribute('data-pairkey', candidate.pairKey); item.setAttribute('data-input-order', String(i + 1)); item.setAttribute('data-sort-name', candidate.display);
+            if (candidate.isDuplicate) { item.setAttribute('data-duplicate', 'true'); }
+            item.setAttribute('data-entry-info', candidate.originalLine || (candidate.display + '\t' + candidate.roleDisplay + '\t' + numsArr.join(', ')));
+            rightPanel.appendChild(item);
+        }
+    }
+
+    function updateUpdateDoaStatus(pairKey, newStatus, detailsOptional) {
+        var rightPanel = document.getElementById('updatedoa-right-panel'); if (!rightPanel) { return; }
+        var items = rightPanel.querySelectorAll('.' + ELOG_CSS_CLASSNAMES.listItem);
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i]; if (item.getAttribute('data-pairkey') !== pairKey) { continue; } if (item.getAttribute('data-duplicate') === 'true') { continue; }
+            var badge = item.querySelector('.elog-status-badge');
+            if (badge) {
+                badge.textContent = newStatus; var badgeColor = 'rgba(255, 255, 255, 0.7)'; var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                if (newStatus === UPDATEDOA_LABELS.statusCompleted) { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusNotFound) { badgeColor = '#ffa500'; badgeBg = 'rgba(255, 165, 0, 0.2)'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusFailed || newStatus === UPDATEDOA_LABELS.statusRoleFailed || newStatus === UPDATEDOA_LABELS.statusTasksFailed) { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusStopped || newStatus === UPDATEDOA_LABELS.statusDuplicate) { badgeColor = '#aaa'; badgeBg = 'rgba(170, 170, 170, 0.2)'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusLocating || newStatus === UPDATEDOA_LABELS.statusSettingRole || newStatus === UPDATEDOA_LABELS.statusSettingTasks) { badgeColor = '#64b5f6'; badgeBg = 'rgba(100, 181, 246, 0.2)'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusPending) { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                badge.style.color = badgeColor; badge.style.background = badgeBg;
+                if (detailsOptional) { badge.setAttribute('title', detailsOptional); }
+            }
+            break;
+        }
+        updateDoaAriaLive(pairKey + ' ' + newStatus);
+    }
+
+    function updateUpdateDoaSummary(counters) {
+        var ids = ['updatedoa-summary-total', 'updatedoa-summary-saved', 'updatedoa-summary-notfound', 'updatedoa-summary-failed', 'updatedoa-summary-pending', 'updatedoa-summary-percent'];
+        var vals = [counters.total, counters.saved, counters.notFound, counters.failures, counters.pending];
+        for (var i = 0; i < ids.length - 1; i++) { var el = document.getElementById(ids[i]); if (el) { el.textContent = String(vals[i]); } }
+        var elPct = document.getElementById(ids[ids.length - 1]);
+        if (elPct) { var processed = counters.total - counters.pending; elPct.textContent = (counters.total > 0 ? Math.round((processed / counters.total) * 100) : 0) + '%'; }
+    }
+
+    function updateUpdateDoaProgressBadge(statusText, statusType) {
+        var badge = document.getElementById('updatedoa-status-badge'); var titleEl = document.getElementById('updatedoa-progress-title');
+        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; } else if (statusType === 'stopped') { badge.style.background = 'rgba(170, 170, 170, 0.3)'; badge.style.color = '#aaa'; } else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; } }
+        if (titleEl) { titleEl.textContent = UPDATEDOA_LABELS.featureButton + ' - ' + statusText; }
+        updateDoaState.isRunning = false;
+    }
+
+    function updateDoaFindMember(targetPairKey) {
+        for (var i = 0; i < updateDoaState.collectedMembers.length; i++) {
+            if (updateDoaState.collectedMembers[i].pairKey === targetPairKey) { return updateDoaState.collectedMembers[i].element; }
+        }
+        var container = document.querySelector(UPDATEDOA_SELECTORS.teamMembersContainer);
+        if (!container) { return null; }
+        var memberEls = container.querySelectorAll(UPDATEDOA_SELECTORS.memberRow);
+        for (var j = 0; j < memberEls.length; j++) {
+            var nameEls = memberEls[j].querySelectorAll(UPDATEDOA_SELECTORS.memberNameEl);
+            if (nameEls.length === 0) { continue; }
+            if (normalizeFirstLastPair(nameEls[0].textContent.trim()) === targetPairKey) { return memberEls[j]; }
+        }
+        return null;
+    }
+
+    function updateDoaSelectRole(memberEl, roleDisplay, roleKey) {
+        addLogMessage('updateDoaSelectRole: roleKey=' + roleKey, 'log');
+        return new Promise(function(resolve) {
+            var roleInput = memberEl ? memberEl.querySelector(UPDATEDOA_SELECTORS.roleSearchInput) : null;
+            if (!roleInput) { addLogMessage('updateDoaSelectRole: role input not found in member element', 'warn'); resolve(false); return; }
+            var roleContainer = roleInput.closest('.filtered-select, filtered-select');
+            if (roleContainer) {
+                var clearBtn = roleContainer.querySelector(UPDATEDOA_SELECTORS.roleClearBtn);
+                if (clearBtn) { addLogMessage('updateDoaSelectRole: clearing existing role selection', 'log'); clearBtn.click(); }
+            }
+            var delayTid = setTimeout(function() {
+                roleInput.click(); roleInput.focus();
+                updateDoaWaitForElement(UPDATEDOA_SELECTORS.listContainer, UPDATEDOA_TIMEOUTS.waitRoleListMs).then(function() {
+                    var viewportEl = document.querySelector(UPDATEDOA_SELECTORS.virtualViewport);
+                    if (viewportEl && updateDoaState.roleListScrollTop > 0) { viewportEl.scrollTop = updateDoaState.roleListScrollTop; }
+                    var passCount = 0; var lastScrollTop = -1; var lastOptionSnapshot = ''; var startTime = Date.now();
+                    function scanRoles() {
+                        if (!updateDoaState.isRunning || updateDoaState.stopRequested) { resolve(false); return; }
+                        if (Date.now() - startTime > UPDATEDOA_TIMEOUTS.maxSelectDurationMs) { resolve(false); return; }
+                        if (passCount >= 1) { resolve(false); return; }
+                        var freshVp = document.querySelector(UPDATEDOA_SELECTORS.virtualViewport); if (freshVp) { viewportEl = freshVp; }
+                        var roleOptions = document.querySelectorAll(UPDATEDOA_SELECTORS.roleOptionItem); var found = false; var optionTexts = [];
+                        for (var ri = 0; ri < roleOptions.length; ri++) {
+                            var textEl = roleOptions[ri].querySelector(UPDATEDOA_SELECTORS.roleOptionText);
+                            var optText = textEl ? textEl.textContent.trim() : roleOptions[ri].textContent.trim(); optionTexts.push(optText);
+                            if (normalizeRoleName(optText).key === roleKey) {
+                                roleOptions[ri].click(); found = true;
+                                var vp = document.querySelector(UPDATEDOA_SELECTORS.virtualViewport); if (vp) { updateDoaState.roleListScrollTop = vp.scrollTop; }
+                                var verifyTid = setTimeout(function() { resolve(true); }, UPDATEDOA_TIMEOUTS.waitAfterSelectRoleMs); updateDoaState.timeouts.push(verifyTid); break;
+                            }
+                        }
+                        if (!found) {
+                            var vp2 = document.querySelector(UPDATEDOA_SELECTORS.virtualViewport); if (!vp2) { resolve(false); return; }
+                            var currentSnapshot = optionTexts.join('|'); var currentTop = vp2.scrollTop;
+                            if (currentTop === lastScrollTop && currentSnapshot === lastOptionSnapshot) { passCount++; }
+                            lastScrollTop = currentTop; lastOptionSnapshot = currentSnapshot;
+                            var stepSize = Math.round(vp2.clientHeight * 0.7); var maxScroll = vp2.scrollHeight - vp2.clientHeight;
+                            var newTop = Math.min(currentTop + stepSize, maxScroll);
+                            if (newTop <= currentTop && currentTop > 0) { newTop = 0; lastScrollTop = -1; lastOptionSnapshot = ''; passCount++; }
+                            vp2.scrollTop = newTop;
+                            var scrollTid = setTimeout(scanRoles, UPDATEDOA_TIMEOUTS.scrollIdleMs); updateDoaState.timeouts.push(scrollTid);
+                        }
+                    }
+                    var initTid = setTimeout(scanRoles, UPDATEDOA_TIMEOUTS.scrollIdleMs); updateDoaState.timeouts.push(initTid);
+                }).catch(function() { resolve(false); });
+            }, 800);
+            updateDoaState.timeouts.push(delayTid);
+        });
+    }
+
+    function updateDoaApplyTasks(memberEl, numbersSet) {
+        addLogMessage('updateDoaApplyTasks: applying tasks, count=' + numbersSet.size, 'log');
+        return new Promise(function(resolve) {
+            var toggleBtn = memberEl ? memberEl.querySelector(UPDATEDOA_SELECTORS.tasksToggleBtn) : null;
+            if (!toggleBtn) { addLogMessage('updateDoaApplyTasks: toggle button not found in member element', 'error'); resolve(false); return; }
+            toggleBtn.click();
+            function findOpenTasksMenu() {
+                var dropdownContainer = toggleBtn.closest('span[dropdown], [dropdown], .dropdown');
+                if (dropdownContainer) {
+                    var innerMenu = dropdownContainer.querySelector('ul.dropdown-menu');
+                    if (innerMenu && window.getComputedStyle(innerMenu).display !== 'none' && innerMenu.offsetParent !== null) { return innerMenu; }
+                }
+                var allMenus = document.querySelectorAll('ul.dropdown-menu');
+                for (var mi = 0; mi < allMenus.length; mi++) {
+                    var m = allMenus[mi];
+                    if (window.getComputedStyle(m).display !== 'none' && m.offsetParent !== null && m.querySelector('input[type="checkbox"]')) { return m; }
+                }
+                return null;
+            }
+            var waitElapsed = 0; var waitStep = 100;
+            function waitForMenu() {
+                if (!updateDoaState.isRunning || updateDoaState.stopRequested) { resolve(false); return; }
+                var menu = findOpenTasksMenu();
+                if (menu) {
+                    var items = menu.querySelectorAll('li');
+                    var toUncheck = []; var toCheck = [];
+                    addLogMessage('updateDoaApplyTasks: menu found with ' + items.length + ' items', 'log');
+                    for (var ti = 0; ti < items.length; ti++) {
+                        var itemText = items[ti].textContent.trim();
+                        var leadingNumMatch = itemText.match(/^(\d+)\./);
+                        if (!leadingNumMatch) { continue; }
+                        var taskNum = parseInt(leadingNumMatch[1], 10);
+                        var checkbox = items[ti].querySelector('input[type="checkbox"]');
+                        if (!checkbox) { continue; }
+                        if (numbersSet.has(taskNum) && !checkbox.checked) { toCheck.push({ element: checkbox, taskNum: taskNum }); }
+                        else if (!numbersSet.has(taskNum) && checkbox.checked) { toUncheck.push({ element: checkbox, taskNum: taskNum }); }
+                    }
+                    addLogMessage('updateDoaApplyTasks: toUncheck=' + toUncheck.length + ' toCheck=' + toCheck.length, 'log');
+                    var toggleQueue = toUncheck.concat(toCheck); var tqi = 0;
+                    function processNextToggle() {
+                        if (!updateDoaState.isRunning || updateDoaState.stopRequested) { resolve(false); return; }
+                        if (tqi >= toggleQueue.length) {
+                            var freshToggle = memberEl ? memberEl.querySelector(UPDATEDOA_SELECTORS.tasksToggleBtn) : toggleBtn;
+                            if (freshToggle) { freshToggle.click(); }
+                            var closeTid = setTimeout(function() { resolve(true); }, UPDATEDOA_TIMEOUTS.waitAfterTasksToggleMs);
+                            updateDoaState.timeouts.push(closeTid); return;
+                        }
+                        var current = toggleQueue[tqi]; tqi++;
+                        addLogMessage('updateDoaApplyTasks: toggling task ' + current.taskNum, 'log');
+                        current.element.click();
+                        var nextTid = setTimeout(processNextToggle, UPDATEDOA_TIMEOUTS.waitAfterTasksToggleMs);
+                        updateDoaState.timeouts.push(nextTid);
+                    }
+                    var startTid = setTimeout(processNextToggle, UPDATEDOA_TIMEOUTS.waitAfterTasksToggleMs);
+                    updateDoaState.timeouts.push(startTid);
+                    return;
+                }
+                waitElapsed += waitStep;
+                if (waitElapsed >= UPDATEDOA_TIMEOUTS.waitTasksMenuOpenMs) { addLogMessage('updateDoaApplyTasks: timed out waiting for tasks menu', 'error'); resolve(false); return; }
+                var t = setTimeout(waitForMenu, waitStep); updateDoaState.timeouts.push(t);
+            }
+            var t0 = setTimeout(waitForMenu, waitStep); updateDoaState.timeouts.push(t0);
+        });
+    }
+
+    function updateDoaMarkRemainingStopped() {
+        for (var i = 0; i < updateDoaState.parsedCandidates.length; i++) {
+            var s = updateDoaState.parsedCandidates[i].status;
+            if (s === UPDATEDOA_LABELS.statusPending || s === UPDATEDOA_LABELS.statusLocating || s === UPDATEDOA_LABELS.statusSettingRole || s === UPDATEDOA_LABELS.statusSettingTasks) {
+                updateDoaState.parsedCandidates[i].status = UPDATEDOA_LABELS.statusStopped;
+                updateUpdateDoaStatus(updateDoaState.parsedCandidates[i].pairKey, UPDATEDOA_LABELS.statusStopped);
+            }
+        }
+        updateDoaState.counters.pending = 0; updateUpdateDoaSummary(updateDoaState.counters);
+    }
+
+    function updateDoaProcessCandidate(candidate) {
+        return new Promise(function(resolve) {
+            try {
+                if (updateDoaState.stopRequested) { candidate.status = UPDATEDOA_LABELS.statusStopped; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusStopped); resolve(); return; }
+                candidate.status = UPDATEDOA_LABELS.statusLocating; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusLocating);
+                var memberEl = updateDoaFindMember(candidate.pairKey);
+                if (!memberEl) {
+                    candidate.status = UPDATEDOA_LABELS.statusNotFound; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusNotFound);
+                    updateDoaState.counters.notFound++; updateDoaState.counters.pending--; updateUpdateDoaSummary(updateDoaState.counters);
+                    if (updateDoaState.timer) { updateDoaState.timer.updateProgress(updateDoaState.counters.total - updateDoaState.counters.pending); }
+                    resolve(); return;
+                }
+                candidate.status = UPDATEDOA_LABELS.statusSettingRole; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusSettingRole);
+                updateDoaSelectRole(memberEl, candidate.roleDisplay, candidate.roleKey).then(function(roleOk) {
+                    if (updateDoaState.stopRequested) { throw new Error('Stopped'); }
+                    if (!roleOk) { throw new Error('Role selection failed'); }
+                    candidate.status = UPDATEDOA_LABELS.statusSettingTasks; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusSettingTasks);
+                    return updateDoaApplyTasks(memberEl, candidate.numbersSet);
+                }).then(function(tasksOk) {
+                    if (updateDoaState.stopRequested) { throw new Error('Stopped'); }
+                    if (!tasksOk) { throw new Error('Tasks application failed'); }
+                    candidate.status = UPDATEDOA_LABELS.statusCompleted; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusCompleted);
+                    updateDoaState.counters.saved++; updateDoaState.counters.pending--; updateUpdateDoaSummary(updateDoaState.counters);
+                    if (updateDoaState.timer) { updateDoaState.timer.updateProgress(updateDoaState.counters.total - updateDoaState.counters.pending); }
+                    var settleTid = setTimeout(function() { resolve(); }, UPDATEDOA_TIMEOUTS.settleMs); updateDoaState.timeouts.push(settleTid);
+                }).catch(function(err) {
+                    addLogMessage('updateDoaProcessCandidate: error: ' + err.message, 'error');
+                    if (updateDoaState.stopRequested) { candidate.status = UPDATEDOA_LABELS.statusStopped; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusStopped); resolve(); return; }
+                    var failStatus = UPDATEDOA_LABELS.statusFailed;
+                    if (err.message.indexOf('Role') !== -1) { failStatus = UPDATEDOA_LABELS.statusRoleFailed; }
+                    else if (err.message.indexOf('Tasks') !== -1 || err.message.indexOf('task') !== -1) { failStatus = UPDATEDOA_LABELS.statusTasksFailed; }
+                    candidate.status = failStatus; updateUpdateDoaStatus(candidate.pairKey, failStatus, err.message);
+                    updateDoaState.counters.failures++; updateDoaState.counters.pending--; updateUpdateDoaSummary(updateDoaState.counters);
+                    if (updateDoaState.timer) { updateDoaState.timer.updateProgress(updateDoaState.counters.total - updateDoaState.counters.pending); }
+                    resolve();
+                });
+            } catch (err) {
+                candidate.status = UPDATEDOA_LABELS.statusFailed; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusFailed, err.message);
+                updateDoaState.counters.failures++; updateDoaState.counters.pending--; updateUpdateDoaSummary(updateDoaState.counters);
+                if (updateDoaState.timer) { updateDoaState.timer.updateProgress(updateDoaState.counters.total - updateDoaState.counters.pending); }
+                resolve();
+            }
+        });
+    }
+
+    function beginUpdateDoaQueue() {
+        addLogMessage('beginUpdateDoaQueue: starting queue', 'log');
+        var collectedPairKeys = new Set();
+        for (var ci = 0; ci < updateDoaState.collectedMembers.length; ci++) { if (updateDoaState.collectedMembers[ci].pairKey) { collectedPairKeys.add(updateDoaState.collectedMembers[ci].pairKey); } }
+        var queue = [];
+        for (var ni = 0; ni < updateDoaState.parsedCandidates.length; ni++) {
+            var candidate = updateDoaState.parsedCandidates[ni];
+            if (candidate.isDuplicate) { continue; }
+            if (!collectedPairKeys.has(candidate.pairKey)) { candidate.status = UPDATEDOA_LABELS.statusNotFound; updateUpdateDoaStatus(candidate.pairKey, UPDATEDOA_LABELS.statusNotFound); updateDoaState.counters.notFound++; updateDoaState.counters.pending--; }
+            else { queue.push(candidate); }
+        }
+        updateUpdateDoaSummary(updateDoaState.counters);
+        if (updateDoaState.timer) { updateDoaState.timer.updateProgress(updateDoaState.counters.total - updateDoaState.counters.pending); }
+        if (queue.length === 0) { if (updateDoaState.timer) { updateDoaState.timer.complete(); } updateUpdateDoaProgressBadge(UPDATEDOA_LABELS.progressComplete, 'complete'); updateDoaAriaLive('Complete. No candidates to process.'); return; }
+        var queueIndex = 0;
+        function processNext() {
+            if (!updateDoaState.isRunning || updateDoaState.stopRequested) { updateDoaMarkRemainingStopped(); if (updateDoaState.timer) { updateDoaState.timer.stop(); } updateUpdateDoaProgressBadge(UPDATEDOA_LABELS.progressStopped, 'stopped'); updateDoaAriaLive('Processing stopped.'); return; }
+            if (queueIndex >= queue.length) { if (updateDoaState.timer) { updateDoaState.timer.complete(); } updateUpdateDoaProgressBadge(UPDATEDOA_LABELS.progressComplete, 'complete'); var c = updateDoaState.counters; updateDoaAriaLive('Complete. Updated: ' + c.saved + ', Not Found: ' + c.notFound + ', Failed: ' + c.failures); return; }
+            var currentCandidate = queue[queueIndex]; queueIndex++;
+            updateDoaProcessCandidate(currentCandidate).then(function() {
+                if (typeof requestIdleCallback === 'function') { var icbId = requestIdleCallback(function() { var idx = updateDoaState.idleCallbackIds.indexOf(icbId); if (idx > -1) { updateDoaState.idleCallbackIds.splice(idx, 1); } processNext(); }, { timeout: UPDATEDOA_TIMEOUTS.settleMs * 2 }); updateDoaState.idleCallbackIds.push(icbId); }
+                else { var tid = setTimeout(processNext, UPDATEDOA_TIMEOUTS.settleMs); updateDoaState.timeouts.push(tid); }
+            });
+        }
+        processNext();
+    }
+
+    function updateDoaResponsibilitiesInit() {
+        addLogMessage('updateDoaResponsibilitiesInit: starting feature', 'log');
+        updateDoaState.focusReturnElement = document.getElementById('updatedoa-btn');
+        resetUpdateDoaState();
+        var modalEl = document.querySelector(UPDATEDOA_SELECTORS.modalRoot);
+        var logPickerEl = document.querySelector(UPDATEDOA_SELECTORS.logPickerSection);
+        var teamMembersEl = document.querySelector(UPDATEDOA_SELECTORS.teamMembersContainer);
+        if (!modalEl || !logPickerEl || !teamMembersEl) { showUpdateDoaWarning(); return; }
+        var members = collectDoaTeamMembers();
+        if (members.length === 0) { showUpdateDoaWarning(); return; }
+        updateDoaState.collectedMembers = members;
+        showUpdateDoaInputPanel();
+    }
+
+    function stopUpdateDoa() {
+        addLogMessage('stopUpdateDoa: stopping', 'log');
+        updateDoaState.isRunning = false; updateDoaState.stopRequested = true;
+        for (var i = 0; i < updateDoaState.idleCallbackIds.length; i++) { try { if (typeof cancelIdleCallback === 'function') { cancelIdleCallback(updateDoaState.idleCallbackIds[i]); } } catch (e) {} } updateDoaState.idleCallbackIds = [];
+        for (var i2 = 0; i2 < updateDoaState.observers.length; i2++) { try { updateDoaState.observers[i2].disconnect(); } catch (e2) {} } updateDoaState.observers = [];
+        for (var i3 = 0; i3 < updateDoaState.timeouts.length; i3++) { try { clearTimeout(updateDoaState.timeouts[i3]); } catch (e3) {} } updateDoaState.timeouts = [];
+        for (var i4 = 0; i4 < updateDoaState.intervals.length; i4++) { try { clearInterval(updateDoaState.intervals[i4]); } catch (e4) {} } updateDoaState.intervals = [];
+        for (var i5 = 0; i5 < updateDoaState.eventListeners.length; i5++) { try { var l = updateDoaState.eventListeners[i5]; l.element.removeEventListener(l.type, l.handler); } catch (e5) {} } updateDoaState.eventListeners = [];
+        var modals = ['updatedoa-input-modal', 'updatedoa-warning-modal', 'updatedoa-progress-modal'];
+        for (var mi = 0; mi < modals.length; mi++) { var m = document.getElementById(modals[mi]); if (m && m.parentNode) { m.parentNode.removeChild(m); } }
+        if (updateDoaState.timer) { updateDoaState.timer.stop(); }
+        if (updateDoaState.focusReturnElement) { updateDoaState.focusReturnElement.focus(); }
+    }
+
+    // ─── End Update Automate (DOA) ────────────────────────────────────────────────
+
     function addStartDateInit() {
         addLogMessage('addStartDateInit: starting feature', 'log');
         startDateState.focusReturnElement = document.getElementById('startdate-btn');
@@ -18186,7 +18768,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         { id: 'ssig-select-btn', label: 'Select Signed Checkbox (DOA)', handler: function() { selectSignedCheckboxInit(); } },
         { id: 'tlog-btn', label: 'Get Log Data', handler: function() { getTrainingLogInit(); } },
         { id: 'verify-names-btn', label: 'Verify Names', handler: function() { verifyNamesInit(); } },
-        { id: 'updaterole-btn', label: 'Update Role Resp. (DOA)', handler: function() { updateRoleResponsibilitiesInit(); } }
+        { id: 'updaterole-btn', label: 'Update Role Resp. (DOA)', handler: function() { updateRoleResponsibilitiesInit(); } },
+        { id: 'updatedoa-btn', label: 'Update Automate (DOA)', handler: function() { updateDoaResponsibilitiesInit(); } }
     ];
 
     var cfgState = {
@@ -19451,7 +20034,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     { label: 'Set Role Resp.', desc: 'Sets the role & responsibilities in the delegation log template. Useful for assigning tasks to all roles all at once.' },
                     { label: 'Add Start Date (DOA)', desc: 'Automatically fills in the start date field for DoA log entries so you don\'t have to enter it manually for each row.' },
                     { label: 'Select Signed Checkbox (DOA)', desc: 'Selects the checkbox for rows that have staff signatures. This is used to request PI Signatures for Start Date.' },
-                    { label: 'Update Role Resp. (DOA)', desc: 'Updates existing role responsibilities in the DoA log, replacing old values with new ones across multiple entries at once.' }
+                    { label: 'Update Role Resp. (DOA)', desc: 'Updates existing role responsibilities in the DoA log, replacing old values with new ones across multiple entries at once.' },
+                    { label: 'Update Automate (DOA)', desc: 'Automatically sets the study role and responsibilities for each team member in the DoA automation team edit panel, using pasted tab-separated staff data.' }
                 ]
             },
             {
