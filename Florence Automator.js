@@ -705,6 +705,7 @@
         let normalized = name.trim();
         normalized = normalized.replace(/\s+/g, ' ');
         normalized = normalized.toLowerCase();
+        normalized = normalized.split(' ').map(function(w) { return w.replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/g, ''); }).filter(function(w) { return w.length > 0; }).join(' ');
         return normalized;
     }
 
@@ -14219,36 +14220,45 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.appendChild(resultBody);
         var dataMap = {};
         var allDataKeys = [];
-        var pastedNamesSet = new Set();
+        var doaPairToRecs = {};
+        var allDoaPairKeys = [];
         for (var ci = 0; ci < tlogState.collectedData.length; ci++) {
             var rec = tlogState.collectedData[ci];
             var key = rec.staffName.toLowerCase().trim();
             if (!dataMap[key]) { dataMap[key] = []; allDataKeys.push(key); }
             dataMap[key].push(rec);
+            var pairKey = normalizeFirstLastPair(rec.staffName);
+            if (pairKey) {
+                if (!doaPairToRecs[pairKey]) { doaPairToRecs[pairKey] = []; allDoaPairKeys.push(pairKey); }
+                doaPairToRecs[pairKey].push(rec);
+            }
         }
         var results = [];
         if (isDoAMode) {
+            var matchedDoaPairKeys = new Set();
             for (var ni = 0; ni < pastedNames.length; ni++) {
                 var inputName = pastedNames[ni];
-                var lookupKey = inputName.toLowerCase().trim();
-                pastedNamesSet.add(lookupKey);
-                var entries = dataMap[lookupKey] || [];
-                if (entries.length === 0) {
+                var inputPairKey = normalizeFirstLastPair(inputName);
+                var entries = (inputPairKey && doaPairToRecs[inputPairKey]) ? doaPairToRecs[inputPairKey] : [];
+                var resolvedKey = inputPairKey;
+                if (entries.length === 0 && inputPairKey) {
                     var bestKey = null;
                     var bestDist = 3;
-                    for (var ki = 0; ki < allDataKeys.length; ki++) {
-                        var dist = levenshteinDistance(lookupKey, allDataKeys[ki]);
+                    for (var ki = 0; ki < allDoaPairKeys.length; ki++) {
+                        var dist = levenshteinDistance(inputPairKey, allDoaPairKeys[ki]);
                         if (dist <= 2 && dist < bestDist) {
                             bestDist = dist;
-                            bestKey = allDataKeys[ki];
+                            bestKey = allDoaPairKeys[ki];
                         }
                     }
                     if (bestKey) {
-                        addLogMessage('tlogGeneratePanel3: fuzzy matched "' + inputName + '" -> "' + bestKey + '" (dist=' + bestDist + ')', 'log');
-                        entries = dataMap[bestKey];
+                        addLogMessage('tlogGeneratePanel3: pair-key fuzzy matched "' + inputName + '" -> "' + bestKey + '" (dist=' + bestDist + ')', 'log');
+                        entries = doaPairToRecs[bestKey];
+                        resolvedKey = bestKey;
                     }
                 }
                 if (entries.length > 0) {
+                    matchedDoaPairKeys.add(resolvedKey);
                     for (var ei = 0; ei < entries.length; ei++) {
                         results.push({ name: inputName, fileName: entries[ei].trainingItem, status: entries[ei].status, date: entries[ei].dateSigned, statusMessage: '' });
                     }
@@ -14256,9 +14266,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     results.push({ name: inputName, fileName: '', status: 'Not in DoA Log', date: '', statusMessage: 'Not in DoA Log' });
                 }
             }
-            for (var ki2 = 0; ki2 < allDataKeys.length; ki2++) {
-                if (!pastedNamesSet.has(allDataKeys[ki2])) {
-                    var unpasted = dataMap[allDataKeys[ki2]];
+            for (var ki2 = 0; ki2 < allDoaPairKeys.length; ki2++) {
+                if (!matchedDoaPairKeys.has(allDoaPairKeys[ki2])) {
+                    var unpasted = doaPairToRecs[allDoaPairKeys[ki2]];
                     for (var ui = 0; ui < unpasted.length; ui++) {
                         results.push({ name: unpasted[ui].staffName, fileName: unpasted[ui].trainingItem, status: unpasted[ui].status, date: unpasted[ui].dateSigned, statusMessage: 'Not in Pasted Staff Name' });
                     }
