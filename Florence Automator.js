@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name Florence Automator
 // @namespace vinh.activity.plan.state
-// @version 2.3.7
+// @version 2.3.8
 // @description
 // @match https://us.v2.researchbinders.com/*
 // @updateURL    https://raw.githubusercontent.com/vctruong100/Florence-Automator/main/Florence%20Automator.js
@@ -2056,8 +2056,8 @@
                 performSearch(false);
             }, timeouts.waitFilterMs);
             state.timeouts.push(tid);
-        } else if (afterClear || retryCount === 0) {
-            // For subsequent terms or first attempt of new term - clear first
+        } else {
+            // For subsequent terms or retries - clear first
             clearFilteredInput(inputEl);
             var clearTid = setTimeout(function() {
                 typeIntoFilteredInput(inputEl, term);
