@@ -14515,10 +14515,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         startDateInputContainer: 'date-time-popup, .test-datetime-popup',
         startDateInputTrigger: 'input, a[dropdowntoggle], [dropdowntoggle]',
         datepickerContainer: 'date-time-popup .test-datetime-popup, date-time-popup .dropdown-menu, .test-datetime-popup.dropdown, datepicker, datepicker-inner',
-        datepickerTitleBtn: 'button[id*="datepicker"][id*="title"], daypicker thead button[style*="width: 100%"], daypicker thead th[colspan] button',
-        datepickerNavPrev: 'daypicker thead tr:first-child th:first-child button, .pull-left.float-left, button.pull-left',
-        datepickerNavNext: 'daypicker thead tr:first-child th:last-child button, .pull-right.float-right, button.pull-right',
-        datepickerDayCell: 'td[role="gridcell"] button',
+        datepickerTitleBtn: 'bs-datepicker-navigation-view button.current, button.current',
+        datepickerNavPrev: 'bs-datepicker-navigation-view button.previous, button.previous',
+        datepickerNavNext: 'bs-datepicker-navigation-view button.next, button.next',
+        datepickerDayCell: 'td[role="gridcell"] span[role="button"], td[role="gridcell"] button',
         datepickerDaySpan: 'span',
         datepickerDayMutedClass: 'text-muted',
         ariaLiveRegion: '.aria-live-region',
@@ -16043,16 +16043,29 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('readDatepickerHeader: reading header', 'log');
         var result = { month: -1, year: -1 };
         try {
-            var titleBtn = pickerEl.querySelector(STARTDATE_SELECTORS.datepickerTitleBtn);
-            if (!titleBtn) {
-                titleBtn = pickerEl.querySelector('thead button[id*="datepicker"]');
-            }
-            if (!titleBtn) {
-                titleBtn = pickerEl.querySelector('thead th[colspan] button');
-            }
             var headerText = '';
-            if (titleBtn) {
-                headerText = titleBtn.textContent.trim();
+            var headEl = pickerEl.querySelector('.bs-datepicker-head');
+            if (headEl) {
+                var currentBtns = headEl.querySelectorAll('button.current');
+                var parts = [];
+                for (var ci = 0; ci < currentBtns.length; ci++) {
+                    var partText = currentBtns[ci].textContent.trim();
+                    if (partText) { parts.push(partText); }
+                }
+                headerText = parts.join(' ');
+                addLogMessage('readDatepickerHeader: head parts=' + JSON.stringify(parts), 'log');
+            }
+            if (!headerText) {
+                var titleBtn = pickerEl.querySelector(STARTDATE_SELECTORS.datepickerTitleBtn);
+                if (!titleBtn) {
+                    titleBtn = pickerEl.querySelector('thead button[id*="datepicker"]');
+                }
+                if (!titleBtn) {
+                    titleBtn = pickerEl.querySelector('thead th[colspan] button');
+                }
+                if (titleBtn) {
+                    headerText = titleBtn.textContent.trim();
+                }
             }
             if (!headerText) {
                 var strongEl = pickerEl.querySelector('thead strong');
