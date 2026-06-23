@@ -16833,7 +16833,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('uncheckSelectedRowIfAny: checking for selected rows', 'log');
         var gridTable = document.querySelector(STARTDATE_SELECTORS.mainGridTable);
         if (!gridTable) { return; }
-        var selectedCheckboxes = gridTable.querySelectorAll('.log-entry--checkbox-col mat-icon.checkbox-icon--selected');
+        var selectedCheckboxes = gridTable.querySelectorAll('[role="checkbox"][aria-checked="true"]');
+        if (selectedCheckboxes.length === 0) {
+            selectedCheckboxes = gridTable.querySelectorAll('.log-entry--checkbox-col mat-icon.checkbox-icon--selected');
+        }
         if (selectedCheckboxes.length > 0) {
             for (var sci = 0; sci < selectedCheckboxes.length; sci++) {
                 addLogMessage('uncheckSelectedRowIfAny: found selected checkbox ' + (sci + 1) + ', clicking to deselect', 'log');
