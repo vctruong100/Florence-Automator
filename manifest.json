@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Florence Automator",
+  "version": "2.4.0",
+  "description": "Automator sidebar for Research Binders",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://us.v2.researchbinders.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://us.v2.researchbinders.com/*"
+      ],
+      "js": [
+        "Florence Extension.js"
+      ],
+      "run_at": "document_idle",
+      "world": "ISOLATED"
+    }
+  ]
+}
