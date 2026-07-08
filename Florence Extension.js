@@ -1,6 +1,6 @@
 
 // Florence Automator — Extension Content Script
-// Version: 2.4.0
+// Version: 2.5.3
 // Loads as a Manifest V3 content script on https://us.v2.researchbinders.com/*
 
 (function () {
@@ -18799,6 +18799,44 @@ function showResponsibilitiesProgressPanel(rolesData) {
         debounceMs: 200
     };
 
+    const TLOG_TAB_STORAGE_KEY = 'florence_selected_tab';
+    const TLOG_ACTIVE_STORAGE_KEY = 'florence_training_log_active';
+    const STUDY_LIBRARY_STORAGE_KEY = 'florence_study_library_v1';
+    const STUDY_LIBRARY_DATA_VERSION = 1;
+    const TLOG_LATEST_STORAGE_KEY = 'florence_latest_training_log_v1';
+    const TLOG_PERSISTENCE_DEFAULT = {
+        latestTrainingLog: '',
+        todaysLogName: '',
+        legends: '',
+        matchedStudy: '',
+        detectedAt: ''
+    };
+
+    const TLOG_MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    const TLOG_MONTH_ABBR = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const TLOG_DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    let trainingLogState = {
+        active: false,
+        scanning: false,
+        urlListenersAttached: false,
+        lastScannedUrl: '',
+        pendingUrl: '',
+        stableCancel: null,
+        latestLog: null,
+        selectedTab: 'buttons',
+        legendWaiting: false,
+        persisted: JSON.parse(JSON.stringify(TLOG_PERSISTENCE_DEFAULT))
+    };
+
+    let studyLibraryState = {
+        studies: [],
+        loaded: false,
+        loadError: null,
+        currentSort: 'protocol',
+        searchTerm: ''
+    };
+
     const BUTTON_DEFS = [
         { id: 'add-signatures-btn', label: 'Add Signatures', handler: function() { startAddSignaturesFlow(); } },
         { id: 'elog-staff-entries-btn', label: 'Add Training Log Staff Entries', handler: function() { addELogStaffEntriesInit(); } },
@@ -18967,12 +19005,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function applyHideLogs(hidden) {
-        var btn = document.getElementById('florence-clear-logs-btn');
+        var hideBtn = document.getElementById('florence-hide-logs-btn');
+        var clearBtn = document.getElementById('florence-clear-logs-btn');
         var box = document.getElementById('florence-log-box');
         var gui = document.getElementById(FLORENCE_GUI_ID);
-        if (btn) btn.style.display = hidden ? 'none' : '';
+        if (hideBtn) hideBtn.textContent = hidden ? 'Show Logs' : 'Hide Logs';
+        if (clearBtn) clearBtn.style.display = hidden ? 'none' : '';
         if (box) box.style.display = hidden ? 'none' : '';
-        if (gui) gui.style.minHeight = hidden ? 'auto' : '400px';
+        if (gui) gui.style.minHeight = hidden ? 'auto' : '';
     }
 
     function loadButtonLayout() {
@@ -19807,6 +19847,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
         florenceCleanupExisting();
         removeSidebarOffset();
+        florenceTlogDetachUrlListeners();
+        if (trainingLogState.stableCancel) {
+            trainingLogState.stableCancel();
+            trainingLogState.stableCancel = null;
+        }
+        trainingLogState.pendingUrl = '';
+        trainingLogState.lastScannedUrl = '';
         florenceInitialized = false;
         originalLog.call(console, '[Florence] florenceTeardown: complete');
     }
@@ -20053,6 +20100,577 @@ function showResponsibilitiesProgressPanel(rolesData) {
         });
     }
 
+    function florenceStorageAvailable() {
+        return !!(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local);
+    }
+
+    function florenceStorageGet(keys) {
+        return new Promise(function(resolve, reject) {
+            if (!florenceStorageAvailable()) {
+                reject(new Error('chrome.storage.local is unavailable'));
+                return;
+            }
+            chrome.storage.local.get(keys).then(resolve).catch(reject);
+        });
+    }
+
+    function florenceStorageSet(items) {
+        return new Promise(function(resolve, reject) {
+            if (!florenceStorageAvailable()) {
+                reject(new Error('chrome.storage.local is unavailable'));
+                return;
+            }
+            chrome.storage.local.set(items).then(resolve).catch(reject);
+        });
+    }
+
+    function florenceShowStorageError(message) {
+        addLogMessage('Storage error: ' + message, 'error');
+        var banner = document.getElementById('florence-storage-error-banner');
+        if (banner) {
+            banner.textContent = message;
+            banner.style.display = 'block';
+        }
+    }
+
+    function florenceHideStorageError() {
+        var banner = document.getElementById('florence-storage-error-banner');
+        if (banner) {
+            banner.textContent = '';
+            banner.style.display = 'none';
+        }
+    }
+
+    function loadTrainingLogTab() {
+        return florenceStorageGet(TLOG_TAB_STORAGE_KEY).then(function(result) {
+            var tab = result && result[TLOG_TAB_STORAGE_KEY];
+            if (tab === 'buttons' || tab === 'training-log') {
+                trainingLogState.selectedTab = tab;
+            } else {
+                trainingLogState.selectedTab = 'buttons';
+            }
+        }).catch(function(e) {
+            addLogMessage('loadTrainingLogTab: failed to load tab: ' + e, 'error');
+            trainingLogState.selectedTab = 'buttons';
+        });
+    }
+
+    function saveTrainingLogTab(tabName) {
+        var payload = {};
+        payload[TLOG_TAB_STORAGE_KEY] = tabName;
+        florenceStorageSet(payload).catch(function(e) {
+            addLogMessage('saveTrainingLogTab: failed to save tab: ' + e, 'error');
+        });
+    }
+
+    function loadTrainingLogActive() {
+        return florenceStorageGet(TLOG_ACTIVE_STORAGE_KEY).then(function(result) {
+            trainingLogState.active = !!(result && result[TLOG_ACTIVE_STORAGE_KEY]);
+        }).catch(function(e) {
+            addLogMessage('loadTrainingLogActive: failed to load active state: ' + e, 'error');
+            trainingLogState.active = false;
+        });
+    }
+
+    function saveTrainingLogActive(active) {
+        var payload = {};
+        payload[TLOG_ACTIVE_STORAGE_KEY] = !!active;
+        florenceStorageSet(payload).catch(function(e) {
+            addLogMessage('saveTrainingLogActive: failed to save active state: ' + e, 'error');
+        });
+    }
+
+    function migrateStudy(study) {
+        if (!study) return study;
+        var defaults = {
+            protocol: '',
+            siteName: '',
+            siteNumber: '',
+            trainer: '',
+            sponsor: '',
+            pi: '',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        for (var key in defaults) {
+            if (!(key in study)) {
+                study[key] = defaults[key];
+            }
+        }
+        return study;
+    }
+
+    function migrateStudyLibrary(data) {
+        if (!data || typeof data !== 'object') {
+            data = { version: STUDY_LIBRARY_DATA_VERSION, studies: [] };
+        }
+        if (!data.version) {
+            data.version = STUDY_LIBRARY_DATA_VERSION;
+        }
+        if (!Array.isArray(data.studies)) {
+            data.studies = [];
+        }
+        for (var i = 0; i < data.studies.length; i++) {
+            migrateStudy(data.studies[i]);
+        }
+        return data;
+    }
+
+    function loadStudyLibrary() {
+        return florenceStorageGet(STUDY_LIBRARY_STORAGE_KEY).then(function(result) {
+            var data = migrateStudyLibrary(result ? result[STUDY_LIBRARY_STORAGE_KEY] : null);
+            studyLibraryState.studies = data.studies || [];
+            studyLibraryState.loaded = true;
+            studyLibraryState.loadError = null;
+            florenceHideStorageError();
+            addLogMessage('loadStudyLibrary: loaded ' + studyLibraryState.studies.length + ' studies', 'log');
+        }).catch(function(e) {
+            studyLibraryState.loaded = true;
+            studyLibraryState.loadError = e;
+            florenceShowStorageError('Study Library storage failed: ' + e.message);
+            addLogMessage('loadStudyLibrary: failed: ' + e, 'error');
+        });
+    }
+
+    function saveStudyLibrary() {
+        var data = {
+            version: STUDY_LIBRARY_DATA_VERSION,
+            studies: studyLibraryState.studies
+        };
+        var payload = {};
+        payload[STUDY_LIBRARY_STORAGE_KEY] = data;
+        return florenceStorageSet(payload).then(function() {
+            florenceHideStorageError();
+            addLogMessage('saveStudyLibrary: saved ' + data.studies.length + ' studies', 'log');
+        }).catch(function(e) {
+            florenceShowStorageError('Study Library save failed: ' + e.message);
+            addLogMessage('saveStudyLibrary: failed: ' + e, 'error');
+            throw e;
+        });
+    }
+
+    function loadTrainingLogPersistedState() {
+        return Promise.all([loadTrainingLogTab(), loadTrainingLogActive(), loadStudyLibrary()]);
+    }
+
+    function loadLatestTrainingLogPersisted() {
+        return florenceStorageGet(TLOG_LATEST_STORAGE_KEY).then(function(result) {
+            var data = result && result[TLOG_LATEST_STORAGE_KEY];
+            if (data && typeof data === 'object' && data.latestTrainingLog !== undefined) {
+                trainingLogState.persisted = data;
+                addLogMessage('Latest Training Log: restored from storage', 'log');
+            } else {
+                trainingLogState.persisted = JSON.parse(JSON.stringify(TLOG_PERSISTENCE_DEFAULT));
+            }
+        }).catch(function(e) {
+            addLogMessage('loadLatestTrainingLogPersisted: failed: ' + e, 'error');
+            trainingLogState.persisted = JSON.parse(JSON.stringify(TLOG_PERSISTENCE_DEFAULT));
+        });
+    }
+
+    function saveLatestTrainingLogPersisted(data) {
+        var payload = {};
+        payload[TLOG_LATEST_STORAGE_KEY] = data;
+        return florenceStorageSet(payload).then(function() {
+            addLogMessage('Latest Training Log: saved to storage', 'log');
+        }).catch(function(e) {
+            addLogMessage('saveLatestTrainingLogPersisted: failed: ' + e, 'error');
+            throw e;
+        });
+    }
+
+    function formatMatchedStudy(study) {
+        if (!study) return '';
+        var parts = [];
+        if (study.protocol) parts.push('Protocol: ' + study.protocol);
+        if (study.siteName || study.siteNumber) parts.push('Site: ' + [study.siteName, study.siteNumber].filter(Boolean).join(' - '));
+        if (study.trainer) parts.push('Trainer: ' + study.trainer);
+        if (study.sponsor) parts.push('Sponsor: ' + study.sponsor);
+        if (study.pi) parts.push('PI: ' + study.pi);
+        return parts.join('\n');
+    }
+
+    function normalizeTrainingLogName(name) {
+        return (name || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function shouldReplaceTrainingLog(candidate, persisted) {
+        if (!persisted || !persisted.latestTrainingLog) return true;
+        var candidateName = normalizeTrainingLogName(candidate.text);
+        var storedName = normalizeTrainingLogName(persisted.latestTrainingLog);
+        if (candidateName === storedName) return false;
+        return true;
+    }
+
+    function getCurrentBreadcrumbName() {
+        var selectors = [
+            '.breadcrumbs .crumb-link',
+            '.breadcrumbs .crumb',
+            '.breadcrumb .crumb-link',
+            '.breadcrumb .crumb-item',
+            '.breadcrumb-item',
+            '.crumb-link',
+            '.crumb',
+            '[class*="breadcrumb"]',
+            'nav[aria-label="breadcrumb"] li',
+            'nav[aria-label="Breadcrumb"] li'
+        ];
+        for (var i = 0; i < selectors.length; i++) {
+            var elements = document.querySelectorAll(selectors[i]);
+            for (var j = elements.length - 1; j >= 0; j--) {
+                var text = (elements[j].textContent || '').trim();
+                if (text) return text;
+            }
+        }
+        return '';
+    }
+
+    function getPageTitleCandidates() {
+        var candidates = [];
+        var add = function(s) {
+            s = (s || '').replace(/\s+/g, ' ').trim();
+            if (s && candidates.indexOf(s) === -1) candidates.push(s);
+        };
+        add(document.title);
+        var h1 = document.querySelector('h1');
+        if (h1) add(h1.textContent);
+        var titleSelectors = [
+            '.document-title',
+            '[class*="document-title"]',
+            '[class*="page-title"]',
+            '[class*="page-header"]',
+            '[class*="document-header"]',
+            '[class*="content-title"]'
+        ];
+        for (var i = 0; i < titleSelectors.length; i++) {
+            var elements = document.querySelectorAll(titleSelectors[i]);
+            for (var j = 0; j < elements.length; j++) {
+                add(elements[j].textContent);
+            }
+        }
+        add(getCurrentBreadcrumbName());
+        return candidates;
+    }
+
+    function extractLegendText(fromElement) {
+        var container = fromElement;
+        if (!container) {
+            container = document.querySelector('.document-log-content__legend');
+            if (!container) container = document.querySelector('.test-logLegend');
+        }
+        if (!container) return null;
+        var el = container.querySelector('.document-log-content__legend');
+        if (!el) el = container;
+        var clone = el.cloneNode(true);
+        var headings = clone.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (var i = 0; i < headings.length; i++) {
+            headings[i].remove();
+        }
+        var text = (clone.innerText || clone.textContent || '').trim();
+        if (!text) {
+            text = (el.innerText || el.textContent || '').trim();
+        }
+        if (!text) return null;
+        text = text.replace(/^\s*Legend\s*[\r\n]+/i, '').trim();
+        return text || null;
+    }
+
+    function waitForLegendElement(timeoutMs) {
+        timeoutMs = timeoutMs || 6000;
+        return new Promise(function(resolve) {
+            var existing = document.querySelector('.document-log-content__legend, .test-logLegend');
+            if (existing) {
+                resolve(existing);
+                return;
+            }
+            if (trainingLogState.legendWaiting) {
+                resolve(null);
+                return;
+            }
+            trainingLogState.legendWaiting = true;
+            var timer = null;
+            var observer = new MutationObserver(function() {
+                var el = document.querySelector('.document-log-content__legend, .test-logLegend');
+                if (el) {
+                    if (timer) clearTimeout(timer);
+                    observer.disconnect();
+                    trainingLogState.legendWaiting = false;
+                    resolve(el);
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            timer = setTimeout(function() {
+                observer.disconnect();
+                trainingLogState.legendWaiting = false;
+                resolve(null);
+            }, timeoutMs);
+        });
+    }
+
+    function savePersistedLegend(legendText) {
+        if (!legendText) return;
+        if (legendText === trainingLogState.persisted.legends) return;
+        trainingLogState.persisted.legends = legendText;
+        saveLatestTrainingLogPersisted(trainingLogState.persisted).then(function() {
+            addLogMessage('Training Log: legend extracted', 'log');
+            updateTrainingLogDisplay();
+        }).catch(function(e) {
+            addLogMessage('Training Log: legend save failed: ' + e, 'error');
+        });
+    }
+
+    function tryExtractLegend() {
+        var legendText = extractLegendText();
+        if (legendText) {
+            savePersistedLegend(legendText);
+            return;
+        }
+        waitForLegendElement(6000).then(function(el) {
+            if (!el) {
+                addLogMessage('Training Log: no legend element found after waiting', 'log');
+                return;
+            }
+            var text = extractLegendText(el);
+            if (!text) {
+                addLogMessage('Training Log: legend element found but contained no text', 'log');
+                return;
+            }
+            savePersistedLegend(text);
+        }).catch(function(e) {
+            addLogMessage('Training Log: legend wait failed: ' + e, 'error');
+        });
+    }
+
+    function isLeapYear(year) {
+        return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function parseTrainingLogDates(text) {
+        var dates = [];
+        if (!text) return dates;
+        var re = /(?<![A-Za-z0-9])(\d{1,2})\s*([A-Za-z]{3,})\s*(\d{4})(?![A-Za-z0-9])/g;
+        var match;
+        while ((match = re.exec(text)) !== null) {
+            var day = parseInt(match[1], 10);
+            var monthLower = match[2].toLowerCase();
+            var monthIdx = TLOG_MONTH_NAMES.indexOf(monthLower);
+            if (monthIdx === -1) {
+                monthIdx = TLOG_MONTH_ABBR.indexOf(monthLower);
+            }
+            if (monthIdx === -1) continue;
+            var year = parseInt(match[3], 10);
+            var maxDay = TLOG_DAYS_IN_MONTH[monthIdx] + (monthIdx === 1 && isLeapYear(year) ? 1 : 0);
+            if (day < 1 || day > maxDay) continue;
+            dates.push({
+                date: new Date(year, monthIdx, day),
+                dateText: match[0],
+                index: match.index
+            });
+        }
+        return dates;
+    }
+
+    function extractVersionNumber(text) {
+        var max = 0;
+        if (!text) return max;
+        var re = /[Vv][.]?\s*(\d+(?:\.\d+)?)\b/g;
+        var match;
+        while ((match = re.exec(text)) !== null) {
+            var v = parseFloat(match[1]);
+            if (!isNaN(v) && v > max) {
+                max = v;
+            }
+        }
+        return max;
+    }
+
+    function isElementTlogVisible(el) {
+        if (!el) return false;
+        var rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return false;
+        var style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        return true;
+    }
+
+    function buildTrainingLogCandidate(text, sourceElement, index) {
+        if (!text) return null;
+        var trimmed = text.replace(/\s+/g, ' ').trim();
+        if (!trimmed) return null;
+        var version = extractVersionNumber(trimmed);
+        var dates = parseTrainingLogDates(trimmed);
+        var date = null;
+        var dateText = null;
+        if (dates.length > 0) {
+            var mostRecent = dates[0];
+            for (var d = 1; d < dates.length; d++) {
+                if (dates[d].date > mostRecent.date) mostRecent = dates[d];
+            }
+            date = mostRecent.date;
+            dateText = mostRecent.dateText;
+        } else if (version > 0) {
+            date = new Date();
+            dateText = getPstDateStringLike('01 Jan 2026');
+        }
+        if (!date) return null;
+        return {
+            element: sourceElement || null,
+            text: trimmed,
+            date: date,
+            dateText: dateText,
+            version: version,
+            index: typeof index === 'number' ? index : 0
+        };
+    }
+
+    function findTrainingLogFromDocumentTitle() {
+        var legendEl = document.querySelector('.document-log-content__legend, .test-logLegend');
+        if (!legendEl) return null;
+        var candidates = getPageTitleCandidates();
+        var best = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var cand = buildTrainingLogCandidate(candidates[i], null, 0);
+            if (!cand) continue;
+            if (!best) {
+                best = cand;
+                continue;
+            }
+            if (cand.version !== best.version) {
+                if (cand.version > best.version) best = cand;
+                continue;
+            }
+            if (cand.date.getTime() !== best.date.getTime()) {
+                if (cand.date > best.date) best = cand;
+                continue;
+            }
+            if (cand.text.length > best.text.length) best = cand;
+        }
+        return best;
+    }
+
+    function isInsideDocumentContent(el) {
+        if (!el) return false;
+        var container = el.closest('.document-log-content, .document-viewer, .document-body, [class*="document-content"], [class*="document-body"]');
+        return !!container;
+    }
+
+    function findBestTrainingLog() {
+        var candidates = [];
+        var selector = 'a[href*="/documents/"], [role="row"] a, .folder-show__item-name-link, a[class*="item-name-link"], a';
+        var elements = document.querySelectorAll(selector);
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            if (!isElementTlogVisible(el)) continue;
+            if (isInsideDocumentContent(el)) continue;
+            var text = (el.textContent || '').trim();
+            var cand = buildTrainingLogCandidate(text, el, i);
+            if (!cand) continue;
+            candidates.push(cand);
+        }
+        if (candidates.length === 0) return null;
+        candidates.sort(function(a, b) {
+            if (a.version !== b.version) return b.version - a.version;
+            if (a.date.getTime() !== b.date.getTime()) return b.date.getTime() - a.date.getTime();
+            if (a.text.length !== b.text.length) return b.text.length - a.text.length;
+            return a.index - b.index;
+        });
+        return candidates[0];
+    }
+
+    function getPstDateString() {
+        var d = new Date();
+        var parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Los_Angeles',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).formatToParts(d);
+        var day = '';
+        var month = '';
+        var year = '';
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'day') day = parts[i].value;
+            if (parts[i].type === 'month') month = parts[i].value;
+            if (parts[i].type === 'year') year = parts[i].value;
+        }
+        return day + month + year;
+    }
+
+    function getPstDateStringLike(dateText) {
+        var d = new Date();
+        var shortParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Los_Angeles',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).formatToParts(d);
+        var longParts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Los_Angeles',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        }).formatToParts(d);
+        var day = '';
+        var monthShort = '';
+        var monthLong = '';
+        var year = '';
+        for (var i = 0; i < shortParts.length; i++) {
+            if (shortParts[i].type === 'day') day = shortParts[i].value;
+            if (shortParts[i].type === 'month') monthShort = shortParts[i].value;
+            if (shortParts[i].type === 'year') year = shortParts[i].value;
+        }
+        for (var j = 0; j < longParts.length; j++) {
+            if (longParts[j].type === 'month') monthLong = longParts[j].value;
+        }
+        var m = dateText.match(/^(\d{1,2})(\s*)([A-Za-z]{3,})(\s*)(\d{4})$/);
+        if (!m) return day + monthShort + year;
+        var dayLen = m[1].length;
+        var sep1 = m[2];
+        var sep2 = m[4];
+        var originalMonth = m[3];
+        var month = originalMonth.length > 3 ? monthLong : monthShort;
+        var preserveCase = function(value, original) {
+            if (!original) return value;
+            if (original[0] === original[0].toUpperCase()) {
+                return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+            }
+            return value.toLowerCase();
+        };
+        month = preserveCase(month, originalMonth);
+        var dayStr = dayLen === 2 ? day : String(parseInt(day, 10));
+        return dayStr + sep1 + month + sep2 + year;
+    }
+
+    function replaceLogDateWithToday(originalText, dateText) {
+        if (!originalText) return originalText;
+        if (!dateText) {
+            return originalText + ' ' + getPstDateStringLike('01 Jan 2026');
+        }
+        var idx = originalText.indexOf(dateText);
+        if (idx === -1) {
+            return originalText + ' ' + getPstDateStringLike('01 Jan 2026');
+        }
+        return originalText.substring(0, idx) + getPstDateStringLike(dateText) + originalText.substring(idx + dateText.length);
+    }
+
+    function findStudyForLog(logText) {
+        if (!logText || !studyLibraryState.studies.length) return null;
+        var best = null;
+        for (var i = 0; i < studyLibraryState.studies.length; i++) {
+            var study = studyLibraryState.studies[i];
+            var p = String(study.protocol || '').trim();
+            if (!p) continue;
+            var escaped = p.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+            var re = new RegExp('(?:^|[^A-Za-z0-9])' + escaped + '(?:[^A-Za-z0-9]|$)', 'i');
+            if (re.test(logText)) {
+                if (!best || p.length > String(best.protocol || '').trim().length) {
+                    best = study;
+                }
+            }
+        }
+        return best;
+    }
+
     function openHelpPopup() {
         if (HELP_MODAL_OPEN) return;
         HELP_MODAL_OPEN = true;
@@ -20083,6 +20701,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 features: [
                     { label: 'Clean Task List', desc: 'Clean up the pasted task list by trimming extra spacing, replacing "and" with "&", removing all special characters like & or /, etc.' },
                     { label: 'Select Checkboxes', desc: 'Automatically selects specified checkboxes on the current page based on criteria you provide, or bulk select all.' }
+                ]
+            },
+            {
+                title: 'Training Log & Study Library',
+                features: [
+                    { label: 'Training Log Tab', desc: 'Set the automator to actively scan the page for the most recent training log. It generates today\'s log name by updating the date, persists it across reloads, and copies it to your clipboard.' },
+                    { label: 'Set Active Toggle', desc: 'Turns the training-log scanner on or off. The active state and selected tab persist across page reloads.' },
+                    { label: 'Configure Study', desc: 'Opens the Study Library where you can create, edit, import, and export study details used to match the current training log.' },
+                    { label: 'Legend Extraction', desc: 'When you open the persisted latest training log, the automator reads the Legend section from the document and keeps it in the Legends panel until a newer training log is found.' }
                 ]
             }
         ];
@@ -20199,6 +20826,1522 @@ function showResponsibilitiesProgressPanel(rolesData) {
         setTimeout(function() { searchInput.focus(); }, 50);
     }
 
+    function xlsxEscapeCell(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    function xlsxColumnLetters(index) {
+        var n = index;
+        var s = '';
+        do {
+            s = String.fromCharCode((n % 26) + 65) + s;
+            n = Math.floor(n / 26) - 1;
+        } while (n >= 0);
+        return s;
+    }
+
+    function concatUint8Arrays(arrays) {
+        var total = 0;
+        for (var i = 0; i < arrays.length; i++) {
+            total += arrays[i].length;
+        }
+        var out = new Uint8Array(total);
+        var pos = 0;
+        for (var j = 0; j < arrays.length; j++) {
+            out.set(arrays[j], pos);
+            pos += arrays[j].length;
+        }
+        return out;
+    }
+
+    function makeCrc32Table() {
+        var table = new Uint32Array(256);
+        for (var i = 0; i < 256; i++) {
+            var c = i;
+            for (var k = 0; k < 8; k++) {
+                c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            }
+            table[i] = c;
+        }
+        return table;
+    }
+
+    var xlsxCrc32Table = makeCrc32Table();
+
+    function xlsxCrc32(data) {
+        var crc = 0xFFFFFFFF;
+        for (var i = 0; i < data.length; i++) {
+            crc = xlsxCrc32Table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function stringToUint8Array(str) {
+        return new TextEncoder().encode(str);
+    }
+
+    function readUint32LE(arr, offset) {
+        return (arr[offset] | (arr[offset + 1] << 8) | (arr[offset + 2] << 16) | (arr[offset + 3] << 24)) >>> 0;
+    }
+
+    function readUint16LE(arr, offset) {
+        return (arr[offset] | (arr[offset + 1] << 8)) >>> 0;
+    }
+
+    async function xlsxCompressRaw(data) {
+        if (typeof CompressionStream === 'undefined') {
+            throw new Error('CompressionStream not available');
+        }
+        var stream = new Blob([data]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        var reader = stream.getReader();
+        var chunks = [];
+        while (true) {
+            var result = await reader.read();
+            if (result.done) break;
+            chunks.push(result.value);
+        }
+        return concatUint8Arrays(chunks);
+    }
+
+    async function xlsxDecompressRaw(data) {
+        if (typeof DecompressionStream === 'undefined') {
+            throw new Error('DecompressionStream not available');
+        }
+        var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        var reader = stream.getReader();
+        var chunks = [];
+        while (true) {
+            var result = await reader.read();
+            if (result.done) break;
+            chunks.push(result.value);
+        }
+        return concatUint8Arrays(chunks);
+    }
+
+    async function createXlsxBlob(headers, rows, sheetName) {
+        sheetName = sheetName || 'Sheet1';
+        var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n' +
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
+            '<Default Extension="xml" ContentType="application/xml"/>\n' +
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>\n' +
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>\n' +
+            '</Types>';
+
+        var relsRoot = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>\n' +
+            '</Relationships>';
+
+        var wbRels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>\n' +
+            '</Relationships>';
+
+        var workbookXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">\n' +
+            '<sheets><sheet name="' + xlsxEscapeCell(sheetName) + '" sheetId="1" r:id="rId1"/></sheets>\n' +
+            '</workbook>';
+
+        var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\n' +
+            '<sheetData>\n';
+
+        function addRow(rowIndex, values) {
+            sheetXml += '<row r="' + rowIndex + '">\n';
+            for (var c = 0; c < values.length; c++) {
+                sheetXml += '<c r="' + xlsxColumnLetters(c) + rowIndex + '" t="inlineStr"><is><t>' + xlsxEscapeCell(values[c]) + '</t></is></c>\n';
+            }
+            sheetXml += '</row>\n';
+        }
+
+        addRow(1, headers);
+        for (var r = 0; r < rows.length; r++) {
+            addRow(r + 2, rows[r]);
+        }
+        sheetXml += '</sheetData>\n</worksheet>';
+
+        var files = [
+            { name: '[Content_Types].xml', data: stringToUint8Array(contentTypes) },
+            { name: '_rels/.rels', data: stringToUint8Array(relsRoot) },
+            { name: 'xl/_rels/workbook.xml.rels', data: stringToUint8Array(wbRels) },
+            { name: 'xl/workbook.xml', data: stringToUint8Array(workbookXml) },
+            { name: 'xl/worksheets/sheet1.xml', data: stringToUint8Array(sheetXml) }
+        ];
+
+        var useCompression = typeof CompressionStream !== 'undefined';
+        var prepared = [];
+        for (var f = 0; f < files.length; f++) {
+            var file = files[f];
+            var compressed = file.data;
+            var method = 0;
+            if (useCompression) {
+                try {
+                    compressed = await xlsxCompressRaw(file.data);
+                    method = 8;
+                } catch (e) {
+                    compressed = file.data;
+                    method = 0;
+                }
+            }
+            prepared.push({ name: file.name, data: compressed, original: file.data, method: method });
+        }
+
+        var parts = [];
+        var centralDir = [];
+        var offset = 0;
+        var encoder = new TextEncoder();
+
+        for (var p = 0; p < prepared.length; p++) {
+            var pf = prepared[p];
+            var nameBytes = encoder.encode(pf.name);
+            var data = pf.data;
+            var crc = xlsxCrc32(pf.original);
+            var compressedSize = data.length;
+            var uncompressedSize = pf.original.length;
+
+            var localHeader = new Uint8Array(30 + nameBytes.length);
+            var lv = new DataView(localHeader.buffer);
+            lv.setUint32(0, 0x04034b50, true);
+            lv.setUint16(4, 20, true);
+            lv.setUint16(6, 0, true);
+            lv.setUint16(8, pf.method, true);
+            lv.setUint32(10, 0, true);
+            lv.setUint32(14, crc, true);
+            lv.setUint32(18, compressedSize, true);
+            lv.setUint32(22, uncompressedSize, true);
+            lv.setUint16(26, nameBytes.length, true);
+            lv.setUint16(28, 0, true);
+            localHeader.set(nameBytes, 30);
+
+            var centralRecord = new Uint8Array(46 + nameBytes.length);
+            var cv = new DataView(centralRecord.buffer);
+            cv.setUint32(0, 0x02014b50, true);
+            cv.setUint16(4, 0x0314, true);
+            cv.setUint16(6, 20, true);
+            cv.setUint16(8, 0, true);
+            cv.setUint16(10, pf.method, true);
+            cv.setUint32(12, 0, true);
+            cv.setUint32(16, crc, true);
+            cv.setUint32(20, compressedSize, true);
+            cv.setUint32(24, uncompressedSize, true);
+            cv.setUint16(28, nameBytes.length, true);
+            cv.setUint16(30, 0, true);
+            cv.setUint16(32, 0, true);
+            cv.setUint16(34, 0, true);
+            cv.setUint16(36, 0, true);
+            cv.setUint32(38, 0, true);
+            cv.setUint32(42, offset, true);
+            centralRecord.set(nameBytes, 46);
+
+            parts.push(localHeader);
+            parts.push(data);
+            centralDir.push(centralRecord);
+            offset += localHeader.length + data.length;
+        }
+
+        var cdBlob = concatUint8Arrays(centralDir);
+        var eocd = new Uint8Array(22);
+        var ev = new DataView(eocd.buffer);
+        ev.setUint32(0, 0x06054b50, true);
+        ev.setUint16(4, 0, true);
+        ev.setUint16(6, 0, true);
+        ev.setUint16(8, prepared.length, true);
+        ev.setUint16(10, prepared.length, true);
+        ev.setUint32(12, cdBlob.length, true);
+        ev.setUint32(16, offset, true);
+        ev.setUint16(20, 0, true);
+
+        return new Blob([concatUint8Arrays(parts), cdBlob, eocd], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+    }
+
+    function findXlsxEntry(entries, path) {
+        var lowerPath = String(path || '').toLowerCase().replace(/\\/g, '/');
+        for (var name in entries) {
+            if (String(name).toLowerCase().replace(/\\/g, '/') === lowerPath) {
+                return entries[name];
+            }
+        }
+        return null;
+    }
+
+    function normalizeXlsxPath(basePath, target) {
+        var absoluteTarget = /^[\\\/]/.test(String(target || ''));
+        var baseDir = absoluteTarget ? [] : basePath.replace(/\\/g, '/').split('/');
+        if (!absoluteTarget) baseDir.pop();
+        var parts = target.replace(/\\/g, '/').split('/');
+        for (var i = 0; i < parts.length; i++) {
+            var part = parts[i];
+            if (part === '' || part === '.') continue;
+            if (part === '..') {
+                baseDir.pop();
+            } else {
+                baseDir.push(part);
+            }
+        }
+        return baseDir.join('/');
+    }
+
+    async function readXlsxEntries(buffer) {
+        var arr = new Uint8Array(buffer);
+        var eocdPos = -1;
+        for (var i = arr.length - 22; i >= 0; i--) {
+            if (readUint32LE(arr, i) === 0x06054b50) {
+                eocdPos = i;
+                break;
+            }
+        }
+        if (eocdPos === -1) throw new Error('Invalid ZIP: EOCD not found');
+        var cdEntries = readUint16LE(arr, eocdPos + 10);
+        var cdSize = readUint32LE(arr, eocdPos + 12);
+        var cdOffset = readUint32LE(arr, eocdPos + 16);
+        var entries = {};
+        var pos = cdOffset;
+        var decoder = new TextDecoder();
+        for (var e = 0; e < cdEntries; e++) {
+            if (readUint32LE(arr, pos) !== 0x02014b50) throw new Error('Invalid central directory');
+            var method = readUint16LE(arr, pos + 10);
+            var compressedSize = readUint32LE(arr, pos + 20);
+            var uncompressedSize = readUint32LE(arr, pos + 24);
+            var nameLen = readUint16LE(arr, pos + 28);
+            var extraLen = readUint16LE(arr, pos + 30);
+            var commentLen = readUint16LE(arr, pos + 32);
+            var localOffset = readUint32LE(arr, pos + 42);
+            var name = decoder.decode(arr.subarray(pos + 46, pos + 46 + nameLen));
+            pos += 46 + nameLen + extraLen + commentLen;
+
+            var localNameLen = readUint16LE(arr, localOffset + 26);
+            var localExtraLen = readUint16LE(arr, localOffset + 28);
+            var dataStart = localOffset + 30 + localNameLen + localExtraLen;
+            var raw = arr.subarray(dataStart, dataStart + compressedSize);
+
+            var finalData;
+            if (method === 0) {
+                finalData = raw;
+            } else if (method === 8) {
+                finalData = await xlsxDecompressRaw(raw);
+            } else {
+                throw new Error('Unsupported compression method: ' + method);
+            }
+            entries[name] = finalData;
+        }
+        return entries;
+    }
+
+    function getXlsxCellText(cell, sharedStrings) {
+        var type = cell.getAttribute('t');
+        if (type === 'inlineStr') {
+            var isEl = cell.querySelector('is');
+            return isEl ? (isEl.textContent || '') : '';
+        }
+        if (type === 's') {
+            var v = cell.querySelector('v');
+            var idx = v ? parseInt(v.textContent || '0', 10) : 0;
+            if (sharedStrings && sharedStrings[idx] !== undefined) {
+                return sharedStrings[idx];
+            }
+            return '';
+        }
+        var vNode = cell.querySelector('v');
+        if (vNode) return vNode.textContent || '';
+        return cell.textContent || '';
+    }
+
+    const STUDY_LIBRARY_HEADER_ALIASES = {
+        protocol: ['Protocol', 'Protocol Number', 'Protocol #', 'Protocol No', 'Protocol No.', 'Study Protocol'],
+        siteName: ['Site Name'],
+        siteNumber: ['Site Number', 'Site #', 'Site No', 'Site No.', 'Site Num', 'Site_Number'],
+        trainer: ['Trainer'],
+        sponsor: ['Sponsor'],
+        pi: ['PI', 'Principal Investigator']
+    };
+
+    function normalizeXlsxHeader(value) {
+        return String(value || '').trim().toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function findXlsxHeaderIndex(headers, aliases) {
+        for (var a = 0; a < aliases.length; a++) {
+            var target = normalizeXlsxHeader(aliases[a]);
+            if (!target) continue;
+            for (var i = 0; i < headers.length; i++) {
+                if (normalizeXlsxHeader(headers[i]) === target) return i;
+            }
+        }
+        return -1;
+    }
+
+    function countMatchedXlsxHeaders(headers, aliasesMap) {
+        var count = 0;
+        for (var key in aliasesMap) {
+            if (findXlsxHeaderIndex(headers, aliasesMap[key]) !== -1) count++;
+        }
+        return count;
+    }
+
+    async function parseStudyLibraryXlsx(buffer) {
+        var entries;
+        try {
+            entries = await readXlsxEntries(buffer);
+        } catch (e) {
+            return { valid: false, error: 'Unable to read file. Make sure it is a valid .xlsx file.' };
+        }
+        var relsXml = findXlsxEntry(entries, '_rels/.rels');
+        if (!relsXml) return { valid: false, error: 'Invalid .xlsx structure.' };
+        var relsDoc;
+        try {
+            relsDoc = new DOMParser().parseFromString(new TextDecoder().decode(relsXml), 'application/xml');
+        } catch (e) {
+            return { valid: false, error: 'Invalid Study Library format.' };
+        }
+        var rel = relsDoc.querySelector('Relationship[Type*="officeDocument"]');
+        if (!rel) return { valid: false, error: 'Invalid .xlsx structure (missing workbook relationship).' };
+        var workbookPath = normalizeXlsxPath('', rel.getAttribute('Target'));
+        var workbookXml = findXlsxEntry(entries, workbookPath);
+        if (!workbookXml) return { valid: false, error: 'Invalid .xlsx structure (missing workbook).' };
+        var workbookDir = workbookPath.replace(/\\/g, '/').split('/');
+        workbookDir.pop();
+        var workbookDirPath = workbookDir.join('/');
+        var wbDoc;
+        try {
+            wbDoc = new DOMParser().parseFromString(new TextDecoder().decode(workbookXml), 'application/xml');
+        } catch (e) {
+            return { valid: false, error: 'Invalid .xlsx workbook.' };
+        }
+        var wbFileName = workbookPath.split('/').pop();
+        var wbRelsPath = (workbookDirPath ? workbookDirPath + '/' : '') + '_rels/' + wbFileName + '.rels';
+        var wbRelsXml = findXlsxEntry(entries, wbRelsPath);
+        if (!wbRelsXml) {
+            var fallbackRelsPaths = [
+                (workbookDirPath ? workbookDirPath + '/' : '') + wbFileName + '.rels',
+                '_rels/' + wbFileName + '.rels'
+            ];
+            for (var fb = 0; fb < fallbackRelsPaths.length; fb++) {
+                wbRelsPath = fallbackRelsPaths[fb];
+                wbRelsXml = findXlsxEntry(entries, wbRelsPath);
+                if (wbRelsXml) break;
+            }
+        }
+        if (!wbRelsXml) {
+            for (var name in entries) {
+                if (name.toLowerCase().indexOf('workbook.xml.rels') !== -1) {
+                    wbRelsPath = name;
+                    wbRelsXml = entries[name];
+                    break;
+                }
+            }
+        }
+        if (!wbRelsXml) {
+            var relsNames = [];
+            for (var name in entries) {
+                if (name.toLowerCase().indexOf('.rels') !== -1) relsNames.push(name);
+            }
+            return { valid: false, error: 'Invalid .xlsx structure (missing workbook relationships for ' + workbookPath + '). Found rels files: ' + (relsNames.length ? relsNames.join(', ') : 'none') + '.' };
+        }
+        var wbRelsDoc;
+        try {
+            wbRelsDoc = new DOMParser().parseFromString(new TextDecoder().decode(wbRelsXml), 'application/xml');
+        } catch (e) {
+            return { valid: false, error: 'Invalid .xlsx workbook relationships.' };
+        }
+        var firstSheet = wbDoc.querySelector('sheet');
+        var firstSheetId = firstSheet ? firstSheet.getAttribute('r:id') : null;
+        var sheetRel = null;
+        if (firstSheetId) {
+            sheetRel = wbRelsDoc.querySelector('Relationship[Id="' + firstSheetId + '"]');
+        }
+        if (!sheetRel) {
+            sheetRel = wbRelsDoc.querySelector('Relationship[Type*="worksheet"]');
+        }
+        if (!sheetRel) return { valid: false, error: 'No worksheet found in the workbook.' };
+        var sheetTarget = sheetRel.getAttribute('Target');
+        var sheetPath = normalizeXlsxPath(workbookPath, sheetTarget);
+        var sheetXml = findXlsxEntry(entries, sheetPath);
+        if (!sheetXml) {
+            var targetBase = sheetTarget.replace(/\\/g, '/').split('/').pop().toLowerCase();
+            for (var name in entries) {
+                if (name.toLowerCase().indexOf(targetBase) !== -1 && name.toLowerCase().indexOf('sheet') !== -1) {
+                    sheetPath = name;
+                    sheetXml = entries[name];
+                    break;
+                }
+            }
+        }
+        if (!sheetXml) {
+            var sheetNames = [];
+            for (var name in entries) {
+                if (name.toLowerCase().indexOf('sheet') !== -1) sheetNames.push(name);
+            }
+            return { valid: false, error: 'Worksheet not found in the workbook (looked for ' + sheetPath + ' from target "' + sheetTarget + '"). Sheet-like entries: ' + (sheetNames.length ? sheetNames.join(', ') : 'none') + '.' };
+        }
+        var sheetDoc;
+        try {
+            sheetDoc = new DOMParser().parseFromString(new TextDecoder().decode(sheetXml), 'application/xml');
+        } catch (e) {
+            return { valid: false, error: 'Invalid worksheet data.' };
+        }
+
+        var sharedStrings = null;
+        var ssPath = (workbookDirPath ? workbookDirPath + '/' : '') + 'sharedStrings.xml';
+        var ssXml = findXlsxEntry(entries, ssPath);
+        if (ssXml) {
+            var ssDoc;
+            try {
+                ssDoc = new DOMParser().parseFromString(new TextDecoder().decode(ssXml), 'application/xml');
+            } catch (e) {
+                ssDoc = null;
+            }
+            if (ssDoc) {
+                var siList = ssDoc.querySelectorAll('si');
+                sharedStrings = [];
+                for (var si = 0; si < siList.length; si++) {
+                    var tEl = siList[si].querySelector('t');
+                    if (tEl) {
+                        sharedStrings.push(tEl.textContent || '');
+                    } else {
+                        var runs = siList[si].querySelectorAll('r');
+                        var runText = '';
+                        for (var r = 0; r < runs.length; r++) {
+                            var rt = runs[r].querySelector('t');
+                            if (rt) runText += rt.textContent || '';
+                        }
+                        sharedStrings.push(runText);
+                    }
+                }
+            }
+        }
+
+        var rows = sheetDoc.querySelectorAll('row');
+        if (!rows || rows.length === 0) {
+            rows = sheetDoc.getElementsByTagName('row');
+        }
+        function getXlsxCells(row) {
+            var cells = row.querySelectorAll('c');
+            if (!cells || cells.length === 0) cells = row.getElementsByTagName('c');
+            return cells;
+        }
+
+        var diagnosticRows = [];
+        for (var ri = 0; ri < Math.min(rows.length, 5); ri++) {
+            var diagCells = getXlsxCells(rows[ri]);
+            var diagTexts = [];
+            for (var ci = 0; ci < Math.min(diagCells.length, 10); ci++) {
+                diagTexts.push(JSON.stringify(getXlsxCellText(diagCells[ci], sharedStrings).trim()));
+            }
+            diagnosticRows.push('row ' + (ri + 1) + ': ' + diagTexts.join(', '));
+        }
+
+        var headerRowIndex = -1;
+        var headers = [];
+        for (var ri = 0; ri < rows.length; ri++) {
+            var candidateCells = getXlsxCells(rows[ri]);
+            var candidateHeaders = [];
+            var hasAnyText = false;
+            for (var h = 0; h < candidateCells.length; h++) {
+                var text = getXlsxCellText(candidateCells[h], sharedStrings).trim();
+                if (text) hasAnyText = true;
+                candidateHeaders.push(text);
+            }
+            if (!hasAnyText) continue;
+            if (findXlsxHeaderIndex(candidateHeaders, STUDY_LIBRARY_HEADER_ALIASES.protocol) === -1) continue;
+            if (countMatchedXlsxHeaders(candidateHeaders, STUDY_LIBRARY_HEADER_ALIASES) >= 4) {
+                headerRowIndex = ri;
+                headers = candidateHeaders;
+                break;
+            }
+        }
+        if (headerRowIndex === -1) {
+            for (var ri = 0; ri < rows.length; ri++) {
+                var candidateCells = getXlsxCells(rows[ri]);
+                if (candidateCells.length < 3) continue;
+                var candidateHeaders = [];
+                var hasProtocol = false;
+                for (var h = 0; h < candidateCells.length; h++) {
+                    var text = getXlsxCellText(candidateCells[h], sharedStrings).trim();
+                    candidateHeaders.push(text);
+                    if (normalizeXlsxHeader(text).indexOf('protocol') !== -1) hasProtocol = true;
+                }
+                if (hasProtocol) {
+                    headerRowIndex = ri;
+                    headers = candidateHeaders;
+                    break;
+                }
+            }
+        }
+        if (headerRowIndex === -1) {
+            return { valid: false, error: 'Could not find a header row. Required columns: Protocol, Site Name, Site Number, Trainer, Sponsor, PI. Parsed ' + rows.length + ' rows. First rows: ' + diagnosticRows.join(' | ') };
+        }
+
+        var colMap = {};
+        var missing = [];
+        for (var key in STUDY_LIBRARY_HEADER_ALIASES) {
+            var idx = findXlsxHeaderIndex(headers, STUDY_LIBRARY_HEADER_ALIASES[key]);
+            colMap[key] = idx;
+            if (idx === -1) missing.push(STUDY_LIBRARY_HEADER_ALIASES[key][0]);
+        }
+        if (missing.length > 0) {
+            return { valid: false, error: 'Missing required columns: ' + missing.join(', ') + '.' };
+        }
+
+        var studies = [];
+        for (var ri = headerRowIndex + 1; ri < rows.length; ri++) {
+            var cells = getXlsxCells(rows[ri]);
+            var values = [];
+            for (var ci = 0; ci < cells.length; ci++) {
+                values.push(getXlsxCellText(cells[ci], sharedStrings).trim());
+            }
+            var protocol = (values[colMap.protocol] || '').trim();
+            if (!protocol) continue;
+            studies.push({
+                protocol: protocol,
+                siteName: values[colMap.siteName] || '',
+                siteNumber: values[colMap.siteNumber] || '',
+                trainer: values[colMap.trainer] || '',
+                sponsor: values[colMap.sponsor] || '',
+                pi: values[colMap.pi] || ''
+            });
+        }
+        return { valid: true, studies: studies };
+    }
+
+    async function exportStudyLibraryToXlsx(studies) {
+        var headers = ['Protocol', 'Site Name', 'Site Number', 'Trainer', 'Sponsor', 'PI'];
+        var rows = [];
+        for (var i = 0; i < studies.length; i++) {
+            var s = studies[i];
+            rows.push([
+                s.protocol || '',
+                s.siteName || '',
+                s.siteNumber || '',
+                s.trainer || '',
+                s.sponsor || '',
+                s.pi || ''
+            ]);
+        }
+        return await createXlsxBlob(headers, rows, 'Study Library');
+    }
+
+    function getTlogStatusEl() {
+        return document.getElementById('florence-tlog-status');
+    }
+
+    function setTlogStatus(type, message) {
+        var el = getTlogStatusEl();
+        if (!el) return;
+        el.innerHTML = '';
+        if (type === 'scanning') {
+            el.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid #bfdbfe;';
+            var spinner = document.createElement('div');
+            spinner.style.cssText = 'width: 12px; height: 12px; border: 2px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%; animation: collectingSpin 0.8s linear infinite; flex-shrink: 0;';
+            var text = document.createElement('span');
+            text.textContent = message || 'Scanning...';
+            el.appendChild(spinner);
+            el.appendChild(text);
+        } else if (type === 'success') {
+            el.style.cssText = 'display: block; padding: 10px 12px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid #86efac;';
+            el.textContent = message;
+        } else if (type === 'empty') {
+            el.style.cssText = 'display: block; padding: 10px 12px; background: #f3f4f6; color: #6b7280; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid #e5e7eb;';
+            el.textContent = message;
+        } else {
+            el.style.cssText = 'display: block; padding: 10px 12px; background: #fee2e2; color: #991b1b; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid #fecaca;';
+            el.textContent = message;
+        }
+    }
+
+    function updateTrainingLogDisplay() {
+        var persisted = trainingLogState.persisted;
+        var originalEl = document.getElementById('florence-tlog-original');
+        var generatedEl = document.getElementById('florence-tlog-generated');
+        var copyBtn = document.getElementById('florence-tlog-copy-btn');
+        var legendEl = document.getElementById('florence-tlog-legend');
+        var legendCopyBtn = document.getElementById('florence-tlog-legend-copy-btn');
+        var studyInfoEl = document.getElementById('florence-tlog-study-info');
+
+        if (originalEl) {
+            originalEl.textContent = persisted.latestTrainingLog || '-';
+            originalEl.title = persisted.latestTrainingLog || '';
+        }
+
+        if (generatedEl) {
+            generatedEl.textContent = persisted.todaysLogName || '-';
+            generatedEl.title = persisted.todaysLogName || '';
+        }
+
+        if (copyBtn) {
+            copyBtn.disabled = !persisted.todaysLogName;
+            copyBtn.style.opacity = copyBtn.disabled ? '0.5' : '1';
+            copyBtn.style.cursor = copyBtn.disabled ? 'not-allowed' : 'pointer';
+            if (copyBtn.textContent !== 'Copied!') copyBtn.textContent = 'Copy';
+        }
+
+        if (legendEl) {
+            legendEl.textContent = persisted.legends || 'No legend available.';
+        }
+
+        if (legendCopyBtn) {
+            legendCopyBtn.disabled = !persisted.legends;
+            legendCopyBtn.style.opacity = legendCopyBtn.disabled ? '0.5' : '1';
+            legendCopyBtn.style.cursor = legendCopyBtn.disabled ? 'not-allowed' : 'pointer';
+            if (legendCopyBtn.textContent !== 'Copied!') legendCopyBtn.textContent = 'Copy';
+        }
+
+        if (studyInfoEl) {
+            studyInfoEl.innerHTML = '';
+            if (persisted.matchedStudy) {
+                var pre = document.createElement('pre');
+                pre.textContent = persisted.matchedStudy;
+                pre.style.cssText = 'margin: 0; color: #111827; font-size: 13px; font-weight: 500; white-space: pre-wrap; word-break: break-word; font-family: inherit;';
+                studyInfoEl.appendChild(pre);
+            } else {
+                var noLog = document.createElement('div');
+                noLog.textContent = 'Study Not Configured';
+                noLog.style.cssText = 'color: #6b7280; font-size: 13px; font-style: italic; padding: 8px 0;';
+                studyInfoEl.appendChild(noLog);
+            }
+        }
+    }
+
+    function florenceTlogRunScan() {
+        if (trainingLogState.scanning) return;
+        trainingLogState.scanning = true;
+        trainingLogState.legendWaiting = false;
+        setTlogStatus('scanning', 'Scanning...');
+        try {
+            var log = findTrainingLogFromDocumentTitle();
+            if (!log) log = findBestTrainingLog();
+            trainingLogState.latestLog = log;
+            if (log) {
+                addLogMessage('Training Log matched: ' + log.text + ' (date: ' + log.date.toDateString() + ')', 'log');
+                if (shouldReplaceTrainingLog(log, trainingLogState.persisted)) {
+                    var study = findStudyForLog(log.text);
+                    var todayName = replaceLogDateWithToday(log.text, log.dateText);
+                    trainingLogState.persisted = {
+                        latestTrainingLog: log.text,
+                        todaysLogName: todayName,
+                        legends: trainingLogState.persisted.legends,
+                        matchedStudy: formatMatchedStudy(study),
+                        detectedAt: new Date().toISOString()
+                    };
+                    saveLatestTrainingLogPersisted(trainingLogState.persisted).then(function() {
+                        addLogMessage('Training Log: persisted latest log', 'log');
+                    }).catch(function(e) {
+                        addLogMessage('Training Log: persist failed: ' + e, 'error');
+                    });
+                    addLogMessage('Training Log protocol extracted: ' + (study ? study.protocol : 'none') + ', study ' + (study ? 'matched' : 'not configured'), 'log');
+                } else {
+                    addLogMessage('Training Log: same as existing persisted log, keeping current', 'log');
+                }
+                setTlogStatus('success', 'Latest Training Log Found');
+            } else {
+                setTlogStatus('empty', 'No Training Log Found');
+            }
+            updateTrainingLogDisplay();
+            tryExtractLegend();
+        } catch (e) {
+            setTlogStatus('error', 'Error scanning page');
+            addLogMessage('Training Log scan error: ' + e, 'error');
+        }
+        trainingLogState.scanning = false;
+        if (trainingLogState.lastScannedUrl !== location.href) {
+            florenceTlogOnUrlChanged();
+        }
+    }
+
+    function florenceTlogWaitForPageStable(callback) {
+        var stableMs = 500;
+        var timeoutMs = 5000;
+        var mutationTimer = null;
+        var timeoutTimer = null;
+        var observer = null;
+        var finished = false;
+
+        function cleanup() {
+            if (mutationTimer) { clearTimeout(mutationTimer); mutationTimer = null; }
+            if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+            if (observer) { try { observer.disconnect(); } catch (e) {} observer = null; }
+        }
+
+        function finish() {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            callback();
+        }
+
+        function start() {
+            if (!document.body) {
+                setTimeout(start, 50);
+                return;
+            }
+            observer = new MutationObserver(function() {
+                if (finished) return;
+                if (mutationTimer) clearTimeout(mutationTimer);
+                mutationTimer = setTimeout(finish, stableMs);
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            mutationTimer = setTimeout(finish, stableMs);
+            timeoutTimer = setTimeout(finish, timeoutMs);
+        }
+        start();
+        return cleanup;
+    }
+
+    function florenceTlogOnUrlChanged() {
+        if (!trainingLogState.active) return;
+        if (trainingLogState.stableCancel) {
+            trainingLogState.stableCancel();
+            trainingLogState.stableCancel = null;
+        }
+        trainingLogState.pendingUrl = location.href;
+        if (trainingLogState.lastScannedUrl === location.href) return;
+        setTlogStatus('scanning', 'Scanning...');
+        trainingLogState.stableCancel = florenceTlogWaitForPageStable(function() {
+            trainingLogState.stableCancel = null;
+            if (!trainingLogState.active) return;
+            if (trainingLogState.pendingUrl !== location.href) return;
+            if (trainingLogState.lastScannedUrl === location.href) return;
+            if (trainingLogState.scanning) return;
+            trainingLogState.lastScannedUrl = location.href;
+            florenceTlogRunScan();
+        });
+    }
+
+    function florenceTlogAttachUrlListeners() {
+        if (trainingLogState.urlListenersAttached) return;
+        trainingLogState.urlListenersAttached = true;
+        var origPush = history.pushState.bind(history);
+        var origReplace = history.replaceState.bind(history);
+        history.pushState = function() {
+            origPush.apply(history, arguments);
+            florenceTlogOnUrlChanged();
+        };
+        history.replaceState = function() {
+            origReplace.apply(history, arguments);
+            florenceTlogOnUrlChanged();
+        };
+        window.addEventListener('popstate', function() { florenceTlogOnUrlChanged(); });
+        window.addEventListener('hashchange', function() { florenceTlogOnUrlChanged(); });
+    }
+
+    function florenceTlogDetachUrlListeners() {
+        if (!trainingLogState.urlListenersAttached) return;
+        trainingLogState.urlListenersAttached = false;
+    }
+
+    function setTrainingLogActive(active) {
+        active = !!active;
+        trainingLogState.active = active;
+        var toggle = document.getElementById('florence-tlog-active-toggle');
+        if (toggle && toggle.checked !== active) {
+            toggle.checked = active;
+        }
+        saveTrainingLogActive(active);
+        if (active) {
+            florenceTlogAttachUrlListeners();
+            florenceTlogOnUrlChanged();
+        } else {
+            florenceTlogDetachUrlListeners();
+            if (trainingLogState.stableCancel) {
+                trainingLogState.stableCancel();
+                trainingLogState.stableCancel = null;
+            }
+            trainingLogState.pendingUrl = '';
+            setTlogStatus('empty', 'Scanning paused');
+        }
+    }
+
+    function createTrainingLogView() {
+        var container = document.createElement('div');
+        container.id = 'florence-training-log-view';
+        container.style.cssText = 'display: none; flex-direction: column; gap: 14px; padding: 16px; flex-shrink: 0;';
+
+        var controlsRow = document.createElement('div');
+        controlsRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;';
+
+        var toggleWrap = document.createElement('label');
+        toggleWrap.style.cssText = 'display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;';
+        var toggleInput = document.createElement('input');
+        toggleInput.id = 'florence-tlog-active-toggle';
+        toggleInput.type = 'checkbox';
+        toggleInput.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+        var toggleLabel = document.createElement('span');
+        toggleLabel.textContent = 'Set Active';
+        toggleLabel.style.cssText = 'color: #374151; font-size: 13px; font-weight: 500;';
+        toggleWrap.appendChild(toggleInput);
+        toggleWrap.appendChild(toggleLabel);
+
+        var refreshBtn = document.createElement('button');
+        refreshBtn.id = 'florence-tlog-refresh-btn';
+        refreshBtn.title = 'Re-scan page for training log';
+        refreshBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+        refreshBtn.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;';
+        refreshBtn.onmouseover = function() { refreshBtn.style.background = '#e5e7eb'; refreshBtn.style.borderColor = '#9ca3af'; };
+        refreshBtn.onmouseout = function() { refreshBtn.style.background = '#f3f4f6'; refreshBtn.style.borderColor = '#d1d5db'; };
+        refreshBtn.onclick = function() {
+            trainingLogState.scanning = false;
+            trainingLogState.legendWaiting = false;
+            setTlogStatus('scanning', 'Scanning...');
+            florenceTlogRunScan();
+        };
+
+        var configureBtn = document.createElement('button');
+        configureBtn.id = 'florence-tlog-configure-btn';
+        configureBtn.textContent = 'Configure Study';
+        configureBtn.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s ease;';
+        configureBtn.onmouseover = function() { configureBtn.style.background = '#1d4ed8'; configureBtn.style.borderColor = '#1d4ed8'; };
+        configureBtn.onmouseout = function() { configureBtn.style.background = '#2563eb'; configureBtn.style.borderColor = '#2563eb'; };
+        configureBtn.onclick = function() { openStudyLibraryModal(); };
+
+        controlsRow.appendChild(toggleWrap);
+        controlsRow.appendChild(refreshBtn);
+        controlsRow.appendChild(configureBtn);
+        container.appendChild(controlsRow);
+
+        var statusEl = document.createElement('div');
+        statusEl.id = 'florence-tlog-status';
+        statusEl.textContent = 'Scanning...';
+        statusEl.style.cssText = 'display: none; padding: 10px 12px; background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 500; border-radius: 6px; border: 1px solid #bfdbfe;';
+        container.appendChild(statusEl);
+
+        function makeCard(titleText) {
+            var card = document.createElement('div');
+            card.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;';
+            var title = document.createElement('div');
+            title.textContent = titleText;
+            title.style.cssText = 'color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;';
+            card.appendChild(title);
+            return card;
+        }
+
+        var originalCard = makeCard('Latest Training Log');
+        var originalValue = document.createElement('div');
+        originalValue.id = 'florence-tlog-original';
+        originalValue.textContent = '-';
+        originalValue.style.cssText = 'color: #111827; font-size: 13px; font-weight: 500; word-break: break-word;';
+        originalCard.appendChild(originalValue);
+        container.appendChild(originalCard);
+
+        var generatedCard = makeCard('Today\'s Log Name');
+        var generatedRow = document.createElement('div');
+        generatedRow.style.cssText = 'display: flex; gap: 8px; align-items: flex-start;';
+        var generatedValue = document.createElement('div');
+        generatedValue.id = 'florence-tlog-generated';
+        generatedValue.textContent = '-';
+        generatedValue.style.cssText = 'flex: 1; color: #111827; font-size: 13px; font-weight: 500; word-break: break-word;';
+        var copyBtn = document.createElement('button');
+        copyBtn.id = 'florence-tlog-copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.disabled = true;
+        copyBtn.style.cssText = 'flex-shrink: 0; background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 6px 12px; border-radius: 6px; cursor: not-allowed; font-size: 12px; font-weight: 600; transition: all 0.15s ease; opacity: 0.5;';
+        copyBtn.onmouseover = function() { if (!copyBtn.disabled) copyBtn.style.background = '#16a34a'; copyBtn.style.borderColor = '#16a34a'; };
+        copyBtn.onmouseout = function() { if (!copyBtn.disabled) copyBtn.style.background = '#22c55e'; copyBtn.style.borderColor = '#22c55e'; };
+        copyBtn.onclick = function() {
+            if (copyBtn.disabled) return;
+            var text = document.getElementById('florence-tlog-generated');
+            if (!text || !text.textContent || text.textContent === '-') return;
+            navigator.clipboard.writeText(text.textContent).then(function() {
+                copyBtn.textContent = 'Copied!';
+                addLogMessage('Training Log: copied generated log name to clipboard', 'log');
+                setTimeout(function() {
+                    copyBtn.textContent = 'Copy';
+                }, 2000);
+            }).catch(function(e) {
+                addLogMessage('Training Log: clipboard copy failed: ' + e, 'error');
+            });
+        };
+        generatedRow.appendChild(generatedValue);
+        generatedRow.appendChild(copyBtn);
+        generatedCard.appendChild(generatedRow);
+        container.appendChild(generatedCard);
+
+        var legendCard = makeCard('Legends');
+        var legendRow = document.createElement('div');
+        legendRow.style.cssText = 'display: flex; gap: 8px; align-items: flex-start;';
+        var legendValue = document.createElement('pre');
+        legendValue.id = 'florence-tlog-legend';
+        legendValue.textContent = 'No legend available.';
+        legendValue.style.cssText = 'flex: 1; margin: 0; color: #111827; font-size: 13px; font-weight: 500; word-break: break-word; white-space: pre-wrap; font-family: inherit; max-height: 160px; overflow-y: auto;';
+        var legendCopyBtn = document.createElement('button');
+        legendCopyBtn.id = 'florence-tlog-legend-copy-btn';
+        legendCopyBtn.textContent = 'Copy';
+        legendCopyBtn.disabled = true;
+        legendCopyBtn.style.cssText = 'flex-shrink: 0; background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 6px 12px; border-radius: 6px; cursor: not-allowed; font-size: 12px; font-weight: 600; transition: all 0.15s ease; opacity: 0.5;';
+        legendCopyBtn.onmouseover = function() { if (!legendCopyBtn.disabled) legendCopyBtn.style.background = '#16a34a'; legendCopyBtn.style.borderColor = '#16a34a'; };
+        legendCopyBtn.onmouseout = function() { if (!legendCopyBtn.disabled) legendCopyBtn.style.background = '#22c55e'; legendCopyBtn.style.borderColor = '#22c55e'; };
+        legendCopyBtn.onclick = function() {
+            if (legendCopyBtn.disabled) return;
+            var text = document.getElementById('florence-tlog-legend');
+            if (!text || !text.textContent || text.textContent === 'No legend available.') return;
+            navigator.clipboard.writeText(text.textContent).then(function() {
+                legendCopyBtn.textContent = 'Copied!';
+                addLogMessage('Training Log: copied legend to clipboard', 'log');
+                setTimeout(function() { legendCopyBtn.textContent = 'Copy'; }, 2000);
+            }).catch(function(e) {
+                addLogMessage('Training Log: legend copy failed: ' + e, 'error');
+            });
+        };
+        legendRow.appendChild(legendValue);
+        legendRow.appendChild(legendCopyBtn);
+        legendCard.appendChild(legendRow);
+        container.appendChild(legendCard);
+
+        var studyCard = makeCard('Matched Study');
+        var studyInfo = document.createElement('div');
+        studyInfo.id = 'florence-tlog-study-info';
+        studyInfo.style.cssText = 'display: flex; flex-direction: column; gap: 2px;';
+        var noLog = document.createElement('div');
+        noLog.textContent = 'Study Not Configured';
+        noLog.style.cssText = 'color: #6b7280; font-size: 13px; font-style: italic; padding: 8px 0;';
+        studyInfo.appendChild(noLog);
+        studyCard.appendChild(studyInfo);
+        container.appendChild(studyCard);
+
+        toggleInput.onchange = function() {
+            setTrainingLogActive(toggleInput.checked);
+        };
+
+        return container;
+    }
+
+    function florenceSetSelectedTab(tabName) {
+        var buttonsTab = document.getElementById('florence-tab-buttons');
+        var trainingTab = document.getElementById('florence-tab-training-log');
+        var buttonsView = document.getElementById('florence-buttons-view');
+        var trainingView = document.getElementById('florence-training-log-view');
+        if (!buttonsTab || !trainingTab || !buttonsView || !trainingView) return;
+
+        trainingLogState.selectedTab = tabName;
+        saveTrainingLogTab(tabName);
+
+        function setActive(btn, view, active) {
+            if (active) {
+                btn.style.cssText = 'flex: 1; padding: 10px 12px; background: #eff6ff; color: #2563eb; border: none; border-bottom: 2px solid #2563eb; font-size: 13px; font-weight: 600; cursor: pointer;';
+                view.style.display = 'flex';
+            } else {
+                btn.style.cssText = 'flex: 1; padding: 10px 12px; background: #ffffff; color: #6b7280; border: none; border-bottom: 2px solid transparent; font-size: 13px; font-weight: 500; cursor: pointer;';
+                view.style.display = 'none';
+            }
+        }
+
+        setActive(buttonsTab, buttonsView, tabName === 'buttons');
+        setActive(trainingTab, trainingView, tabName === 'training-log');
+    }
+
+    function florenceRestoreTabState() {
+        florenceSetSelectedTab(trainingLogState.selectedTab || 'buttons');
+        var toggle = document.getElementById('florence-tlog-active-toggle');
+        if (toggle) {
+            toggle.checked = trainingLogState.active;
+        }
+        if (trainingLogState.active) {
+            setTrainingLogActive(true);
+        } else {
+            setTlogStatus('empty', 'Set Active to scan for training logs');
+        }
+        updateTrainingLogDisplay();
+    }
+
+    function florenceLoadAndApplyTabState() {
+        loadTrainingLogPersistedState().then(function() {
+            florenceRestoreTabState();
+        }).catch(function(e) {
+            addLogMessage('florenceLoadAndApplyTabState: failed: ' + e, 'error');
+            florenceRestoreTabState();
+        });
+    }
+
+    function openStudyLibraryModal() {
+        addLogMessage('Study Library: opening', 'log');
+        var existing = document.getElementById('florence-study-library-modal');
+        if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+        var overlay = document.createElement('div');
+        overlay.id = 'florence-study-library-modal';
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+
+        var container = document.createElement('div');
+        container.style.cssText = 'background: #ffffff; border-radius: 12px; width: 620px; max-width: 94%; max-height: 90vh; box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb;';
+        container.setAttribute('role', 'dialog');
+        container.setAttribute('aria-modal', 'true');
+        container.setAttribute('aria-labelledby', 'florence-study-library-title');
+
+        var header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #e5e7eb; background: #ffffff; flex-shrink: 0;';
+        var title = document.createElement('h3');
+        title.id = 'florence-study-library-title';
+        title.textContent = 'Study Library';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 16px; font-weight: 600;';
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = '\u2715';
+        closeBtn.setAttribute('aria-label', 'Close Study Library');
+        closeBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = '#f3f4f6'; closeBtn.style.color = '#111827'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#6b7280'; };
+        closeBtn.onclick = function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        var body = document.createElement('div');
+        body.style.cssText = 'padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;';
+
+        var toolbar = document.createElement('div');
+        toolbar.style.cssText = 'display: flex; gap: 8px; align-items: center; flex-wrap: wrap;';
+
+        var searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search protocol...';
+        searchInput.style.cssText = 'flex: 1; min-width: 140px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none;';
+        searchInput.oninput = function() {
+            studyLibraryState.searchTerm = searchInput.value.trim().toLowerCase();
+            renderStudyList();
+        };
+
+        var sortSelect = document.createElement('select');
+        sortSelect.style.cssText = 'padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none; background: #ffffff;';
+        var optProtocol = document.createElement('option');
+        optProtocol.value = 'protocol';
+        optProtocol.textContent = 'Sort by Protocol';
+        var optRecent = document.createElement('option');
+        optRecent.value = 'recent';
+        optRecent.textContent = 'Sort by Recently Updated';
+        sortSelect.appendChild(optProtocol);
+        sortSelect.appendChild(optRecent);
+        sortSelect.value = studyLibraryState.currentSort;
+        sortSelect.onchange = function() {
+            studyLibraryState.currentSort = sortSelect.value;
+            renderStudyList();
+        };
+
+        var createBtn = document.createElement('button');
+        createBtn.textContent = 'Create Study';
+        createBtn.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s ease;';
+        createBtn.onmouseover = function() { createBtn.style.background = '#16a34a'; createBtn.style.borderColor = '#16a34a'; };
+        createBtn.onmouseout = function() { createBtn.style.background = '#22c55e'; createBtn.style.borderColor = '#22c55e'; };
+        createBtn.onclick = function() { openStudyForm(); };
+
+        var importBtn = document.createElement('button');
+        importBtn.textContent = 'Import';
+        importBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        importBtn.onmouseover = function() { importBtn.style.background = '#e5e7eb'; };
+        importBtn.onmouseout = function() { importBtn.style.background = '#f3f4f6'; };
+        var fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        fileInput.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;';
+        fileInput.onchange = function() {
+            if (fileInput.files && fileInput.files[0]) {
+                handleStudyImport(fileInput.files[0], overlay, renderStudyList);
+            }
+        };
+        importBtn.onclick = function() { fileInput.click(); };
+
+        var exportBtn = document.createElement('button');
+        exportBtn.textContent = 'Export';
+        exportBtn.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s ease;';
+        exportBtn.onmouseover = function() { exportBtn.style.background = '#1d4ed8'; exportBtn.style.borderColor = '#1d4ed8'; };
+        exportBtn.onmouseout = function() { exportBtn.style.background = '#2563eb'; exportBtn.style.borderColor = '#2563eb'; };
+        exportBtn.onclick = function() { handleStudyExport(); };
+
+        toolbar.appendChild(searchInput);
+        toolbar.appendChild(sortSelect);
+        toolbar.appendChild(createBtn);
+        toolbar.appendChild(importBtn);
+        toolbar.appendChild(fileInput);
+        toolbar.appendChild(exportBtn);
+
+        body.appendChild(toolbar);
+
+        var countRow = document.createElement('div');
+        countRow.id = 'florence-study-library-count';
+        countRow.style.cssText = 'color: #6b7280; font-size: 12px; font-weight: 500;';
+        body.appendChild(countRow);
+
+        var listContainer = document.createElement('div');
+        listContainer.id = 'florence-study-library-list';
+        listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+        body.appendChild(listContainer);
+
+        var formContainer = document.createElement('div');
+        formContainer.id = 'florence-study-form-container';
+        formContainer.style.cssText = 'display: none; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;';
+        body.appendChild(formContainer);
+
+        container.appendChild(header);
+        container.appendChild(body);
+        overlay.appendChild(container);
+        document.body.appendChild(overlay);
+
+        function getFilteredSortedStudies() {
+            var list = studyLibraryState.studies.slice();
+            var term = studyLibraryState.searchTerm.toLowerCase();
+            if (term) {
+                list = list.filter(function(s) { return String(s.protocol || '').toLowerCase().indexOf(term) !== -1; });
+            }
+            if (studyLibraryState.currentSort === 'recent') {
+                list.sort(function(a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+            } else {
+                list.sort(function(a, b) {
+                    var pa = String(a.protocol || '').toLowerCase();
+                    var pb = String(b.protocol || '').toLowerCase();
+                    return pa < pb ? -1 : (pa > pb ? 1 : 0);
+                });
+            }
+            return list;
+        }
+
+        function renderStudyList() {
+            listContainer.innerHTML = '';
+            var list = getFilteredSortedStudies();
+            countRow.textContent = 'Total Studies: ' + studyLibraryState.studies.length + (studyLibraryState.searchTerm ? ' (' + list.length + ' filtered)' : '');
+            if (list.length === 0) {
+                var empty = document.createElement('div');
+                empty.textContent = 'No studies found.';
+                empty.style.cssText = 'color: #9ca3af; font-size: 13px; text-align: center; padding: 24px 0;';
+                listContainer.appendChild(empty);
+                return;
+            }
+            for (var i = 0; i < list.length; i++) {
+                (function(study) {
+                    var row = document.createElement('div');
+                    row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #ffffff;';
+
+                    var info = document.createElement('div');
+                    info.style.cssText = 'display: flex; flex-direction: column; gap: 2px; min-width: 0;';
+                    var proto = document.createElement('div');
+                    proto.textContent = study.protocol || '—';
+                    proto.style.cssText = 'color: #111827; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                    var sub = document.createElement('div');
+                    sub.textContent = [study.siteName, study.siteNumber].filter(function(x) { return !!x; }).join(' • ') || 'No site configured';
+                    sub.style.cssText = 'color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                    info.appendChild(proto);
+                    info.appendChild(sub);
+
+                    var actions = document.createElement('div');
+                    actions.style.cssText = 'display: flex; gap: 6px; flex-shrink: 0;';
+
+                    var editBtn = document.createElement('button');
+                    editBtn.textContent = 'Edit';
+                    editBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500;';
+                    editBtn.onmouseover = function() { editBtn.style.background = '#e5e7eb'; };
+                    editBtn.onmouseout = function() { editBtn.style.background = '#f3f4f6'; };
+                    editBtn.onclick = function() { openStudyForm(study); };
+
+                    var dupBtn = document.createElement('button');
+                    dupBtn.textContent = 'Duplicate';
+                    dupBtn.style.cssText = 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500;';
+                    dupBtn.onmouseover = function() { dupBtn.style.background = '#dbeafe'; };
+                    dupBtn.onmouseout = function() { dupBtn.style.background = '#eff6ff'; };
+                    dupBtn.onclick = function() { duplicateStudy(study); };
+
+                    var delBtn = document.createElement('button');
+                    delBtn.textContent = 'Delete';
+                    delBtn.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 500;';
+                    delBtn.onmouseover = function() { delBtn.style.background = '#fecaca'; };
+                    delBtn.onmouseout = function() { delBtn.style.background = '#fee2e2'; };
+                    delBtn.onclick = function() { confirmDeleteStudy(study); };
+
+                    actions.appendChild(editBtn);
+                    actions.appendChild(dupBtn);
+                    actions.appendChild(delBtn);
+
+                    row.appendChild(info);
+                    row.appendChild(actions);
+                    listContainer.appendChild(row);
+                })(list[i]);
+            }
+        }
+
+        function confirmDeleteStudy(study) {
+            var confirmOverlay = document.createElement('div');
+            confirmOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 31000; display: flex; align-items: center; justify-content: center;';
+            var confirmBox = document.createElement('div');
+            confirmBox.style.cssText = 'background: #ffffff; border-radius: 10px; padding: 20px; width: 360px; max-width: 90%; box-shadow: 0 15px 30px rgba(0,0,0,0.2); border: 1px solid #e5e7eb;';
+            var confirmTitle = document.createElement('h4');
+            confirmTitle.textContent = 'Delete Study?';
+            confirmTitle.style.cssText = 'margin: 0 0 10px 0; color: #111827; font-size: 16px; font-weight: 600;';
+            var confirmMsg = document.createElement('p');
+            confirmMsg.textContent = 'Are you sure you want to delete study "' + (study.protocol || '') + '"? This cannot be undone.';
+            confirmMsg.style.cssText = 'color: #6b7280; font-size: 13px; margin: 0 0 16px 0; line-height: 1.4;';
+            var confirmActions = document.createElement('div');
+            confirmActions.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px;';
+            var cancelBtn = document.createElement('button');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.style.cssText = 'background: #ffffff; border: 1px solid #d1d5db; color: #374151; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;';
+            cancelBtn.onclick = function() { if (confirmOverlay.parentNode) confirmOverlay.parentNode.removeChild(confirmOverlay); };
+            var delConfirmBtn = document.createElement('button');
+            delConfirmBtn.textContent = 'Delete';
+            delConfirmBtn.style.cssText = 'background: #dc2626; border: 1px solid #dc2626; color: #ffffff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;';
+            delConfirmBtn.onmouseover = function() { delConfirmBtn.style.background = '#b91c1c'; delConfirmBtn.style.borderColor = '#b91c1c'; };
+            delConfirmBtn.onmouseout = function() { delConfirmBtn.style.background = '#dc2626'; delConfirmBtn.style.borderColor = '#dc2626'; };
+            delConfirmBtn.onclick = function() {
+                deleteStudy(study.protocol);
+                if (confirmOverlay.parentNode) confirmOverlay.parentNode.removeChild(confirmOverlay);
+            };
+            confirmActions.appendChild(cancelBtn);
+            confirmActions.appendChild(delConfirmBtn);
+            confirmBox.appendChild(confirmTitle);
+            confirmBox.appendChild(confirmMsg);
+            confirmBox.appendChild(confirmActions);
+            confirmOverlay.appendChild(confirmBox);
+            document.body.appendChild(confirmOverlay);
+        }
+
+        function duplicateStudy(study) {
+            var copy = {};
+            for (var key in study) {
+                if (study.hasOwnProperty(key)) copy[key] = study[key];
+            }
+            copy.protocol = String(copy.protocol || '') + ' (Copy)';
+            copy.createdAt = Date.now();
+            copy.updatedAt = Date.now();
+            openStudyForm(copy);
+        }
+
+        function createFormField(label, value, id, required) {
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+            var lbl = document.createElement('label');
+            lbl.textContent = label + (required ? ' *' : '');
+            lbl.setAttribute('for', id);
+            lbl.style.cssText = 'color: #374151; font-size: 12px; font-weight: 500;';
+            var input = document.createElement('input');
+            input.id = id;
+            input.type = 'text';
+            input.value = value || '';
+            input.style.cssText = 'padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; outline: none;';
+            input.onfocus = function() { input.style.borderColor = '#2563eb'; };
+            input.onblur = function() { input.style.borderColor = '#d1d5db'; };
+            wrap.appendChild(lbl);
+            wrap.appendChild(input);
+            return wrap;
+        }
+
+        function openStudyForm(study) {
+            formContainer.style.display = 'flex';
+            formContainer.innerHTML = '';
+            var isEdit = !!(study && study.protocol && study.createdAt);
+            var editingProtocol = study ? String(study.protocol || '') : '';
+
+            var formTitle = document.createElement('div');
+            formTitle.textContent = isEdit ? 'Edit Study' : 'Create Study';
+            formTitle.style.cssText = 'color: #111827; font-size: 14px; font-weight: 600; margin-bottom: 4px;';
+            formContainer.appendChild(formTitle);
+
+            var fieldsRow1 = document.createElement('div');
+            fieldsRow1.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 10px;';
+            fieldsRow1.appendChild(createFormField('Protocol Number', editingProtocol, 'florence-study-protocol', true));
+            fieldsRow1.appendChild(createFormField('Site Number', study ? study.siteNumber : '', 'florence-study-site-number', false));
+            formContainer.appendChild(fieldsRow1);
+
+            var fieldsRow2 = document.createElement('div');
+            fieldsRow2.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 10px;';
+            fieldsRow2.appendChild(createFormField('Site Name', study ? study.siteName : '', 'florence-study-site-name', false));
+            fieldsRow2.appendChild(createFormField('Sponsor', study ? study.sponsor : '', 'florence-study-sponsor', false));
+            formContainer.appendChild(fieldsRow2);
+
+            var trainerField = createFormField('Trainer Name(s)', study ? study.trainer : '', 'florence-study-trainer', false);
+            var trainerHint = document.createElement('div');
+            trainerHint.textContent = 'Separate multiple trainers with commas.';
+            trainerHint.style.cssText = 'color: #9ca3af; font-size: 11px;';
+            trainerField.appendChild(trainerHint);
+            formContainer.appendChild(trainerField);
+
+            var piField = createFormField('Principal Investigator', study ? study.pi : '', 'florence-study-pi', false);
+            formContainer.appendChild(piField);
+
+            var validationEl = document.createElement('div');
+            validationEl.id = 'florence-study-form-validation';
+            validationEl.style.cssText = 'color: #dc2626; font-size: 12px; min-height: 16px;';
+            formContainer.appendChild(validationEl);
+
+            var formActions = document.createElement('div');
+            formActions.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px;';
+            var cancelFormBtn = document.createElement('button');
+            cancelFormBtn.textContent = 'Cancel';
+            cancelFormBtn.style.cssText = 'background: #ffffff; border: 1px solid #d1d5db; color: #374151; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;';
+            cancelFormBtn.onclick = function() { formContainer.style.display = 'none'; formContainer.innerHTML = ''; };
+            var saveFormBtn = document.createElement('button');
+            saveFormBtn.textContent = 'Save';
+            saveFormBtn.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;';
+            saveFormBtn.onmouseover = function() { saveFormBtn.style.background = '#16a34a'; saveFormBtn.style.borderColor = '#16a34a'; };
+            saveFormBtn.onmouseout = function() { saveFormBtn.style.background = '#22c55e'; saveFormBtn.style.borderColor = '#22c55e'; };
+            saveFormBtn.onclick = function() {
+                var protocolInput = document.getElementById('florence-study-protocol');
+                var newProtocol = (protocolInput ? protocolInput.value : '').trim();
+                validationEl.textContent = '';
+                if (!newProtocol) {
+                    validationEl.textContent = 'Protocol number is required.';
+                    return;
+                }
+                var existing = studyLibraryState.studies.findIndex(function(s) {
+                    return String(s.protocol || '').trim().toLowerCase() === newProtocol.toLowerCase() &&
+                        (!isEdit || String(s.protocol || '').trim().toLowerCase() !== editingProtocol.toLowerCase());
+                });
+                if (existing !== -1) {
+                    validationEl.textContent = 'A study with protocol "' + newProtocol + '" already exists.';
+                    return;
+                }
+                var updated = {
+                    protocol: newProtocol,
+                    siteNumber: (document.getElementById('florence-study-site-number').value || '').trim(),
+                    siteName: (document.getElementById('florence-study-site-name').value || '').trim(),
+                    sponsor: (document.getElementById('florence-study-sponsor').value || '').trim(),
+                    trainer: (document.getElementById('florence-study-trainer').value || '').trim(),
+                    pi: (document.getElementById('florence-study-pi').value || '').trim(),
+                    createdAt: isEdit ? study.createdAt : Date.now(),
+                    updatedAt: Date.now()
+                };
+                if (isEdit) {
+                    updateStudy(editingProtocol, updated);
+                } else {
+                    addStudy(updated);
+                }
+                formContainer.style.display = 'none';
+                formContainer.innerHTML = '';
+                renderStudyList();
+                updateTrainingLogDisplay();
+            };
+            formActions.appendChild(cancelFormBtn);
+            formActions.appendChild(saveFormBtn);
+            formContainer.appendChild(formActions);
+        }
+
+        renderStudyList();
+        makeDraggable(container, header);
+        addLogMessage('Study Library: modal rendered with ' + studyLibraryState.studies.length + ' studies', 'log');
+    }
+
+    function addStudy(study) {
+        migrateStudy(study);
+        studyLibraryState.studies.push(study);
+        saveStudyLibrary().then(function() {
+            addLogMessage('Study Library: created study ' + study.protocol, 'log');
+        });
+    }
+
+    function updateStudy(originalProtocol, study) {
+        var idx = studyLibraryState.studies.findIndex(function(s) {
+            return String(s.protocol || '').trim().toLowerCase() === String(originalProtocol || '').trim().toLowerCase();
+        });
+        if (idx !== -1) {
+            study.createdAt = studyLibraryState.studies[idx].createdAt || study.createdAt;
+            studyLibraryState.studies[idx] = study;
+            saveStudyLibrary().then(function() {
+                addLogMessage('Study Library: updated study ' + study.protocol, 'log');
+            });
+        }
+    }
+
+    function deleteStudy(protocol) {
+        var before = studyLibraryState.studies.length;
+        studyLibraryState.studies = studyLibraryState.studies.filter(function(s) {
+            return String(s.protocol || '').trim().toLowerCase() !== String(protocol || '').trim().toLowerCase();
+        });
+        if (studyLibraryState.studies.length < before) {
+            saveStudyLibrary().then(function() {
+                addLogMessage('Study Library: deleted study ' + protocol, 'log');
+                updateTrainingLogDisplay();
+            });
+        }
+    }
+
+    function handleStudyExport() {
+        exportStudyLibraryToXlsx(studyLibraryState.studies).then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Study_Library.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            addLogMessage('Study Library: exported ' + studyLibraryState.studies.length + ' studies', 'log');
+        }).catch(function(e) {
+            addLogMessage('Study Library: export failed: ' + e, 'error');
+            showWarning('Export failed: ' + e.message);
+        });
+    }
+
+    function handleStudyImport(file, overlay, renderCallback) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            parseStudyLibraryXlsx(e.target.result).then(function(result) {
+                if (!result.valid) {
+                    addLogMessage('Study Library: import failed - ' + result.error, 'error');
+                    showImportResultOverlay(overlay, { imported: 0, skipped: 0, failed: 1, error: result.error });
+                    return;
+                }
+                var imported = 0;
+                var skipped = 0;
+                var failed = 0;
+                for (var i = 0; i < result.studies.length; i++) {
+                    var incoming = result.studies[i];
+                    var protocol = String(incoming.protocol || '').trim();
+                    if (!protocol) {
+                        failed++;
+                        continue;
+                    }
+                    var exists = studyLibraryState.studies.some(function(s) {
+                        return String(s.protocol || '').trim().toLowerCase() === protocol.toLowerCase();
+                    });
+                    if (exists) {
+                        skipped++;
+                        continue;
+                    }
+                    migrateStudy(incoming);
+                    incoming.createdAt = Date.now();
+                    incoming.updatedAt = Date.now();
+                    studyLibraryState.studies.push(incoming);
+                    imported++;
+                }
+                saveStudyLibrary().then(function() {
+                    addLogMessage('Study Library: import complete - imported: ' + imported + ', skipped: ' + skipped + ', failed: ' + failed, 'log');
+                    showImportResultOverlay(overlay, { imported: imported, skipped: skipped, failed: failed });
+                    if (renderCallback) renderCallback();
+                    updateTrainingLogDisplay();
+                }).catch(function() {
+                    showImportResultOverlay(overlay, { imported: 0, skipped: 0, failed: failed + imported + skipped, error: 'Storage save failed.' });
+                });
+            });
+        };
+        reader.onerror = function() {
+            addLogMessage('Study Library: import failed - file read error', 'error');
+            showImportResultOverlay(overlay, { imported: 0, skipped: 0, failed: 1, error: 'Unable to read file.' });
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function showImportResultOverlay(parentOverlay, summary) {
+        var resultOverlay = document.createElement('div');
+        resultOverlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 32000; display: flex; align-items: center; justify-content: center;';
+        var box = document.createElement('div');
+        box.style.cssText = 'background: #ffffff; border-radius: 10px; padding: 20px; width: 320px; max-width: 90%; box-shadow: 0 15px 30px rgba(0,0,0,0.2); border: 1px solid #e5e7eb;';
+        var title = document.createElement('h4');
+        title.textContent = summary.error ? 'Import Failed' : 'Import Complete';
+        title.style.cssText = 'margin: 0 0 12px 0; color: ' + (summary.error ? '#dc2626' : '#111827') + '; font-size: 16px; font-weight: 600;';
+        var body = document.createElement('div');
+        body.style.cssText = 'color: #374151; font-size: 13px; line-height: 1.5; margin-bottom: 16px;';
+        if (summary.error) {
+            body.textContent = summary.error;
+        } else {
+            body.innerHTML = 'Imported: <strong>' + summary.imported + '</strong><br>Skipped: <strong>' + summary.skipped + '</strong><br>Failed: <strong>' + summary.failed + '</strong>';
+        }
+        var ok = document.createElement('button');
+        ok.textContent = 'OK';
+        ok.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;';
+        ok.onmouseover = function() { ok.style.background = '#1d4ed8'; ok.style.borderColor = '#1d4ed8'; };
+        ok.onmouseout = function() { ok.style.background = '#2563eb'; ok.style.borderColor = '#2563eb'; };
+        ok.onclick = function() { if (resultOverlay.parentNode) resultOverlay.parentNode.removeChild(resultOverlay); };
+        box.appendChild(title);
+        box.appendChild(body);
+        box.appendChild(ok);
+        resultOverlay.appendChild(box);
+        document.body.appendChild(resultOverlay);
+    }
+
     function createGUI() {
         originalLog.call(console, '[Florence] createGUI: called');
         var existingGui = document.getElementById(FLORENCE_GUI_ID);
@@ -20294,6 +22437,32 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(headerRight);
         insertConfigIconNextToClose(headerRight, closeButton);
 
+        const tabBar = document.createElement('div');
+        tabBar.id = 'florence-tab-bar';
+        tabBar.style.cssText = 'display: flex; padding: 0 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; gap: 8px;';
+
+        function makeTabButton(label, tabName) {
+            var btn = document.createElement('button');
+            btn.id = tabName === 'buttons' ? 'florence-tab-buttons' : 'florence-tab-training-log';
+            btn.textContent = label;
+            btn.style.cssText = 'flex: 1; padding: 10px 12px; background: #ffffff; color: #6b7280; border: none; border-bottom: 2px solid transparent; font-size: 13px; font-weight: 500; cursor: pointer;';
+            btn.onclick = function() { florenceSetSelectedTab(tabName); };
+            return btn;
+        }
+
+        var tabButtons = makeTabButton('Buttons', 'buttons');
+        var tabTrainingLog = makeTabButton('Training Log', 'training-log');
+        tabBar.appendChild(tabButtons);
+        tabBar.appendChild(tabTrainingLog);
+
+        const tabContent = document.createElement('div');
+        tabContent.id = 'florence-tab-content';
+        tabContent.style.cssText = 'flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; background: #ffffff;';
+
+        const buttonsView = document.createElement('div');
+        buttonsView.id = 'florence-buttons-view';
+        buttonsView.style.cssText = 'display: flex; flex-direction: column; flex-shrink: 0;';
+
         const buttonsContainer = document.createElement('div');
         buttonsContainer.id = 'florence-buttons-container';
         buttonsContainer.style.cssText = `
@@ -20305,6 +22474,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         flex-shrink: 0;
     `;
         renderButtonsInto(buttonsContainer);
+        buttonsView.appendChild(buttonsContainer);
+        tabContent.appendChild(buttonsView);
+
+        const trainingLogView = createTrainingLogView();
+        tabContent.appendChild(trainingLogView);
 
         const clearLogsBtn = document.createElement('button');
         clearLogsBtn.id = 'florence-clear-logs-btn';
@@ -20366,17 +22540,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         hideLogsBtn.onclick = () => {
             const logBox = document.getElementById('florence-log-box');
             const isHidden = logBox.style.display === 'none';
-            if (isHidden) {
-                logBox.style.display = 'block';
-                clearLogsBtn.style.display = 'block';
-                hideLogsBtn.textContent = 'Hide Logs';
-                localStorage.setItem('florence-hide-logs', 'false');
-            } else {
-                logBox.style.display = 'none';
-                clearLogsBtn.style.display = 'none';
-                hideLogsBtn.textContent = 'Show Logs';
-                localStorage.setItem('florence-hide-logs', 'true');
-            }
+            const hidden = !isHidden;
+            saveHideLogsSetting(hidden);
+            applyHideLogs(hidden);
         };
 
         const buttonsContainerDiv = document.createElement('div');
@@ -20401,16 +22567,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
         color: #374151;
     `;
 
+        const storageErrorBanner = document.createElement('div');
+        storageErrorBanner.id = 'florence-storage-error-banner';
+        storageErrorBanner.style.cssText = 'display: none; padding: 10px 16px; background: #fee2e2; color: #991b1b; font-size: 12px; font-weight: 500; border-bottom: 1px solid #fecaca; flex-shrink: 0;';
+
         guiContainer.appendChild(header);
-        guiContainer.appendChild(buttonsContainer);
+        guiContainer.appendChild(storageErrorBanner);
+        guiContainer.appendChild(tabBar);
+        guiContainer.appendChild(tabContent);
         guiContainer.appendChild(buttonsContainerDiv);
         guiContainer.appendChild(logBox);
 
+        florenceLoadAndApplyTabState();
+
         if (loadHideLogs()) {
-            clearLogsBtn.style.display = 'none';
-            logBox.style.display = 'none';
-            hideLogsBtn.textContent = 'Show Logs';
-            guiContainer.style.minHeight = 'auto';
+            applyHideLogs(true);
         }
         document.body.appendChild(guiContainer);
         addLogMessage('Florence Automator GUI initialized', 'log');
@@ -22037,7 +24208,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         originalLog.call(console, '[Florence] florenceRegisterNavListeners: all listeners registered');
     }
 
-    function init() {
+    async function init() {
         if (window !== window.top) {
             originalLog.call(console, '[Florence] init: running inside iframe, aborting');
             return;
@@ -22059,6 +24230,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
 
         florenceRegisterNavListeners();
+
+        try {
+            await loadTrainingLogPersistedState();
+        } catch (e) {
+            addLogMessage('init: failed to load persisted Training Log state: ' + e, 'error');
+        }
+
+        try {
+            await loadLatestTrainingLogPersisted();
+        } catch (e) {
+            addLogMessage('init: failed to load persisted latest training log: ' + e, 'error');
+        }
 
         guiVisible = localStorage.getItem('florence-gui-visible') === 'true';
         if (guiVisible) {
