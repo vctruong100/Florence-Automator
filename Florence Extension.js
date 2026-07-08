@@ -1,4 +1,4 @@
-﻿
+
 // Florence Automator — Extension Content Script
 // Version: 2.4.0
 // Loads as a Manifest V3 content script on https://us.v2.researchbinders.com/*
@@ -423,7 +423,7 @@
             createDisplay: function() {
                 var timerBar = document.createElement('div');
                 timerBar.id = prefix + '-timer-bar';
-                timerBar.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 8px 16px; background: rgba(0, 0, 0, 0.15); border-radius: 8px; margin-top: 8px; flex-shrink: 0;';
+                timerBar.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 8px 16px; background: #f3f4f6; border-radius: 8px; margin-top: 8px; flex-shrink: 0;';
                 var items = [
                     { id: prefix + '-timer-elapsed', label: 'Elapsed', value: '00:00' },
                     { id: prefix + '-timer-eta', label: 'ETA', value: '--:--' },
@@ -435,10 +435,10 @@
                     var valSpan = document.createElement('span');
                     valSpan.id = items[i].id;
                     valSpan.textContent = items[i].value;
-                    valSpan.style.cssText = 'display: block; color: #a8d8ff; font-size: 15px; font-weight: 700; font-family: Consolas, monospace;';
+                    valSpan.style.cssText = 'display: block; color: #111827; font-size: 15px; font-weight: 700; font-family: Consolas, monospace;';
                     var labelSpan = document.createElement('span');
                     labelSpan.textContent = items[i].label;
-                    labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.5); font-size: 10px; font-weight: 500; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;';
+                    labelSpan.style.cssText = 'display: block; color: #6b7280; font-size: 10px; font-weight: 500; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;';
                     item.appendChild(valSpan);
                     item.appendChild(labelSpan);
                     timerBar.appendChild(item);
@@ -495,7 +495,7 @@
         modal.className = ELOG_CSS_CLASSNAMES.warningPanel;
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'elog-warning-title');
@@ -505,13 +505,13 @@
         const title = document.createElement('h3');
         title.id = 'elog-warning-title';
         title.textContent = 'Document Log Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#111827'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         const closeWarning = function() {
             addLogMessage('showELogWarning: closing warning', 'log');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -524,12 +524,16 @@
         const messageDiv = document.createElement('p');
         messageDiv.id = 'elog-warning-message';
         messageDiv.textContent = 'The current page does not contain the Document Log Entries table. Please navigate to a page with the Document Log Entries grid before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         const okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
-        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() {
+            okButton.style.background = '#fecaca';
+        };
+        okButton.onmouseout = function() {
+            okButton.style.background = '#fee2e2';
+        };
         okButton.onclick = closeWarning;
         const keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
         document.addEventListener('keydown', keyHandler);
@@ -557,7 +561,7 @@
         modal.id = 'elog-input-modal';
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'elog-input-title');
@@ -566,13 +570,13 @@
         const title = document.createElement('h3');
         title.id = 'elog-input-title';
         title.textContent = 'Add ELog Staff Entries';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#111827'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() {
             addLogMessage('showELogInputPanel: closed by user', 'warn');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -582,7 +586,7 @@
         header.appendChild(title);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #374151; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append("Rules:");
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -601,21 +605,21 @@
         textarea.id = 'elog-names-input';
         textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
         textarea.setAttribute('aria-label', 'Staff names input');
-        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
-        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; background: #ffffff; color: #111827; font-size: 14px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; resize: vertical; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease; box-sizing: border-box;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; textarea.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.15)'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; textarea.style.boxShadow = 'none'; };
         const confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.disabled = true;
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         const updateConfirmState = function() {
             const parsed = parseNamesInput(textarea.value);
-            if (parsed.length > 0) { confirmButton.disabled = false; confirmButton.style.opacity = '1'; confirmButton.style.cursor = 'pointer'; }
-            else { confirmButton.disabled = true; confirmButton.style.opacity = '0.5'; confirmButton.style.cursor = 'not-allowed'; }
+            if (parsed.length > 0) { confirmButton.disabled = false; confirmButton.style.opacity = '1'; confirmButton.style.cursor = 'pointer'; confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e'; }
+            else { confirmButton.disabled = true; confirmButton.style.opacity = '0.5'; confirmButton.style.cursor = 'not-allowed'; confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e'; }
         };
         textarea.oninput = updateConfirmState;
-        confirmButton.onmouseover = function() { if (!confirmButton.disabled) { confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
-        confirmButton.onmouseout = function() { confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        confirmButton.onmouseover = function() { if (!confirmButton.disabled) { confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a'; } };
+        confirmButton.onmouseout = function() { if (!confirmButton.disabled) { confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e'; } };
         confirmButton.onclick = function() {
             addLogMessage('showELogInputPanel: Confirm clicked', 'log');
             const parsed = parseNamesInput(textarea.value);
@@ -631,9 +635,9 @@
         };
         const clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
-        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
-        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.style.cssText = 'background: #ffffff; border: 1px solid #d1d5db; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = '#f3f4f6'; };
+        clearButton.onmouseout = function() { clearButton.style.background = '#ffffff'; };
         clearButton.onclick = function() {
             addLogMessage('showELogInputPanel: Clear All clicked', 'log');
             textarea.value = '';
@@ -812,10 +816,10 @@
         const modal = document.createElement('div');
         modal.className = ELOG_CSS_CLASSNAMES.progressPanel;
         modal.id = 'elog-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
         container.id = 'elog-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'elog-progress-title');
@@ -826,11 +830,11 @@
         const title = document.createElement('h3');
         title.id = 'elog-progress-title';
         title.textContent = 'ELog Staff Entries - Review';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         const statusBadge = document.createElement('span');
         statusBadge.id = 'elog-status-badge';
         statusBadge.textContent = 'In Progress';
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #b45309; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(title);
         titleContainer.appendChild(statusBadge);
         const headerButtons = document.createElement('div');
@@ -839,16 +843,16 @@
         rescanButton.textContent = 'Re-scan';
         rescanButton.id = 'elog-rescan-btn';
         rescanButton.setAttribute('aria-label', 'Re-scan document log');
-        rescanButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
-        rescanButton.onmouseover = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        rescanButton.onmouseout = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        rescanButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        rescanButton.onmouseover = function() { rescanButton.style.background = '#e5e7eb'; };
+        rescanButton.onmouseout = function() { rescanButton.style.background = '#f3f4f6'; };
         rescanButton.onclick = function() { addLogMessage('showELogProgressPanel: Re-scan clicked', 'log'); performRescan(); };
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close and stop scanning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#fee2e2'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() {
             addLogMessage('showELogProgressPanel: closed by user', 'warn');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -859,13 +863,13 @@
         pauseButton.textContent = 'Pause';
         pauseButton.id = 'elog-pause-btn';
         pauseButton.setAttribute('aria-label', 'Pause or resume adding entries');
-        pauseButton.style.cssText = 'background: rgba(255, 193, 7, 0.25); border: 2px solid rgba(255, 193, 7, 0.5); color: #ffd93d; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
-        pauseButton.onmouseover = function() { pauseButton.style.background = 'rgba(255, 193, 7, 0.4)'; };
+        pauseButton.style.cssText = 'background: #fef3c7; border: 1px solid #fde68a; color: #b45309; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        pauseButton.onmouseover = function() { pauseButton.style.background = '#fde68a'; };
         pauseButton.onmouseout = function() {
             if (elogState.isPaused) {
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
+                pauseButton.style.background = '#dcfce7';
             } else {
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
+                pauseButton.style.background = '#fef3c7';
             }
         };
         pauseButton.onclick = function() {
@@ -874,9 +878,9 @@
                 elogState.isPaused = false;
                 if (elogState.timer) { elogState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
-                pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
-                pauseButton.style.color = '#ffd93d';
+                pauseButton.style.background = '#fef3c7';
+                pauseButton.style.borderColor = '#fde68a';
+                pauseButton.style.color = '#b45309';
                 updateScanStatus('Adding Entries', 'progress');
                 var title = document.getElementById('elog-progress-title');
                 if (title) {
@@ -888,9 +892,9 @@
                 elogState.isPaused = true;
                 if (elogState.timer) { elogState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
-                pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
-                pauseButton.style.color = '#6bcf7f';
+                pauseButton.style.background = '#dcfce7';
+                pauseButton.style.borderColor = '#86efac';
+                pauseButton.style.color = '#15803d';
                 updateScanStatus('Paused', 'paused');
                 var title = document.getElementById('elog-progress-title');
                 if (title) {
@@ -913,7 +917,7 @@
         const summaryFooter = document.createElement('div');
         summaryFooter.id = 'elog-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Processing summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         const summaryItems = [
             { id: 'elog-summary-total', label: 'Total', value: '0' },
             { id: 'elog-summary-added', label: 'Added', value: '0' },
@@ -928,10 +932,10 @@
             const valSpan = document.createElement('span');
             valSpan.id = summaryItems[si].id;
             valSpan.textContent = summaryItems[si].value;
-            valSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            valSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             const labelSpan = document.createElement('span');
             labelSpan.textContent = summaryItems[si].label;
-            labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            labelSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             summaryItem.appendChild(valSpan);
             summaryItem.appendChild(labelSpan);
             summaryFooter.appendChild(summaryItem);
@@ -971,20 +975,20 @@
     function createSubpanel(titleText, listId, searchId) {
         addLogMessage('createSubpanel: creating ' + titleText, 'log');
         const panel = document.createElement('div');
-        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;';
+        panel.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;';
         const panelHeader = document.createElement('div');
         panelHeader.style.cssText = 'margin-bottom: 10px; flex-shrink: 0;';
         const panelTitle = document.createElement('h4');
         panelTitle.textContent = titleText;
-        panelTitle.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 14px; font-weight: 600;';
+        panelTitle.style.cssText = 'margin: 0 0 8px 0; color: #111827; font-size: 14px; font-weight: 600;';
         const searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.id = searchId;
         searchInput.placeholder = 'Search...';
         searchInput.setAttribute('aria-label', 'Search ' + titleText);
-        searchInput.style.cssText = 'width: 100%; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 13px; outline: none; transition: all 0.2s ease; box-sizing: border-box;';
-        searchInput.onfocus = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.4)'; searchInput.style.background = 'rgba(255, 255, 255, 0.15)'; };
-        searchInput.onblur = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.2)'; searchInput.style.background = 'rgba(255, 255, 255, 0.1)'; };
+        searchInput.style.cssText = 'width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 13px; outline: none; transition: border-color 0.15s ease; box-sizing: border-box;';
+        searchInput.onfocus = function() { searchInput.style.borderColor = '#2563eb'; };
+        searchInput.onblur = function() { searchInput.style.borderColor = '#d1d5db'; };
         searchInput.oninput = function() { filterSubpanelList(listId, searchInput.value); };
         panelHeader.appendChild(panelTitle);
         panelHeader.appendChild(searchInput);
@@ -1022,7 +1026,7 @@
         }
         var titleRow = document.createElement('div');
         titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 14px; font-weight: 600;';
         panelHeader.removeChild(titleEl);
         titleRow.appendChild(titleEl);
         var toggleBtn = document.createElement('button');
@@ -1030,26 +1034,28 @@
         toggleBtn.textContent = 'A-Z';
         toggleBtn.setAttribute('aria-label', 'Toggle alphabetical sort');
         toggleBtn.setAttribute('aria-pressed', 'false');
-        toggleBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.7); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0;';
+        toggleBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #6b7280; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0;';
         toggleBtn.onmouseover = function() {
-            toggleBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+            toggleBtn.style.background = '#e5e7eb';
         };
         toggleBtn.onmouseout = function() {
             var pressed = toggleBtn.getAttribute('aria-pressed') === 'true';
-            toggleBtn.style.background = pressed ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+            toggleBtn.style.background = pressed ? '#2563eb' : '#f3f4f6';
+            toggleBtn.style.color = pressed ? '#ffffff' : '#6b7280';
+            toggleBtn.style.borderColor = pressed ? '#2563eb' : '#e5e7eb';
         };
         toggleBtn.onclick = function() {
             var isPressed = toggleBtn.getAttribute('aria-pressed') === 'true';
             var newPressed = !isPressed;
             toggleBtn.setAttribute('aria-pressed', String(newPressed));
             if (newPressed) {
-                toggleBtn.style.background = 'rgba(255, 255, 255, 0.3)';
-                toggleBtn.style.color = 'white';
-                toggleBtn.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+                toggleBtn.style.background = '#2563eb';
+                toggleBtn.style.color = '#ffffff';
+                toggleBtn.style.borderColor = '#2563eb';
             } else {
-                toggleBtn.style.background = 'rgba(255, 255, 255, 0.15)';
-                toggleBtn.style.color = 'rgba(255, 255, 255, 0.7)';
-                toggleBtn.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                toggleBtn.style.background = '#f3f4f6';
+                toggleBtn.style.color = '#6b7280';
+                toggleBtn.style.borderColor = '#e5e7eb';
             }
             sortPanelList(listId, newPressed);
             addLogMessage('addSortToggleToSubpanel: toggled sort for ' + listId + ' alphabetical=' + newPressed, 'log');
@@ -1065,13 +1071,12 @@
             filterBtn.textContent = 'Failures';
             filterBtn.setAttribute('aria-label', 'Filter to show only failed items');
             filterBtn.setAttribute('aria-pressed', 'false');
-            filterBtn.style.cssText = 'background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: rgba(255, 107, 107, 0.8); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0;';
+            filterBtn.style.cssText = 'background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0;';
             filterBtn.onmouseover = function() {
-                filterBtn.style.background = 'rgba(255, 107, 107, 0.25)';
+                filterBtn.style.background = '#fecaca';
             };
             filterBtn.onmouseout = function() {
-                var pressed = filterBtn.getAttribute('aria-pressed') === 'true';
-                filterBtn.style.background = pressed ? 'rgba(255, 107, 107, 0.3)' : 'rgba(255, 107, 107, 0.15)';
+                filterBtn.style.background = '#fee2e2';
             };
             filterBtn.onclick = function() {
                 showFailureNamesPopup(listId, failureStatuses);
@@ -1082,12 +1087,12 @@
             statusFilterBtn.id = listId + '-status-filter-btn';
             statusFilterBtn.textContent = 'Filter \u25BC';
             statusFilterBtn.setAttribute('aria-label', 'Filter by status');
-            statusFilterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0; position: relative;';
+            statusFilterBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #6b7280; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0; position: relative;';
             statusFilterBtn.onmouseover = function() {
-                statusFilterBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+                statusFilterBtn.style.background = '#e5e7eb';
             };
             statusFilterBtn.onmouseout = function() {
-                statusFilterBtn.style.background = 'rgba(255, 255, 255, 0.12)';
+                statusFilterBtn.style.background = '#f3f4f6';
             };
             statusFilterBtn.onclick = function() {
                 showStatusFilterDropdown(listId, statusFilterBtn);
@@ -1191,15 +1196,17 @@
         overlay.id = 'failure-names-popup-overlay';
         overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; display: flex; align-items: center; justify-content: center;';
         var popup = document.createElement('div');
-        popup.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 20px 24px; min-width: 380px; max-width: 600px; max-height: 70vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);';
+        popup.style.cssText = 'background: #ffffff; border-radius: 12px; padding: 20px 24px; min-width: 380px; max-width: 600px; max-height: 70vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;';
         var popupHeader = document.createElement('div');
         popupHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;';
         var popupTitle = document.createElement('h4');
         popupTitle.textContent = 'Failed Entries (' + failedEntries.length + ')';
-        popupTitle.style.cssText = 'margin: 0; color: white; font-size: 15px; font-weight: 600;';
+        popupTitle.style.cssText = 'margin: 0; color: #111827; font-size: 15px; font-weight: 600;';
         var popupCloseBtn = document.createElement('button');
         popupCloseBtn.innerHTML = '\u2715';
-        popupCloseBtn.style.cssText = 'background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;';
+        popupCloseBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        popupCloseBtn.onmouseover = function() { popupCloseBtn.style.background = '#f3f4f6'; popupCloseBtn.style.color = '#111827'; };
+        popupCloseBtn.onmouseout = function() { popupCloseBtn.style.background = 'transparent'; popupCloseBtn.style.color = '#6b7280'; };
         popupCloseBtn.onclick = function() { overlay.remove(); };
         popupHeader.appendChild(popupTitle);
         popupHeader.appendChild(popupCloseBtn);
@@ -1207,7 +1214,7 @@
         if (failedEntries.length === 0) {
             var emptyMsg = document.createElement('div');
             emptyMsg.textContent = 'No failures found.';
-            emptyMsg.style.cssText = 'color: rgba(255,255,255,0.6); font-size: 13px; padding: 16px 0; text-align: center;';
+            emptyMsg.style.cssText = 'color: #9ca3af; font-size: 13px; padding: 16px 0; text-align: center;';
             popup.appendChild(emptyMsg);
         } else {
             var hint = document.createElement('div');
@@ -1216,20 +1223,20 @@
             } else {
                 hint.textContent = 'Copy the names below to retry:';
             }
-            hint.style.cssText = 'color: rgba(255,255,255,0.6); font-size: 12px; margin-bottom: 8px;';
+            hint.style.cssText = 'color: #6b7280; font-size: 12px; margin-bottom: 8px;';
             popup.appendChild(hint);
             var textarea = document.createElement('textarea');
             textarea.value = failedEntries.join('\n');
             textarea.readOnly = true;
-            textarea.style.cssText = 'width: 100%; min-height: 150px; max-height: 45vh; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 13px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; padding: 10px 12px; resize: vertical; outline: none; box-sizing: border-box; line-height: 1.6;';
-            textarea.onfocus = function() { textarea.style.borderColor = 'rgba(255,255,255,0.4)'; };
-            textarea.onblur = function() { textarea.style.borderColor = 'rgba(255,255,255,0.2)'; };
+            textarea.style.cssText = 'width: 100%; min-height: 150px; max-height: 45vh; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; font-size: 13px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 10px 12px; resize: vertical; outline: none; box-sizing: border-box; line-height: 1.6;';
+            textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; };
+            textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; };
             popup.appendChild(textarea);
             var copyBtn = document.createElement('button');
             copyBtn.textContent = 'Copy All';
-            copyBtn.style.cssText = 'margin-top: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s ease; align-self: flex-end;';
-            copyBtn.onmouseover = function() { copyBtn.style.opacity = '0.85'; };
-            copyBtn.onmouseout = function() { copyBtn.style.opacity = '1'; };
+            copyBtn.style.cssText = 'margin-top: 10px; background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s ease; align-self: flex-end;';
+            copyBtn.onmouseover = function() { copyBtn.style.background = '#1d4ed8'; copyBtn.style.borderColor = '#1d4ed8'; };
+            copyBtn.onmouseout = function() { copyBtn.style.background = '#2563eb'; copyBtn.style.borderColor = '#2563eb'; };
             copyBtn.onclick = function() {
                 textarea.select();
                 document.execCommand('copy');
@@ -1265,7 +1272,7 @@
         if (statuses.length === 0) { return; }
         var dropdown = document.createElement('div');
         dropdown.id = listId + '-status-filter-dropdown';
-        dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);';
+        dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.15);';
         var filterState = {};
         for (var si = 0; si < statuses.length; si++) {
             filterState[statuses[si]] = true;
@@ -1282,18 +1289,18 @@
             }
         };
         var header = document.createElement('div');
-        header.style.cssText = 'padding: 12px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08);';
+        header.style.cssText = 'padding: 12px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;';
         var headerTitle = document.createElement('div');
         headerTitle.textContent = 'Filter by Status';
-        headerTitle.style.cssText = 'color: white; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
+        headerTitle.style.cssText = 'color: #111827; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
         header.appendChild(headerTitle);
         var selectAllRow = document.createElement('div');
         selectAllRow.style.cssText = 'display: flex; gap: 6px;';
         var selectAllBtn = document.createElement('button');
         selectAllBtn.textContent = 'All';
-        selectAllBtn.style.cssText = 'flex: 1; background: rgba(107, 207, 127, 0.15); border: 1px solid rgba(107, 207, 127, 0.3); color: #6bcf7f; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
-        selectAllBtn.onmouseover = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.25)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.5)'; };
-        selectAllBtn.onmouseout = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.15)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.3)'; };
+        selectAllBtn.style.cssText = 'flex: 1; background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px;';
+        selectAllBtn.onmouseover = function() { selectAllBtn.style.background = '#bbf7d0'; selectAllBtn.style.borderColor = '#4ade80'; };
+        selectAllBtn.onmouseout = function() { selectAllBtn.style.background = '#dcfce7'; selectAllBtn.style.borderColor = '#86efac'; };
         selectAllBtn.onclick = function() {
             for (var si = 0; si < statuses.length; si++) {
                 filterState[statuses[si]] = true;
@@ -1306,9 +1313,9 @@
         };
         var deselectAllBtn = document.createElement('button');
         deselectAllBtn.textContent = 'None';
-        deselectAllBtn.style.cssText = 'flex: 1; background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: #ff6b6b; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
-        deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.25)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.5)'; };
-        deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.15)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.3)'; };
+        deselectAllBtn.style.cssText = 'flex: 1; background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.5px;';
+        deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = '#fecaca'; deselectAllBtn.style.borderColor = '#f87171'; };
+        deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = '#fee2e2'; deselectAllBtn.style.borderColor = '#fca5a5'; };
         deselectAllBtn.onclick = function() {
             for (var si = 0; si < statuses.length; si++) {
                 filterState[statuses[si]] = false;
@@ -1328,13 +1335,13 @@
         for (var si = 0; si < statuses.length; si++) {
             var statusRow = document.createElement('div');
             statusRow.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; transition: background 0.15s ease; user-select: none;';
-            statusRow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.08)'; };
+            statusRow.onmouseover = function() { this.style.background = '#f3f4f6'; };
             statusRow.onmouseout = function() { this.style.background = 'transparent'; };
             var checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.checked = true;
             checkbox.setAttribute('data-status', statuses[si]);
-            checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #6bcf7f; flex-shrink: 0; cursor: pointer; margin: 0;';
+            checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #22c55e; flex-shrink: 0; cursor: pointer; margin: 0;';
             checkbox.onclick = function(e) { e.stopPropagation(); };
             checkbox.onchange = (function(status) {
                 return function(e) {
@@ -1345,7 +1352,7 @@
             })(statuses[si]);
             var label = document.createElement('span');
             label.textContent = statuses[si];
-            label.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
+            label.style.cssText = 'color: #374151; font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
             statusRow.onclick = (function(cb) {
                 return function(e) {
                     if (e.target !== cb) {
@@ -1361,12 +1368,12 @@
         }
         dropdown.appendChild(scrollContainer);
         var footer = document.createElement('div');
-        footer.style.cssText = 'padding: 10px 14px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.08);';
+        footer.style.cssText = 'padding: 10px 14px; background: #f9fafb; border-top: 1px solid #e5e7eb;';
         var copyFilteredBtn = document.createElement('button');
         copyFilteredBtn.innerHTML = '<span style=\"margin-right: 6px;\">\u2398</span>Copy Filtered';
-        copyFilteredBtn.style.cssText = 'width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);';
-        copyFilteredBtn.onmouseover = function() { copyFilteredBtn.style.transform = 'translateY(-1px)'; copyFilteredBtn.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'; };
-        copyFilteredBtn.onmouseout = function() { copyFilteredBtn.style.transform = 'translateY(0)'; copyFilteredBtn.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)'; };
+        copyFilteredBtn.style.cssText = 'width: 100%; background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;';
+        copyFilteredBtn.onmouseover = function() { copyFilteredBtn.style.background = '#1d4ed8'; copyFilteredBtn.style.borderColor = '#1d4ed8'; };
+        copyFilteredBtn.onmouseout = function() { copyFilteredBtn.style.background = '#2563eb'; copyFilteredBtn.style.borderColor = '#2563eb'; };
         copyFilteredBtn.onclick = function() {
             var filteredEntries = [];
             for (var i = 0; i < items.length; i++) {
@@ -1391,8 +1398,9 @@
                 document.body.removeChild(textarea);
                 var originalHTML = copyFilteredBtn.innerHTML;
                 copyFilteredBtn.innerHTML = '<span style=\"margin-right: 6px;\">\u2713</span>Copied ' + filteredEntries.length + ' entries!';
-                copyFilteredBtn.style.background = 'linear-gradient(135deg, #6bcf7f 0%, #4caf50 100%)';
-                setTimeout(function() { copyFilteredBtn.innerHTML = originalHTML; copyFilteredBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; }, 2000);
+                copyFilteredBtn.style.background = '#22c55e';
+                copyFilteredBtn.style.borderColor = '#22c55e';
+                setTimeout(function() { copyFilteredBtn.innerHTML = originalHTML; copyFilteredBtn.style.background = '#2563eb'; copyFilteredBtn.style.borderColor = '#2563eb'; }, 2000);
             }
         };
         footer.appendChild(copyFilteredBtn);
@@ -1431,32 +1439,32 @@
     function createListItem(text, statusText, statusType, index) {
         const item = document.createElement('div');
         item.className = ELOG_CSS_CLASSNAMES.listItem;
-        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin: 4px 0; background: rgba(255, 255, 255, 0.08); border-radius: 6px; transition: background 0.2s ease;';
-        item.onmouseover = function() { item.style.background = 'rgba(255, 255, 255, 0.12)'; };
-        item.onmouseout = function() { item.style.background = 'rgba(255, 255, 255, 0.08)'; };
+        item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin: 4px 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; transition: background 0.15s ease;';
+        item.onmouseover = function() { item.style.background = '#f3f4f6'; };
+        item.onmouseout = function() { item.style.background = '#ffffff'; };
         const leftSection = document.createElement('div');
         leftSection.style.cssText = 'display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;';
         if (index !== null && index !== undefined) {
             const indexBadge = document.createElement('span');
             indexBadge.textContent = index;
-            indexBadge.style.cssText = 'background: rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; min-width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
+            indexBadge.style.cssText = 'background: #f3f4f6; color: #6b7280; font-size: 11px; font-weight: 600; min-width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
             leftSection.appendChild(indexBadge);
         }
         const nameText = document.createElement('span');
         nameText.textContent = text;
-        nameText.style.cssText = 'color: white; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+        nameText.style.cssText = 'color: #111827; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
         leftSection.appendChild(nameText);
         item.appendChild(leftSection);
         if (statusText) {
             const statusBadge = document.createElement('span');
             statusBadge.className = 'elog-status-badge';
             statusBadge.textContent = statusText;
-            let badgeColor = 'rgba(255, 255, 255, 0.7)';
-            let badgeBg = 'rgba(255, 255, 255, 0.1)';
-            if (statusType === 'pending') { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
-            else if (statusType === 'found') { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
-            else if (statusType === 'notfound') { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
-            else if (statusType === 'duplicate') { badgeColor = '#ffa500'; badgeBg = 'rgba(255, 165, 0, 0.2)'; }
+            let badgeColor = '#6b7280';
+            let badgeBg = '#f3f4f6';
+            if (statusType === 'pending') { badgeColor = '#b45309'; badgeBg = '#fef3c7'; }
+            else if (statusType === 'found') { badgeColor = '#15803d'; badgeBg = '#dcfce7'; }
+            else if (statusType === 'notfound') { badgeColor = '#dc2626'; badgeBg = '#fee2e2'; }
+            else if (statusType === 'duplicate') { badgeColor = '#c2410c'; badgeBg = '#ffedd5'; }
             statusBadge.style.cssText = 'color: ' + badgeColor + '; background: ' + badgeBg + '; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0;';
             item.appendChild(statusBadge);
         }
@@ -1471,14 +1479,14 @@
         }
         var modal = document.createElement('div');
         modal.id = featureId + '-collecting-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 36px 48px; max-width: 420px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); text-align: center;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 36px 48px; max-width: 420px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); text-align: center;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', featureId + '-collecting-title');
         var spinner = document.createElement('div');
-        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: white; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
+        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
         var styleTag = document.getElementById('collecting-spinner-style');
         if (!styleTag) {
             styleTag = document.createElement('style');
@@ -1489,10 +1497,10 @@
         var title = document.createElement('h3');
         title.id = featureId + '-collecting-title';
         title.textContent = featureName || 'Please wait';
-        title.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0 0 8px 0; color: #111827; font-size: 18px; font-weight: 600;';
         var message = document.createElement('p');
         message.textContent = 'Please wait. Collecting data.';
-        message.style.cssText = 'margin: 0; color: rgba(255, 255, 255, 0.85); font-size: 15px; font-weight: 400;';
+        message.style.cssText = 'margin: 0; color: #6b7280; font-size: 15px; font-weight: 400;';
         container.appendChild(spinner);
         container.appendChild(title);
         container.appendChild(message);
@@ -1711,11 +1719,11 @@
                 const badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = statusText;
-                    let badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    let badgeBg = 'rgba(255, 255, 255, 0.1)';
-                    if (statusType === 'found') { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
-                    else if (statusType === 'notfound') { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
-                    else if (statusType === 'pending') { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                    let badgeColor = '#6b7280';
+                    let badgeBg = '#f3f4f6';
+                    if (statusType === 'found') { badgeColor = '#15803d'; badgeBg = '#dcfce7'; }
+                    else if (statusType === 'notfound') { badgeColor = '#dc2626'; badgeBg = '#fee2e2'; }
+                    else if (statusType === 'pending') { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
                 }
@@ -1743,9 +1751,9 @@
         const title = document.getElementById('elog-progress-title');
         if (badge) {
             badge.textContent = statusText;
-            if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; }
-            else if (statusType === 'error') { badge.style.background = 'rgba(255, 107, 107, 0.3)'; badge.style.color = '#ff6b6b'; }
-            else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; }
+            if (statusType === 'complete') { badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; }
+            else if (statusType === 'error') { badge.style.background = '#fee2e2'; badge.style.color = '#dc2626'; }
+            else { badge.style.background = '#fef3c7'; badge.style.color = '#d97706'; }
         }
         if (title && statusType === 'complete') { title.textContent = 'ELog Staff Entries - Complete'; }
     }
@@ -1822,7 +1830,7 @@
         if (existingNotice) { existingNotice.remove(); }
         const notice = document.createElement('div');
         notice.className = 'elog-inline-notice';
-        notice.style.cssText = 'background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: white; font-size: 13px; line-height: 1.4;';
+        notice.style.cssText = 'background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: #92400e; font-size: 13px; line-height: 1.4;';
         notice.textContent = message;
         container.appendChild(notice);
     }
@@ -3474,7 +3482,7 @@
         modal.className = VERIFY_CSS_CLASSNAMES.warningPanel;
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'verify-warning-title');
@@ -3484,13 +3492,13 @@
         const title = document.createElement('h3');
         title.id = 'verify-warning-title';
         title.textContent = 'Document Log Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #9ca3af; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#9ca3af'; };
         const closeWarning = function() {
             addLogMessage('showVerifyWarning: closing warning', 'log');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -3503,12 +3511,16 @@
         const messageDiv = document.createElement('p');
         messageDiv.id = 'verify-warning-message';
         messageDiv.textContent = 'The current page does not contain the Document Log Entries table. Please navigate to a page with the Document Log Entries grid before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #4b5563; margin: 0; font-size: 14px; line-height: 1.5;';
         const okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
-        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() {
+            okButton.style.background = '#fecaca';
+        };
+        okButton.onmouseout = function() {
+            okButton.style.background = '#fee2e2';
+        };
         okButton.onclick = closeWarning;
         const keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
         document.addEventListener('keydown', keyHandler);
@@ -3562,7 +3574,7 @@
         modal.id = 'verify-input-modal';
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'verify-input-title');
@@ -3571,13 +3583,13 @@
         const title = document.createElement('h3');
         title.id = 'verify-input-title';
         title.textContent = 'Verify Names';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() {
             addLogMessage('showVerifyInputPanel: closed by user', 'warn');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -3587,7 +3599,7 @@
         header.appendChild(title);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append("Rules:");
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -3605,21 +3617,21 @@
         textarea.id = 'verify-names-input';
         textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
         textarea.setAttribute('aria-label', 'Staff names input for verification');
-        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
-        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; resize: vertical; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease; box-sizing: border-box;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; textarea.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.15)'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; textarea.style.boxShadow = 'none'; };
         const confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.disabled = true;
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         const updateConfirmState = function() {
             const parsed = parseVerifyNamesInput(textarea.value);
             if (parsed.length > 0) { confirmButton.disabled = false; confirmButton.style.opacity = '1'; confirmButton.style.cursor = 'pointer'; }
             else { confirmButton.disabled = true; confirmButton.style.opacity = '0.5'; confirmButton.style.cursor = 'not-allowed'; }
         };
         textarea.oninput = updateConfirmState;
-        confirmButton.onmouseover = function() { if (!confirmButton.disabled) { confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
-        confirmButton.onmouseout = function() { confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        confirmButton.onmouseover = function() { if (!confirmButton.disabled) { confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a'; } };
+        confirmButton.onmouseout = function() { confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e'; };
         confirmButton.onclick = function() {
             addLogMessage('showVerifyInputPanel: Confirm clicked', 'log');
             const parsed = parseVerifyNamesInput(textarea.value);
@@ -3635,9 +3647,9 @@
         };
         const clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
-        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
-        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = '#e5e7eb'; };
+        clearButton.onmouseout = function() { clearButton.style.background = '#f3f4f6'; };
         clearButton.onclick = function() {
             addLogMessage('showVerifyInputPanel: Clear All clicked', 'log');
             textarea.value = '';
@@ -4115,9 +4127,9 @@
         const title = document.getElementById('verify-progress-title');
         if (badge) {
             badge.textContent = statusText;
-            if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; }
-            else if (statusType === 'error') { badge.style.background = 'rgba(255, 107, 107, 0.3)'; badge.style.color = '#ff6b6b'; }
-            else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; }
+            if (statusType === 'complete') { badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; }
+            else if (statusType === 'error') { badge.style.background = '#fee2e2'; badge.style.color = '#dc2626'; }
+            else { badge.style.background = '#fef3c7'; badge.style.color = '#d97706'; }
         }
         if (title && statusType === 'complete') { title.textContent = 'Verify Names - Complete'; }
     }
@@ -4137,7 +4149,7 @@
         if (existingNotice) { existingNotice.remove(); }
         const notice = document.createElement('div');
         notice.className = 'verify-inline-notice';
-        notice.style.cssText = 'background: rgba(255, 193, 7, 0.2); border-left: 4px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: white; font-size: 13px; line-height: 1.4;';
+        notice.style.cssText = 'background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px 14px; margin-top: 12px; color: #92400e; font-size: 13px; line-height: 1.4;';
         notice.textContent = message;
         container.appendChild(notice);
     }
@@ -4146,31 +4158,31 @@
         addLogMessage('showVerifyThreePanelLayout: creating 3-panel layout', 'log');
         var modal = document.createElement('div');
         modal.id = 'verify-threepanel-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; width: 95%; max-width: 1600px; height: 90%; max-height: 900px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; overflow: hidden;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; width: 95%; max-width: 1600px; height: 90%; max-height: 900px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; overflow: hidden;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'verify-threepanel-title');
         var header = document.createElement('div');
-        header.style.cssText = 'padding: 20px 24px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: space-between; align-items: center;';
+        header.style.cssText = 'padding: 20px 24px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;';
         var titleRow = document.createElement('div');
         titleRow.style.cssText = 'display: flex; align-items: center; gap: 12px;';
         var title = document.createElement('h3');
         title.id = 'verify-threepanel-title';
         title.textContent = 'Verify Names';
-        title.style.cssText = 'margin: 0; color: white; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 20px; font-weight: 600; letter-spacing: 0.3px;';
         var badge = document.createElement('span');
         badge.textContent = verifyState.scannedNames.length + ' names collected';
-        badge.style.cssText = 'background: rgba(107, 207, 127, 0.2); color: #6bcf7f; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;';
+        badge.style.cssText = 'background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;';
         titleRow.appendChild(title);
         titleRow.appendChild(badge);
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.1)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() {
             addLogMessage('showVerifyThreePanelLayout: closed by user', 'warn');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -4197,17 +4209,17 @@
 
     function createVerifyPanelWithSearch(titleText, bodyId) {
         var panel = document.createElement('div');
-        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        panel.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
         var panelHeader = document.createElement('div');
-        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        panelHeader.style.cssText = 'padding: 12px 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb;';
         var panelTitle = document.createElement('h4');
         panelTitle.textContent = titleText;
-        panelTitle.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        panelTitle.style.cssText = 'margin: 0 0 8px 0; color: #111827; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
         var searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.placeholder = 'Search names...';
         searchInput.id = bodyId + '-search';
-        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 12px; outline: none;';
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 12px; outline: none;';
         searchInput.oninput = function() { filterVerifyCollectedNames(searchInput.value); };
         panelHeader.appendChild(panelTitle);
         panelHeader.appendChild(searchInput);
@@ -4222,28 +4234,28 @@
 
     function createVerifyResultsPanel() {
         var panel = document.createElement('div');
-        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        panel.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
         var panelHeader = document.createElement('div');
-        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        panelHeader.style.cssText = 'padding: 12px 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb;';
         var titleRow = document.createElement('div');
         titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;';
         var panelTitle = document.createElement('h4');
         panelTitle.textContent = 'Results';
-        panelTitle.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        panelTitle.style.cssText = 'margin: 0; color: #111827; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
         var buttonRow = document.createElement('div');
         buttonRow.style.cssText = 'display: flex; gap: 6px;';
         var filterBtn = document.createElement('button');
         filterBtn.innerHTML = '⚙ Filter';
-        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
-        filterBtn.onmouseover = function() { filterBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
-        filterBtn.onmouseout = function() { filterBtn.style.background = 'rgba(255, 255, 255, 0.1)'; };
+        filterBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;';
+        filterBtn.onmouseover = function() { filterBtn.style.background = '#e5e7eb'; };
+        filterBtn.onmouseout = function() { filterBtn.style.background = '#f3f4f6'; };
         filterBtn.onclick = function(e) { toggleVerifyFilterDropdown(e); };
         var copyBtn = document.createElement('button');
         copyBtn.innerHTML = '📋 Copy';
         copyBtn.id = 'verify-copy-btn';
-        copyBtn.style.cssText = 'background: rgba(102, 126, 234, 0.3); border: 1px solid rgba(102, 126, 234, 0.5); color: white; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
-        copyBtn.onmouseover = function() { copyBtn.style.background = 'rgba(102, 126, 234, 0.5)'; };
-        copyBtn.onmouseout = function() { copyBtn.style.background = 'rgba(102, 126, 234, 0.3)'; };
+        copyBtn.style.cssText = 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;';
+        copyBtn.onmouseover = function() { copyBtn.style.background = '#dbeafe'; };
+        copyBtn.onmouseout = function() { copyBtn.style.background = '#eff6ff'; };
         copyBtn.onclick = function() { copyVerifyFilteredResults(); };
         buttonRow.appendChild(filterBtn);
         buttonRow.appendChild(copyBtn);
@@ -4253,7 +4265,7 @@
         searchInput.type = 'text';
         searchInput.placeholder = 'Search results...';
         searchInput.id = 'verify-results-search';
-        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 12px; outline: none;';
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 12px; outline: none;';
         searchInput.oninput = function() { filterVerifyResults(searchInput.value); };
         panelHeader.appendChild(titleRow);
         panelHeader.appendChild(searchInput);
@@ -4268,30 +4280,30 @@
 
     function createVerifyMiddlePanel() {
         var panel = document.createElement('div');
-        panel.style.cssText = 'background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
+        panel.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;';
         var panelHeader = document.createElement('div');
-        panelHeader.style.cssText = 'padding: 12px 16px; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        panelHeader.style.cssText = 'padding: 12px 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb;';
         var panelTitle = document.createElement('h4');
         panelTitle.textContent = 'Paste Names to Verify';
-        panelTitle.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
+        panelTitle.style.cssText = 'margin: 0; color: #111827; font-size: 14px; font-weight: 600; letter-spacing: 0.2px;';
         panelHeader.appendChild(panelTitle);
         var panelBody = document.createElement('div');
         panelBody.style.cssText = 'flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px;';
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.7); margin: 0; font-size: 12px; line-height: 1.5;';
+        description.style.cssText = 'color: #6b7280; margin: 0; font-size: 12px; line-height: 1.5;';
         description.textContent = 'Paste staff names below (one per line or comma-separated). Click "Generate Results" to see which names were found in the collected list.';
         var textarea = document.createElement('textarea');
         textarea.id = 'verify-threepanel-input';
         textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
         textarea.setAttribute('aria-label', 'Staff names input for verification');
-        textarea.style.cssText = 'flex: 1; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: white; font-size: 13px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: none; outline: none; transition: all 0.25s ease;';
-        textarea.onfocus = function() { textarea.style.borderColor = 'rgba(102, 126, 234, 0.6)'; textarea.style.background = 'rgba(255, 255, 255, 0.08)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.2)'; textarea.style.background = 'rgba(255, 255, 255, 0.05)'; };
+        textarea.style.cssText = 'flex: 1; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #ffffff; color: #111827; font-size: 13px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: none; outline: none; transition: all 0.15s ease;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; };
         var generateButton = document.createElement('button');
         generateButton.textContent = 'Generate Results';
-        generateButton.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.3px; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);';
-        generateButton.onmouseover = function() { generateButton.style.transform = 'translateY(-2px)'; generateButton.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)'; };
-        generateButton.onmouseout = function() { generateButton.style.transform = 'translateY(0)'; generateButton.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'; };
+        generateButton.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.3px; transition: all 0.15s ease;';
+        generateButton.onmouseover = function() { generateButton.style.background = '#1d4ed8'; generateButton.style.borderColor = '#1d4ed8'; };
+        generateButton.onmouseout = function() { generateButton.style.background = '#2563eb'; generateButton.style.borderColor = '#2563eb'; };
         generateButton.onclick = function() {
             var inputText = textarea.value;
             if (!inputText.trim()) {
@@ -4317,7 +4329,7 @@
         if (!bodyEl) return;
         bodyEl.innerHTML = '';
         if (verifyState.scannedNames.length === 0) {
-            bodyEl.innerHTML = '<div style="padding: 20px; color: rgba(255, 255, 255, 0.5); text-align: center;">No names collected</div>';
+            bodyEl.innerHTML = '<div style="padding: 20px; color: #9ca3af; text-align: center;">No names collected</div>';
             return;
         }
         var sorted = verifyState.scannedNames.slice().sort();
@@ -4325,10 +4337,10 @@
             var item = document.createElement('div');
             item.className = 'verify-collected-item';
             item.setAttribute('data-name', sorted[i].toLowerCase());
-            item.style.cssText = 'padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; margin-bottom: 6px; color: rgba(255, 255, 255, 0.9); font-size: 13px; transition: background 0.15s ease;';
+            item.style.cssText = 'padding: 8px 12px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; color: #374151; font-size: 13px; transition: all 0.15s ease;';
             item.textContent = sorted[i];
-            item.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
-            item.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.05)'; };
+            item.onmouseover = function() { this.style.background = '#f3f4f6'; };
+            item.onmouseout = function() { this.style.background = '#ffffff'; };
             bodyEl.appendChild(item);
         }
     }
@@ -4401,7 +4413,7 @@
         if (!bodyEl) return;
         bodyEl.innerHTML = '';
         if (verifyAllResults.length === 0) {
-            bodyEl.innerHTML = '<div style="padding: 20px; color: rgba(255, 255, 255, 0.5); text-align: center;">No results yet</div>';
+            bodyEl.innerHTML = '<div style="padding: 20px; color: #9ca3af; text-align: center;">No results yet</div>';
             return;
         }
         var searchTerm = '';
@@ -4419,27 +4431,27 @@
             var item = document.createElement('div');
             item.className = 'verify-result-item';
             item.setAttribute('data-status', result.status);
-            item.style.cssText = 'padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; margin-bottom: 6px; transition: background 0.15s ease;';
-            item.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
-            item.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.05)'; };
+            item.style.cssText = 'padding: 10px 12px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px; transition: all 0.15s ease;';
+            item.onmouseover = function() { this.style.background = '#f3f4f6'; };
+            item.onmouseout = function() { this.style.background = '#ffffff'; };
             var topRow = document.createElement('div');
             topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;';
             var nameSpan = document.createElement('span');
             nameSpan.textContent = result.name;
-            nameSpan.style.cssText = 'color: white; font-size: 13px; font-weight: 500;';
+            nameSpan.style.cssText = 'color: #111827; font-size: 13px; font-weight: 500;';
             var statusBadge = document.createElement('span');
             statusBadge.textContent = result.status;
             if (result.status === 'Found') {
-                statusBadge.style.cssText = 'background: rgba(107, 207, 127, 0.2); color: #6bcf7f; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
+                statusBadge.style.cssText = 'background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
             } else {
-                statusBadge.style.cssText = 'background: rgba(255, 107, 107, 0.2); color: #ff6b6b; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
+                statusBadge.style.cssText = 'background: #fee2e2; color: #dc2626; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;';
             }
             topRow.appendChild(nameSpan);
             topRow.appendChild(statusBadge);
             item.appendChild(topRow);
             if (result.matchedName) {
                 var matchRow = document.createElement('div');
-                matchRow.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; font-style: italic;';
+                matchRow.style.cssText = 'color: #6b7280; font-size: 11px; font-style: italic;';
                 matchRow.textContent = '→ Matched: ' + result.matchedName;
                 item.appendChild(matchRow);
             }
@@ -4462,21 +4474,22 @@
         dropdown.id = 'verify-filter-dropdown';
         dropdown.style.cssText = `
             position: fixed;
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            border: 1px solid rgba(255,255,255,.15);
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
             border-radius: 10px;
             padding: 8px;
             min-width: 75px;
             width: max-content;
             z-index: 30000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         `;
         dropdown.onclick = function(evt) { evt.stopPropagation(); };
         var options = ['Found', 'Not Found'];
         for (var i = 0; i < options.length; i++) {
             var opt = options[i];
             var label = document.createElement('label');
-            label.style.cssText = 'display: flex; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 6px; transition: background 0.2s; color: white; font-size: 13px;';
-            label.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.1)'; };
+            label.style.cssText = 'display: flex; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 6px; transition: background 0.15s; color: #374151; font-size: 13px;';
+            label.onmouseover = function() { this.style.background = '#f3f4f6'; };
             label.onmouseout = function() { this.style.background = 'transparent'; };
             var checkbox = document.createElement('input');
             checkbox.type = 'radio';
@@ -4529,10 +4542,14 @@
             if (copyBtn) {
                 var originalText = copyBtn.innerHTML;
                 copyBtn.innerHTML = '✓ Copied!';
-                copyBtn.style.background = 'rgba(107, 207, 127, 0.4)';
+                copyBtn.style.background = '#dcfce7';
+                copyBtn.style.borderColor = '#86efac';
+                copyBtn.style.color = '#15803d';
                 setTimeout(function() {
                     copyBtn.innerHTML = originalText;
-                    copyBtn.style.background = 'rgba(102, 126, 234, 0.3)';
+                    copyBtn.style.background = '#eff6ff';
+                    copyBtn.style.borderColor = '#bfdbfe';
+                    copyBtn.style.color = '#2563eb';
                 }, 2000);
             }
         }).catch(function(err) {
@@ -4601,11 +4618,11 @@
                 const badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = statusText;
-                    let badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    let badgeBg = 'rgba(255, 255, 255, 0.1)';
-                    if (statusType === 'found') { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
-                    else if (statusType === 'notfound') { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
-                    else if (statusType === 'pending') { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                    let badgeColor = '#6b7280';
+                    let badgeBg = '#f3f4f6';
+                    if (statusType === 'found') { badgeColor = '#15803d'; badgeBg = '#dcfce7'; }
+                    else if (statusType === 'notfound') { badgeColor = '#dc2626'; badgeBg = '#fee2e2'; }
+                    else if (statusType === 'pending') { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
                 }
@@ -4632,27 +4649,27 @@
                 const badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = newStatus;
-                    let badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    let badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    let badgeColor = '#6b7280';
+                    let badgeBg = '#f3f4f6';
                     if (newStatus === VERIFY_LABELS.statusExistsInDropdown) {
-                        badgeColor = '#6bcf7f';
-                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                        badgeColor = '#15803d';
+                        badgeBg = '#dcfce7';
                     }
                     else if (newStatus === VERIFY_LABELS.statusAlreadyInTable) {
-                        badgeColor = '#ffa500';
-                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                        badgeColor = '#c2410c';
+                        badgeBg = '#ffedd5';
                     }
                     else if (newStatus === VERIFY_LABELS.statusNotInDropdown) {
-                        badgeColor = '#ff6b6b';
-                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                        badgeColor = '#dc2626';
+                        badgeBg = '#fee2e2';
                     }
                     else if (newStatus === VERIFY_LABELS.statusStopped) {
-                        badgeColor = '#aaa';
-                        badgeBg = 'rgba(170, 170, 170, 0.2)';
+                        badgeColor = '#6b7280';
+                        badgeBg = '#e5e7eb';
                     }
                     else if (newStatus === VERIFY_LABELS.statusPending) {
-                        badgeColor = '#ffd93d';
-                        badgeBg = 'rgba(255, 217, 61, 0.2)';
+                        badgeColor = '#d97706';
+                        badgeBg = '#fef3c7';
                     }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
@@ -4695,7 +4712,7 @@
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         const container = document.createElement('div');
         container.id = 'verify-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'verify-progress-title');
@@ -4706,11 +4723,11 @@
         const title = document.createElement('h3');
         title.id = 'verify-progress-title';
         title.textContent = 'Verify Names - Review';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         const statusBadge = document.createElement('span');
         statusBadge.id = 'verify-status-badge';
         statusBadge.textContent = 'In Progress';
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(title);
         titleContainer.appendChild(statusBadge);
         const headerButtons = document.createElement('div');
@@ -4719,16 +4736,16 @@
         rescanButton.textContent = 'Re-scan';
         rescanButton.id = 'verify-rescan-btn';
         rescanButton.setAttribute('aria-label', 'Re-scan document log');
-        rescanButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
-        rescanButton.onmouseover = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        rescanButton.onmouseout = function() { rescanButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        rescanButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        rescanButton.onmouseover = function() { rescanButton.style.background = '#e5e7eb'; };
+        rescanButton.onmouseout = function() { rescanButton.style.background = '#f3f4f6'; };
         rescanButton.onclick = function() { addLogMessage('showVerifyProgressPanel: Re-scan clicked', 'log'); performVerifyRescan(); };
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.setAttribute('aria-label', 'Close and stop verification');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() {
             addLogMessage('showVerifyProgressPanel: closed by user', 'warn');
             if (modal.parentNode) { document.body.removeChild(modal); }
@@ -4739,13 +4756,13 @@
         pauseButton.textContent = 'Pause';
         pauseButton.id = 'verify-pause-btn';
         pauseButton.setAttribute('aria-label', 'Pause or resume verification');
-        pauseButton.style.cssText = 'background: rgba(255, 193, 7, 0.25); border: 2px solid rgba(255, 193, 7, 0.5); color: #ffd93d; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
-        pauseButton.onmouseover = function() { pauseButton.style.background = 'rgba(255, 193, 7, 0.4)'; };
+        pauseButton.style.cssText = 'background: #fef3c7; border: 1px solid #fde68a; color: #b45309; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        pauseButton.onmouseover = function() { pauseButton.style.background = '#fde68a'; };
         pauseButton.onmouseout = function() {
             if (verifyState.isPaused) {
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
+                pauseButton.style.background = '#dcfce7';
             } else {
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
+                pauseButton.style.background = '#fef3c7';
             }
         };
         pauseButton.onclick = function() {
@@ -4754,9 +4771,9 @@
                 verifyState.isPaused = false;
                 if (verifyState.timer) { verifyState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
-                pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
-                pauseButton.style.color = '#ffd93d';
+                pauseButton.style.background = '#fef3c7';
+                pauseButton.style.borderColor = '#fde68a';
+                pauseButton.style.color = '#b45309';
                 updateVerifyScanStatus('Verifying Names', 'progress');
                 var titleEl = document.getElementById('verify-progress-title');
                 if (titleEl) {
@@ -4768,9 +4785,9 @@
                 verifyState.isPaused = true;
                 if (verifyState.timer) { verifyState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
-                pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
-                pauseButton.style.color = '#6bcf7f';
+                pauseButton.style.background = '#dcfce7';
+                pauseButton.style.borderColor = '#86efac';
+                pauseButton.style.color = '#15803d';
                 updateVerifyScanStatus('Paused', 'paused');
                 var titleEl2 = document.getElementById('verify-progress-title');
                 if (titleEl2) {
@@ -4794,7 +4811,7 @@
         const summaryFooter = document.createElement('div');
         summaryFooter.id = 'verify-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Verification summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         const summaryItems = [
             { id: 'verify-summary-total', label: 'Total', value: '0' },
             { id: 'verify-summary-verified', label: 'Verified', value: '0' },
@@ -4810,10 +4827,10 @@
             const valSpan = document.createElement('span');
             valSpan.id = summaryItems[si].id;
             valSpan.textContent = summaryItems[si].value;
-            valSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            valSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             const labelSpan = document.createElement('span');
             labelSpan.textContent = summaryItems[si].label;
-            labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            labelSpan.style.cssText = 'display: block; color: #9ca3af; font-size: 11px; font-weight: 500; margin-top: 2px;';
             summaryItem.appendChild(valSpan);
             summaryItem.appendChild(labelSpan);
             summaryFooter.appendChild(summaryItem);
@@ -4862,9 +4879,9 @@
         filterBtn.id = 'verify-filter-btn';
         filterBtn.textContent = 'Filter';
         filterBtn.setAttribute('aria-label', 'Filter and copy names by status');
-        filterBtn.style.cssText = 'background: rgba(102, 126, 234, 0.2); border: 1px solid rgba(102, 126, 234, 0.4); color: rgba(102, 126, 234, 1); padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease; flex-shrink: 0;';
-        filterBtn.onmouseover = function() { filterBtn.style.background = 'rgba(102, 126, 234, 0.3)'; };
-        filterBtn.onmouseout = function() { filterBtn.style.background = 'rgba(102, 126, 234, 0.2)'; };
+        filterBtn.style.cssText = 'background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb; padding: 2px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0;';
+        filterBtn.onmouseover = function() { filterBtn.style.background = '#dbeafe'; };
+        filterBtn.onmouseout = function() { filterBtn.style.background = '#eff6ff'; };
         filterBtn.onclick = function() { showVerifyFilterPopup(); };
         existingBtnContainer.appendChild(filterBtn);
     }
@@ -4877,37 +4894,37 @@
         overlay.id = 'verify-filter-popup-overlay';
         overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; display: flex; align-items: center; justify-content: center;';
         var popup = document.createElement('div');
-        popup.style.cssText = 'background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 12px; padding: 20px 24px; min-width: 420px; max-width: 650px; max-height: 75vh; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15);';
+        popup.style.cssText = 'background: #ffffff; border-radius: 12px; padding: 20px 24px; min-width: 420px; max-width: 650px; max-height: 75vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0,0,0,0.15); border: 1px solid #e5e7eb;';
         var popupHeader = document.createElement('div');
         popupHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
         var popupTitle = document.createElement('h4');
         popupTitle.textContent = 'Filter & Copy Names';
-        popupTitle.style.cssText = 'margin: 0; color: white; font-size: 16px; font-weight: 600;';
+        popupTitle.style.cssText = 'margin: 0; color: #111827; font-size: 16px; font-weight: 600;';
         var popupCloseBtn = document.createElement('button');
         popupCloseBtn.innerHTML = '\u2715';
-        popupCloseBtn.style.cssText = 'background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;';
-        popupCloseBtn.onmouseover = function() { popupCloseBtn.style.background = 'rgba(255,255,255,0.2)'; };
-        popupCloseBtn.onmouseout = function() { popupCloseBtn.style.background = 'rgba(255,255,255,0.1)'; };
+        popupCloseBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        popupCloseBtn.onmouseover = function() { popupCloseBtn.style.background = '#f3f4f6'; popupCloseBtn.style.color = '#dc2626'; };
+        popupCloseBtn.onmouseout = function() { popupCloseBtn.style.background = 'transparent'; popupCloseBtn.style.color = '#6b7280'; };
         popupCloseBtn.onclick = function() { overlay.remove(); };
         popupHeader.appendChild(popupTitle);
         popupHeader.appendChild(popupCloseBtn);
         popup.appendChild(popupHeader);
         var statusFilters = [
-            { label: 'Exists in Dropdown', value: VERIFY_LABELS.statusExistsInDropdown, color: '#6bcf7f', bg: 'rgba(107, 207, 127, 0.2)' },
-            { label: 'Not in Dropdown', value: VERIFY_LABELS.statusNotInDropdown, color: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.2)' },
-            { label: 'Already in Table', value: VERIFY_LABELS.statusAlreadyInTable, color: '#ffa500', bg: 'rgba(255, 165, 0, 0.2)' },
-            { label: 'Duplicate', value: VERIFY_LABELS.statusDuplicate, color: '#9b59b6', bg: 'rgba(155, 89, 182, 0.2)' },
-            { label: 'Pending', value: VERIFY_LABELS.statusPending, color: '#ffd93d', bg: 'rgba(255, 217, 61, 0.2)' },
-            { label: 'Stopped', value: VERIFY_LABELS.statusStopped, color: '#aaa', bg: 'rgba(170, 170, 170, 0.2)' }
+            { label: 'Exists in Dropdown', value: VERIFY_LABELS.statusExistsInDropdown, color: '#22c55e', bg: '#dcfce7' },
+            { label: 'Not in Dropdown', value: VERIFY_LABELS.statusNotInDropdown, color: '#dc2626', bg: '#fee2e2' },
+            { label: 'Already in Table', value: VERIFY_LABELS.statusAlreadyInTable, color: '#f59e0b', bg: '#fef3c7' },
+            { label: 'Duplicate', value: VERIFY_LABELS.statusDuplicate, color: '#9333ea', bg: '#f3e8ff' },
+            { label: 'Pending', value: VERIFY_LABELS.statusPending, color: '#eab308', bg: '#fef9c3' },
+            { label: 'Stopped', value: VERIFY_LABELS.statusStopped, color: '#6b7280', bg: '#f3f4f6' }
         ];
         var filtersContainer = document.createElement('div');
         filtersContainer.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;';
         for (var i = 0; i < statusFilters.length; i++) {
             (function(filter) {
                 var filterCard = document.createElement('div');
-                filterCard.style.cssText = 'background: ' + filter.bg + '; border: 1px solid ' + filter.color + '40; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center;';
-                filterCard.onmouseover = function() { filterCard.style.background = filter.color + '30'; filterCard.style.borderColor = filter.color + '60'; };
-                filterCard.onmouseout = function() { filterCard.style.background = filter.bg; filterCard.style.borderColor = filter.color + '40'; };
+                filterCard.style.cssText = 'background: ' + filter.bg + '; border: 1px solid ' + filter.color + '; border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: all 0.15s ease; display: flex; justify-content: space-between; align-items: center;';
+                filterCard.onmouseover = function() { filterCard.style.background = '#ffffff'; };
+                filterCard.onmouseout = function() { filterCard.style.background = filter.bg; };
                 var labelContainer = document.createElement('div');
                 labelContainer.style.cssText = 'display: flex; flex-direction: column;';
                 var labelText = document.createElement('span');
@@ -4916,14 +4933,14 @@
                 var countText = document.createElement('span');
                 countText.id = 'verify-filter-count-' + filter.value.replace(/\s+/g, '-').toLowerCase();
                 countText.textContent = 'Counting...';
-                countText.style.cssText = 'color: rgba(255,255,255,0.5); font-size: 11px;';
+                countText.style.cssText = 'color: #9ca3af; font-size: 11px;';
                 labelContainer.appendChild(labelText);
                 labelContainer.appendChild(countText);
                 var copyBtn = document.createElement('button');
                 copyBtn.textContent = 'Copy';
-                copyBtn.style.cssText = 'background: ' + filter.color + '30; border: 1px solid ' + filter.color + '; color: ' + filter.color + '; padding: 4px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s ease;';
-                copyBtn.onmouseover = function(e) { e.stopPropagation(); copyBtn.style.background = filter.color + '50'; };
-                copyBtn.onmouseout = function(e) { e.stopPropagation(); copyBtn.style.background = filter.color + '30'; };
+                copyBtn.style.cssText = 'background: #ffffff; border: 1px solid ' + filter.color + '; color: ' + filter.color + '; padding: 4px 12px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;';
+                copyBtn.onmouseover = function(e) { e.stopPropagation(); copyBtn.style.background = '#f3f4f6'; };
+                copyBtn.onmouseout = function(e) { e.stopPropagation(); copyBtn.style.background = '#ffffff'; };
                 copyBtn.onclick = function(e) {
                     e.stopPropagation();
                     copyVerifyNamesByStatus(filter.value, copyBtn);
@@ -4937,9 +4954,9 @@
         popup.appendChild(filtersContainer);
         var showAllBtn = document.createElement('button');
         showAllBtn.textContent = 'Show All Names';
-        showAllBtn.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s ease; margin-top: 4px;';
-        showAllBtn.onmouseover = function() { showAllBtn.style.opacity = '0.85'; };
-        showAllBtn.onmouseout = function() { showAllBtn.style.opacity = '1'; };
+        showAllBtn.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s ease; margin-top: 4px;';
+        showAllBtn.onmouseover = function() { showAllBtn.style.background = '#1d4ed8'; showAllBtn.style.borderColor = '#1d4ed8'; };
+        showAllBtn.onmouseout = function() { showAllBtn.style.background = '#2563eb'; showAllBtn.style.borderColor = '#2563eb'; };
         showAllBtn.onclick = function() { filterVerifyPanelByStatus(null); overlay.remove(); };
         popup.appendChild(showAllBtn);
         overlay.appendChild(popup);
@@ -5969,9 +5986,9 @@
         addLogMessage('showRespWarning: creating warning popup', 'log');
         var modal = document.createElement('div');
         modal.id = 'resp-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'resp-warning-title');
@@ -5981,16 +5998,16 @@
         var title = document.createElement('h3');
         title.id = 'resp-warning-title';
         title.textContent = 'Study Role Page Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         var closeWarning = function() {
             addLogMessage('showRespWarning: closing warning', 'log');
@@ -6007,15 +6024,15 @@
         var messageDiv = document.createElement('p');
         messageDiv.id = 'resp-warning-message';
         messageDiv.textContent = RESP_LABELS.notOnPageWarning + ' Please navigate to the Study Roles step before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
         okButton.onmouseover = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#fecaca';
         };
         okButton.onmouseout = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            okButton.style.background = '#fee2e2';
         };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) {
@@ -6045,9 +6062,9 @@
         addLogMessage('showResponsibilitiesInputPanel: creating input panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'resp-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'resp-input-title');
@@ -6056,16 +6073,16 @@
         var titleEl = document.createElement('h3');
         titleEl.id = 'resp-input-title';
         titleEl.textContent = 'Set Responsibilities';
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showResponsibilitiesInputPanel: closed by user', 'warn');
@@ -6077,7 +6094,7 @@
         header.appendChild(titleEl);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append("Rules:");
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -6100,19 +6117,17 @@
         textarea.id = 'resp-input-textarea';
         textarea.placeholder = 'PI  1 to 8  13  14  17  21\nStudy Coordinator  1 6 7 8 10 12 13 14 17 33';
         textarea.setAttribute('aria-label', 'Role responsibilities input');
-        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         textarea.onfocus = function() {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
         };
         textarea.onblur = function() {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#d1d5db';
         };
         var confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.disabled = true;
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         textarea.oninput = function() {
             if (textarea.value.trim().length > 0) {
                 confirmButton.disabled = false;
@@ -6126,11 +6141,11 @@
         };
         confirmButton.onmouseover = function() {
             if (!confirmButton.disabled) {
-                confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+                confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a';
             }
         };
         confirmButton.onmouseout = function() {
-            confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e';
         };
         confirmButton.onclick = function() {
             addLogMessage('showResponsibilitiesInputPanel: Confirm clicked', 'log');
@@ -6153,12 +6168,12 @@
         };
         var clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
         clearButton.onmouseover = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#e5e7eb';
         };
         clearButton.onmouseout = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#f3f4f6';
         };
         clearButton.onclick = function() {
             addLogMessage('showResponsibilitiesInputPanel: Clear All clicked', 'log');
@@ -6191,27 +6206,27 @@
 
     function getRespBadgeColors(status) {
         if (status === RESP_LABELS.statusCompleted) {
-            return { color: '#6bcf7f', bg: 'rgba(107, 207, 127, 0.2)' };
+            return { color: '#15803d', bg: '#dcfce7' };
         }
         if (status === RESP_LABELS.statusFailed) {
-            return { color: '#ff6b6b', bg: 'rgba(255, 107, 107, 0.2)' };
+            return { color: '#dc2626', bg: '#fee2e2' };
         }
         if (status === RESP_LABELS.statusStopped) {
-            return { color: '#aaa', bg: 'rgba(170, 170, 170, 0.2)' };
+            return { color: '#6b7280', bg: '#e5e7eb' };
         }
-        return { color: '#ffd93d', bg: 'rgba(255, 217, 61, 0.2)' };
+        return { color: '#d97706', bg: '#fef3c7' };
     }
 
     function createRespRoleRow(roleData, index) {
         var item = document.createElement('div');
         item.className = 'resp-role-item';
         item.setAttribute('data-role-key', roleData.key);
-        item.style.cssText = 'display: flex; flex-direction: column; padding: 10px 12px; margin: 4px 0; background: rgba(255, 255, 255, 0.08); border-radius: 6px; transition: background 0.2s ease;';
+        item.style.cssText = 'display: flex; flex-direction: column; padding: 10px 12px; margin: 4px 0; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; transition: background 0.15s ease;';
         item.onmouseover = function() {
-            item.style.background = 'rgba(255, 255, 255, 0.12)';
+            item.style.background = '#f3f4f6';
         };
         item.onmouseout = function() {
-            item.style.background = 'rgba(255, 255, 255, 0.08)';
+            item.style.background = '#f9fafb';
         };
         var topRow = document.createElement('div');
         topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
@@ -6219,10 +6234,10 @@
         leftSection.style.cssText = 'display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;';
         var indexBadge = document.createElement('span');
         indexBadge.textContent = String(index + 1);
-        indexBadge.style.cssText = 'background: rgba(255, 255, 255, 0.15); color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; min-width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
+        indexBadge.style.cssText = 'background: #e5e7eb; color: #6b7280; font-size: 11px; font-weight: 600; min-width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
         var nameText = document.createElement('span');
         nameText.textContent = roleData.displayRole;
-        nameText.style.cssText = 'color: white; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+        nameText.style.cssText = 'color: #111827; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
         leftSection.appendChild(indexBadge);
         leftSection.appendChild(nameText);
         var statusBadge = document.createElement('span');
@@ -6234,18 +6249,18 @@
         topRow.appendChild(statusBadge);
         var detailRow = document.createElement('div');
         detailRow.className = 'resp-detail-row';
-        detailRow.style.cssText = 'margin-top: 6px; font-size: 11px; color: rgba(255, 255, 255, 0.7); line-height: 1.4;';
+        detailRow.style.cssText = 'margin-top: 6px; font-size: 11px; color: #6b7280; line-height: 1.4;';
         var commonLabel = document.createElement('div');
-        commonLabel.innerHTML = '<strong style="color: rgba(255,255,255,0.85);">Common:</strong> ' + (roleData.common.length > 0 ? roleData.common.join(', ') : 'None');
+        commonLabel.innerHTML = '<strong style="color: #374151;">Common:</strong> ' + (roleData.common.length > 0 ? roleData.common.join(', ') : 'None');
         detailRow.appendChild(commonLabel);
         if (roleData.excluded.length > 0) {
             var excludedLabel = document.createElement('div');
-            excludedLabel.innerHTML = '<strong style="color: rgba(255,255,255,0.85);">Excluded:</strong> ' + roleData.excluded.join(', ');
+            excludedLabel.innerHTML = '<strong style="color: #374151;">Excluded:</strong> ' + roleData.excluded.join(', ');
             detailRow.appendChild(excludedLabel);
         }
         if (roleData.reason) {
             var reasonLabel = document.createElement('div');
-            reasonLabel.style.cssText = 'color: #ff6b6b; margin-top: 2px;';
+            reasonLabel.style.cssText = 'color: #dc2626; margin-top: 2px;';
             reasonLabel.textContent = roleData.reason;
             detailRow.appendChild(reasonLabel);
         }
@@ -6273,10 +6288,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
     var modal = document.createElement('div');
     modal.id = 'resp-progress-modal';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
     var container = document.createElement('div');
     container.id = 'resp-progress-container';
-    container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 750px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+    container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 750px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
     container.setAttribute('role', 'dialog');
     container.setAttribute('aria-modal', 'true');
     container.setAttribute('aria-labelledby', 'resp-progress-title');
@@ -6287,22 +6302,22 @@ function showResponsibilitiesProgressPanel(rolesData) {
     var title = document.createElement('h3');
     title.id = 'resp-progress-title';
     title.textContent = 'Set Responsibilities - Processing';
-    title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+    title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
     var statusBadge = document.createElement('span');
     statusBadge.id = 'resp-status-badge';
     statusBadge.textContent = 'In Progress';
-    statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+    statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
     titleContainer.appendChild(title);
     titleContainer.appendChild(statusBadge);
     var closeButton = document.createElement('button');
     closeButton.innerHTML = '\u2715';
     closeButton.setAttribute('aria-label', 'Close and stop');
-    closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+    closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
     closeButton.onmouseover = function() {
-        closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+        closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
     };
     closeButton.onmouseout = function() {
-        closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
     };
     closeButton.onclick = function() {
         addLogMessage('showResponsibilitiesProgressPanel: closed', 'warn');
@@ -6314,7 +6329,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     addLogMessage('showResponsibilitiesProgressPanel: header appended', 'log');
 
     var descriptionContainer = document.createElement('div');
-    descriptionContainer.style.cssText = 'margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+    descriptionContainer.style.cssText = 'margin-bottom: 12px; padding: 8px 0; border-bottom: 1px solid #e5e7eb;';
     var description = document.createElement('div');
     var bulletPoints = [
         'Do not click anywhere on the page or outside of the page. It will affect the process as doing so closes the dropdown menu.',
@@ -6323,7 +6338,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     description.innerHTML = bulletPoints.map(function(point) {
         return '• ' + point;
     }).join('<br>');
-    description.style.cssText = 'color: rgba(255, 255, 255, 0.85); font-size: 13px; line-height: 1.4; font-weight: 400;';
+    description.style.cssText = 'color: #4b5563; font-size: 13px; line-height: 1.4; font-weight: 400;';
     descriptionContainer.appendChild(description);
     container.appendChild(descriptionContainer);
     addLogMessage('showResponsibilitiesProgressPanel: description appended', 'log');
@@ -6333,7 +6348,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     searchInput.id = 'resp-progress-search';
     searchInput.placeholder = 'Search roles...';
     searchInput.setAttribute('aria-label', 'Search roles');
-    searchInput.style.cssText = 'width: 100%; padding: 8px 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: white; font-size: 13px; outline: none; box-sizing: border-box; margin-bottom: 12px; flex-shrink: 0;';
+    searchInput.style.cssText = 'width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 13px; outline: none; box-sizing: border-box; margin-bottom: 12px; flex-shrink: 0;';
     searchInput.oninput = function() {
         var term = searchInput.value.toLowerCase().trim();
         var items = document.querySelectorAll('.resp-role-item');
@@ -6351,7 +6366,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     var listContainer = document.createElement('div');
     listContainer.id = 'resp-roles-list';
-    listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 150px; max-height: 400px;';
+    listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 150px; max-height: 400px; padding: 4px;';
     for (var ri = 0; ri < rolesData.length; ri++) {
         listContainer.appendChild(createRespRoleRow(rolesData[ri], ri));
     }
@@ -6360,7 +6375,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     var summaryFooter = document.createElement('div');
     summaryFooter.id = 'resp-summary-footer';
-    summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+    summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
     var summaryItems = [
         { id: 'resp-summary-total', label: 'Total', value: String(respState.counters.total) },
         { id: 'resp-summary-completed', label: 'Completed', value: String(respState.counters.completed) },
@@ -6374,10 +6389,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var vSpan = document.createElement('span');
         vSpan.id = summaryItems[si2].id;
         vSpan.textContent = summaryItems[si2].value;
-        vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+        vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
         var lSpan = document.createElement('span');
         lSpan.textContent = summaryItems[si2].label;
-        lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+        lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
         sItem.appendChild(vSpan);
         sItem.appendChild(lSpan);
         summaryFooter.appendChild(sItem);
@@ -6424,7 +6439,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     var dr = items[i].querySelector('.resp-detail-row');
                     if (dr) {
                         var re = document.createElement('div');
-                        re.style.cssText = 'color: #ff6b6b; margin-top: 2px;';
+                        re.style.cssText = 'color: #dc2626; margin-top: 2px;';
                         re.textContent = reason;
                         dr.appendChild(re);
                     }
@@ -7670,9 +7685,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showCleanInputPanel: creating input panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'clean-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'clean-input-title');
@@ -7681,16 +7696,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'clean-input-title';
         title.textContent = CLEAN_LABELS.inputTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close input panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showCleanInputPanel: closed by user', 'log');
@@ -7700,7 +7715,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(closeButton);
         var description = document.createElement('p');
         description.textContent = 'Paste the raw responsibility list below. Items should start with a number followed by . or ) or = and text.';
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         var textareaLabel = document.createElement('label');
         textareaLabel.setAttribute('for', 'clean-input-textarea');
         textareaLabel.textContent = 'Responsibilities text';
@@ -7708,20 +7723,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var textarea = document.createElement('textarea');
         textarea.id = 'clean-input-textarea';
         textarea.placeholder = '1. First responsibility\n2. Second responsibility\n3. Third responsibility';
-        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         textarea.onfocus = function() {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
         };
         textarea.onblur = function() {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#d1d5db';
         };
         var confirmButton = document.createElement('button');
         confirmButton.textContent = CLEAN_LABELS.confirm;
         confirmButton.disabled = true;
         confirmButton.setAttribute('aria-label', 'Confirm and parse responsibilities');
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var updateConfirmState = function() {
             var hasInput = textarea.value.trim().length > 0;
             confirmButton.disabled = !hasInput;
@@ -7737,11 +7750,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         cleanState.eventListeners.push({ element: textarea, type: 'input', handler: updateConfirmState });
         confirmButton.onmouseover = function() {
             if (!confirmButton.disabled) {
-                confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+                confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a';
             }
         };
         confirmButton.onmouseout = function() {
-            confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e';
         };
         confirmButton.onclick = function() {
             if (confirmButton.disabled) {
@@ -7758,7 +7771,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 addLogMessage('showCleanInputPanel: no items parsed, showing notice', 'warn');
                 var notice = document.createElement('div');
                 notice.textContent = 'No numbered items found. Ensure items start with a number followed by . or ) or = and text.';
-                notice.style.cssText = 'color: #ffd93d; font-size: 13px; margin-top: 8px; padding: 8px; background: rgba(255, 217, 61, 0.15); border-radius: 6px;';
+                notice.style.cssText = 'background: #fef3c7; border-left: 4px solid #f59e0b; color: #92400e; font-size: 13px; margin-top: 8px; padding: 8px 12px; border-radius: 6px;';
                 notice.setAttribute('role', 'alert');
                 var existingNotice = container.querySelector('[role="alert"]');
                 if (existingNotice) {
@@ -7778,12 +7791,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var clearButton = document.createElement('button');
         clearButton.textContent = CLEAN_LABELS.clear;
         clearButton.setAttribute('aria-label', 'Clear all input');
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
         clearButton.onmouseover = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#e5e7eb';
         };
         clearButton.onmouseout = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#f3f4f6';
         };
         clearButton.onclick = function() {
             addLogMessage('showCleanInputPanel: Clear All clicked', 'log');
@@ -7833,9 +7846,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showCleanResultsPanel: creating results panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'clean-results-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'clean-results-title');
@@ -7844,16 +7857,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'clean-results-title';
         title.textContent = CLEAN_LABELS.resultsTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close results panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showCleanResultsPanel: closed by user', 'log');
@@ -7865,38 +7878,41 @@ function showResponsibilitiesProgressPanel(rolesData) {
         summaryBar.style.cssText = 'display: flex; gap: 12px; margin-bottom: 12px; flex-shrink: 0; flex-wrap: wrap;';
         var totalBadge = document.createElement('span');
         totalBadge.textContent = 'Total: ' + model.cleanLines.length;
-        totalBadge.style.cssText = 'background: rgba(255, 255, 255, 0.15); color: white; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        totalBadge.style.cssText = 'background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         summaryBar.appendChild(totalBadge);
         if (model.tooLongCount > 0) {
             var longBadge = document.createElement('span');
             longBadge.textContent = 'Over ' + CLEAN_LIMITS.maxChars + ' chars: ' + model.tooLongCount;
-            longBadge.style.cssText = 'background: rgba(255, 107, 107, 0.25); color: #ff6b6b; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+            longBadge.style.cssText = 'background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
             summaryBar.appendChild(longBadge);
         }
         if (model.tooShortCount > 0) {
             var shortBadge = document.createElement('span');
             shortBadge.textContent = 'Under ' + CLEAN_LIMITS.maxChars + ' chars: ' + model.tooShortCount;
-            shortBadge.style.cssText = 'background: rgba(107, 207, 127, 0.25); color: #6bcf7f; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+            shortBadge.style.cssText = 'background: #dcfce7; color: #15803d; border: 1px solid #86efac; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
             summaryBar.appendChild(shortBadge);
         }
         var outputScrollStyle = document.createElement('style');
-        outputScrollStyle.textContent = '.clean-results-output::-webkit-scrollbar { width: 6px; } .clean-results-output::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 3px; } .clean-results-output::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 3px; } .clean-results-output::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.5); } .clean-results-warning-icon { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; pointer-events: auto; }';
+        outputScrollStyle.textContent = '.clean-results-output::-webkit-scrollbar { width: 6px; } .clean-results-output::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 3px; } .clean-results-output::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; } .clean-results-output::-webkit-scrollbar-thumb:hover { background: #9ca3af; } .clean-results-warning-icon { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; pointer-events: auto; }';
         document.head.appendChild(outputScrollStyle);
         var outputArea = document.createElement('div');
-        outputArea.style.cssText = 'background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 12px; overflow-y: auto; flex: 1; min-height: 100px; max-height: 400px;';
+        outputArea.style.cssText = 'background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; overflow-y: auto; flex: 1; min-height: 100px; max-height: 400px;';
         outputArea.className = 'clean-results-output';
         var copyBlock = document.createElement('div');
         copyBlock.id = 'clean-copy-block';
         var headerLine = document.createElement('div');
         headerLine.textContent = model.headerLine;
-        headerLine.style.cssText = 'color: white; font-size: 15px; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.2);';
+        headerLine.style.cssText = 'color: #111827; font-size: 15px; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb;';
         copyBlock.appendChild(headerLine);
         for (var i = 0; i < model.cleanLines.length; i++) {
             var row = document.createElement('div');
-            row.style.cssText = 'display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; color: white; font-size: 14px; line-height: 1.5;';
+            row.style.cssText = 'display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; color: #374151; font-size: 14px; line-height: 1.5;';
             var textSpan = document.createElement('span');
             textSpan.textContent = model.cleanLines[i];
             textSpan.style.cssText = 'flex: 1; word-break: break-word;';
+            if (model.flags[i].tooLong) {
+                textSpan.style.background = '#fef3c7';
+            }
             row.appendChild(textSpan);
             if (model.flags[i].tooLong) {
                 var warnIcon = document.createElement('span');
@@ -7904,7 +7920,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 warnIcon.textContent = '\u26A0';
                 warnIcon.setAttribute('aria-hidden', 'true');
                 warnIcon.setAttribute('title', 'Exceeds ' + CLEAN_LIMITS.maxChars + ' character limit. Length: ' + model.flags[i].length);
-                warnIcon.style.cssText = 'color: #ffd93d; font-size: 14px; flex-shrink: 0; cursor: help; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;';
+                warnIcon.style.cssText = 'color: #d97706; font-size: 14px; flex-shrink: 0; cursor: help; user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;';
                 row.appendChild(warnIcon);
             }
             outputArea.appendChild(row);
@@ -7913,12 +7929,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var downloadButton = document.createElement('button');
         downloadButton.textContent = hasXlsx ? CLEAN_LABELS.downloadXlsx : CLEAN_LABELS.downloadCsv;
         downloadButton.setAttribute('aria-label', hasXlsx ? 'Download as Excel file' : 'Download as CSV file');
-        downloadButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; flex: 1;';
+        downloadButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; flex: 1;';
         downloadButton.onmouseover = function() {
-            downloadButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+            downloadButton.style.background = '#16a34a'; downloadButton.style.borderColor = '#16a34a';
         };
         downloadButton.onmouseout = function() {
-            downloadButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            downloadButton.style.background = '#22c55e'; downloadButton.style.borderColor = '#22c55e';
         };
         downloadButton.onclick = function() {
             addLogMessage('showCleanResultsPanel: Download clicked', 'log');
@@ -7929,7 +7945,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 addLogMessage('showCleanResultsPanel: export failed', 'error');
                 var exportNotice = document.createElement('div');
                 exportNotice.textContent = CLEAN_LABELS.exportFailed;
-                exportNotice.style.cssText = 'color: #ff6b6b; font-size: 13px; margin-top: 8px; padding: 8px; background: rgba(255, 107, 107, 0.15); border-radius: 6px;';
+                exportNotice.style.cssText = 'background: #fee2e2; border-left: 4px solid #dc2626; color: #991b1b; font-size: 13px; margin-top: 8px; padding: 8px 12px; border-radius: 6px;';
                 exportNotice.setAttribute('role', 'alert');
                 var existingNotice = container.querySelector('[role="alert"]');
                 if (existingNotice) {
@@ -7941,12 +7957,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var closeBtn = document.createElement('button');
         closeBtn.textContent = CLEAN_LABELS.close;
         closeBtn.setAttribute('aria-label', 'Close results');
-        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px); flex: 1;';
+        closeBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; flex: 1;';
         closeBtn.onmouseover = function() {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.28)';
+            closeBtn.style.background = '#e5e7eb';
         };
         closeBtn.onmouseout = function() {
-            closeBtn.style.background = 'rgba(255, 255, 255, 0.18)';
+            closeBtn.style.background = '#f3f4f6';
         };
         closeBtn.onclick = function() {
             addLogMessage('showCleanResultsPanel: Close clicked', 'log');
@@ -8402,9 +8418,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showDoAInputPanel: creating input panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'doa-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 600px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 600px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'doa-input-title');
@@ -8413,16 +8429,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'doa-input-title';
         title.textContent = DOA_LABELS.featureButton;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showDoAInputPanel: closed by user', 'warn');
@@ -8437,7 +8453,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(title);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append("Rules:");
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -8455,19 +8471,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
         textarea.id = 'doa-entries-input';
         textarea.placeholder = 'Paste tab-separated staff table here...\nExample:\nPETER WINKLE\tPW\tMD\tp.winkle@cenexel.com\tPrincipal Investigator\tPI\t1 to 8\t13\t14';
         textarea.setAttribute('aria-label', 'DoA staff entries input');
-        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 13px; font-family: Consolas, monospace, Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 13px; font-family: Consolas, monospace, Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         textarea.onfocus = function() {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
         };
         textarea.onblur = function() {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#d1d5db';
         };
         var confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.disabled = true;
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var updateConfirmState = function() {
             var parsed = parseDoAEntriesInput(textarea.value);
             if (parsed.length > 0) {
@@ -8483,11 +8497,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         textarea.oninput = updateConfirmState;
         confirmButton.onmouseover = function() {
             if (!confirmButton.disabled) {
-                confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+                confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a';
             }
         };
         confirmButton.onmouseout = function() {
-            confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e';
         };
         confirmButton.onclick = function() {
             addLogMessage('showDoAInputPanel: Confirm clicked', 'log');
@@ -8509,12 +8523,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         };
         var clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
         clearButton.onmouseover = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#e5e7eb';
         };
         clearButton.onmouseout = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#f3f4f6';
         };
         clearButton.onclick = function() {
             addLogMessage('showDoAInputPanel: Clear All clicked', 'log');
@@ -8602,29 +8616,29 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 var badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = newStatus;
-                    var badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    var badgeColor = '#6b7280';
+                    var badgeBg = '#f3f4f6';
                     if (newStatus === DOA_LABELS.statusAdded) {
-                        badgeColor = '#6bcf7f';
-                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                        badgeColor = '#15803d';
+                        badgeBg = '#dcfce7';
                     } else if (newStatus === DOA_LABELS.statusAlready) {
-                        badgeColor = '#ffa500';
-                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                        badgeColor = '#c2410c';
+                        badgeBg = '#ffedd5';
                     } else if (newStatus === DOA_LABELS.statusDuplicate) {
-                        badgeColor = '#ffa500';
-                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                        badgeColor = '#c2410c';
+                        badgeBg = '#ffedd5';
                     } else if (newStatus === DOA_LABELS.statusNotInDropdown || newStatus === DOA_LABELS.statusSelectionFailed || newStatus === DOA_LABELS.statusSaveFailed || newStatus === DOA_LABELS.statusRoleNotFound) {
-                        badgeColor = '#ff6b6b';
-                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                        badgeColor = '#dc2626';
+                        badgeBg = '#fee2e2';
                     } else if (newStatus === DOA_LABELS.statusTasksApplied) {
-                        badgeColor = '#6bcf7f';
-                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                        badgeColor = '#15803d';
+                        badgeBg = '#dcfce7';
                     } else if (newStatus === DOA_LABELS.statusStopped) {
-                        badgeColor = '#aaa';
-                        badgeBg = 'rgba(170, 170, 170, 0.2)';
+                        badgeColor = '#6b7280';
+                        badgeBg = '#e5e7eb';
                     } else if (newStatus === DOA_LABELS.statusPending) {
-                        badgeColor = '#ffd93d';
-                        badgeBg = 'rgba(255, 217, 61, 0.2)';
+                        badgeColor = '#d97706';
+                        badgeBg = '#fef3c7';
                     }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
@@ -8672,17 +8686,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
         if (badge) {
             badge.textContent = statusText;
             if (statusType === 'complete') {
-                badge.style.background = 'rgba(107, 207, 127, 0.3)';
-                badge.style.color = '#6bcf7f';
+                badge.style.background = '#dcfce7';
+                badge.style.color = '#15803d';
             } else if (statusType === 'error') {
-                badge.style.background = 'rgba(255, 107, 107, 0.3)';
-                badge.style.color = '#ff6b6b';
+                badge.style.background = '#fee2e2';
+                badge.style.color = '#dc2626';
             } else if (statusType === 'stopped') {
-                badge.style.background = 'rgba(170, 170, 170, 0.3)';
-                badge.style.color = '#aaa';
+                badge.style.background = '#e5e7eb';
+                badge.style.color = '#6b7280';
             } else {
-                badge.style.background = 'rgba(255, 217, 61, 0.3)';
-                badge.style.color = '#ffd93d';
+                badge.style.background = '#fef3c7';
+                badge.style.color = '#d97706';
             }
         }
         if (titleEl && statusType === 'complete') {
@@ -8695,10 +8709,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         doaState.isRunning = true;
         var modal = document.createElement('div');
         modal.id = 'doa-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'doa-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'doa-progress-title');
@@ -8709,11 +8723,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var titleEl = document.createElement('h3');
         titleEl.id = 'doa-progress-title';
         titleEl.textContent = 'DoA Log Staff Entries - Review';
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span');
         statusBadge.id = 'doa-status-badge';
         statusBadge.textContent = 'In Progress';
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(titleEl);
         titleContainer.appendChild(statusBadge);
         var headerButtons = document.createElement('div');
@@ -8721,12 +8735,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showDoAProgressPanel: closed by user', 'warn');
@@ -8742,13 +8756,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
         pauseButton.textContent = 'Pause';
         pauseButton.id = 'doa-pause-btn';
         pauseButton.setAttribute('aria-label', 'Pause or resume adding entries');
-        pauseButton.style.cssText = 'background: rgba(255, 193, 7, 0.25); border: 2px solid rgba(255, 193, 7, 0.5); color: #ffd93d; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease;';
-        pauseButton.onmouseover = function() { pauseButton.style.background = 'rgba(255, 193, 7, 0.4)'; };
+        pauseButton.style.cssText = 'background: #fef3c7; border: 1px solid #fde68a; color: #b45309; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
+        pauseButton.onmouseover = function() { pauseButton.style.background = '#fde68a'; };
         pauseButton.onmouseout = function() {
             if (doaState.isPaused) {
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
+                pauseButton.style.background = '#dcfce7';
             } else {
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
+                pauseButton.style.background = '#fef3c7';
             }
         };
         pauseButton.onclick = function() {
@@ -8757,9 +8771,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 doaState.isPaused = false;
                 if (doaState.timer) { doaState.timer.resume(); }
                 pauseButton.textContent = 'Pause';
-                pauseButton.style.background = 'rgba(255, 193, 7, 0.25)';
-                pauseButton.style.borderColor = 'rgba(255, 193, 7, 0.5)';
-                pauseButton.style.color = '#ffd93d';
+                pauseButton.style.background = '#fef3c7';
+                pauseButton.style.borderColor = '#fde68a';
+                pauseButton.style.color = '#b45309';
                 updateDoAScanStatus('Adding Entries', 'progress');
                 var title = document.getElementById('doa-progress-title');
                 if (title) {
@@ -8771,9 +8785,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 doaState.isPaused = true;
                 if (doaState.timer) { doaState.timer.pause(); }
                 pauseButton.textContent = 'Resume';
-                pauseButton.style.background = 'rgba(76, 175, 80, 0.25)';
-                pauseButton.style.borderColor = 'rgba(76, 175, 80, 0.5)';
-                pauseButton.style.color = '#6bcf7f';
+                pauseButton.style.background = '#dcfce7';
+                pauseButton.style.borderColor = '#86efac';
+                pauseButton.style.color = '#15803d';
                 updateDoAScanStatus('Paused', 'paused');
                 var title = document.getElementById('doa-progress-title');
                 if (title) {
@@ -8795,7 +8809,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var summaryFooter = document.createElement('div');
         summaryFooter.id = 'doa-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Processing summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var summaryItems = [
             { id: 'doa-summary-total', label: 'Total', value: '0' },
             { id: 'doa-summary-added', label: 'Added', value: '0' },
@@ -8810,10 +8824,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var valSpan = document.createElement('span');
             valSpan.id = summaryItems[si].id;
             valSpan.textContent = summaryItems[si].value;
-            valSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            valSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             var labelSpan = document.createElement('span');
             labelSpan.textContent = summaryItems[si].label;
-            labelSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            labelSpan.style.cssText = 'display: block; color: #9ca3af; font-size: 11px; font-weight: 500; margin-top: 2px;';
             summaryItem.appendChild(valSpan);
             summaryItem.appendChild(labelSpan);
             summaryFooter.appendChild(summaryItem);
@@ -9866,9 +9880,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showDoAWarning: creating warning popup', 'log');
         var modal = document.createElement('div');
         modal.id = 'doa-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'doa-warning-title');
@@ -9878,16 +9892,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'doa-warning-title';
         title.textContent = 'Document Log Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         var closeWarning = function() {
             addLogMessage('showDoAWarning: closing warning', 'log');
@@ -9905,15 +9919,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var messageDiv = document.createElement('p');
         messageDiv.id = 'doa-warning-message';
         messageDiv.textContent = 'The current page does not contain the Document Log Entries table. Please navigate to a page with the DoA Log before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
         okButton.onmouseover = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#fecaca';
         };
         okButton.onmouseout = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            okButton.style.background = '#fee2e2';
         };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) {
@@ -10242,9 +10256,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showCbSelectWarning: creating warning popup', 'log');
         var modal = document.createElement('div');
         modal.id = 'cb-select-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cb-select-warning-title');
@@ -10254,16 +10268,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'cb-select-warning-title';
         title.textContent = 'Document Log Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         var closeWarning = function() {
             if (modal.parentNode) {
@@ -10277,15 +10291,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var messageDiv = document.createElement('p');
         messageDiv.id = 'cb-select-warning-message';
         messageDiv.textContent = 'You are not on the Document Log page. Please navigate to a page with the Document Log Entries grid before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
         okButton.onmouseover = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#fecaca';
         };
         okButton.onmouseout = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            okButton.style.background = '#fee2e2';
         };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) {
@@ -10348,9 +10362,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showSelectCheckboxesInputPanel: creating input panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'cb-select-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 500px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cb-select-input-title');
@@ -10359,16 +10373,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var titleEl = document.createElement('h3');
         titleEl.id = 'cb-select-input-title';
         titleEl.textContent = CB_SELECT_LABELS.inputTitle;
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showSelectCheckboxesInputPanel: closed by user', 'warn');
@@ -10380,7 +10394,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(titleEl);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append("Rules:");
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -10395,10 +10409,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
         }
         var toggleContainer = document.createElement('div');
-        toggleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; background: rgba(0, 0, 0, 0.15); border-radius: 8px;';
+        toggleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding: 10px 14px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px;';
         var toggleLabel = document.createElement('span');
         toggleLabel.textContent = CB_SELECT_LABELS.toggleSelectAll;
-        toggleLabel.style.cssText = 'color: white; font-size: 14px; font-weight: 500;';
+        toggleLabel.style.cssText = 'color: #374151; font-size: 14px; font-weight: 500;';
         toggleLabel.id = 'cb-select-toggle-label';
         var toggleSwitch = document.createElement('button');
         toggleSwitch.id = 'cb-select-toggle';
@@ -10406,28 +10420,26 @@ function showResponsibilitiesProgressPanel(rolesData) {
         toggleSwitch.setAttribute('aria-checked', 'false');
         toggleSwitch.setAttribute('aria-labelledby', 'cb-select-toggle-label');
         toggleSwitch.tabIndex = 0;
-        toggleSwitch.style.cssText = 'position: relative; width: 48px; height: 26px; border-radius: 13px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.15); cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;';
+        toggleSwitch.style.cssText = 'position: relative; width: 48px; height: 26px; border-radius: 13px; border: 2px solid #d1d5db; background: #e5e7eb; cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;';
         var toggleKnob = document.createElement('span');
-        toggleKnob.style.cssText = 'position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: white; transition: transform 0.3s ease; pointer-events: none;';
+        toggleKnob.style.cssText = 'position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; transition: transform 0.3s ease; pointer-events: none;';
         toggleSwitch.appendChild(toggleKnob);
         var selectAllOn = false;
         var textarea = document.createElement('textarea');
         textarea.id = 'cb-select-names-input';
         textarea.placeholder = 'Name1, Name2, Name3\nor\nName1\nName2\nName3';
         textarea.setAttribute('aria-label', 'Names input for checkbox selection');
-        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.style.cssText = 'width: 100%; height: 160px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         textarea.onfocus = function() {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
         };
         textarea.onblur = function() {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#d1d5db';
         };
         var confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.disabled = true;
-        confirmButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        confirmButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var updateConfirmState = function() {
             if (selectAllOn) {
                 confirmButton.disabled = false;
@@ -10451,15 +10463,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
             selectAllOn = !selectAllOn;
             toggleSwitch.setAttribute('aria-checked', String(selectAllOn));
             if (selectAllOn) {
-                toggleSwitch.style.background = 'rgba(107, 207, 127, 0.6)';
-                toggleSwitch.style.borderColor = 'rgba(107, 207, 127, 0.8)';
+                toggleSwitch.style.background = '#22c55e';
+                toggleSwitch.style.borderColor = '#22c55e';
                 toggleKnob.style.transform = 'translateX(22px)';
                 textarea.disabled = true;
                 textarea.style.opacity = '0.4';
                 textarea.style.cursor = 'not-allowed';
             } else {
-                toggleSwitch.style.background = 'rgba(255, 255, 255, 0.15)';
-                toggleSwitch.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                toggleSwitch.style.background = '#e5e7eb';
+                toggleSwitch.style.borderColor = '#d1d5db';
                 toggleKnob.style.transform = 'translateX(0)';
                 textarea.disabled = false;
                 textarea.style.opacity = '1';
@@ -10475,11 +10487,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         };
         confirmButton.onmouseover = function() {
             if (!confirmButton.disabled) {
-                confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+                confirmButton.style.background = '#16a34a'; confirmButton.style.borderColor = '#16a34a';
             }
         };
         confirmButton.onmouseout = function() {
-            confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            confirmButton.style.background = '#22c55e'; confirmButton.style.borderColor = '#22c55e';
         };
         confirmButton.onclick = function() {
             addLogMessage('showSelectCheckboxesInputPanel: Confirm clicked, selectAll=' + selectAllOn, 'log');
@@ -10503,12 +10515,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         };
         var clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
         clearButton.onmouseover = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#e5e7eb';
         };
         clearButton.onmouseout = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#f3f4f6';
         };
         clearButton.onclick = function() {
             addLogMessage('showSelectCheckboxesInputPanel: Clear All clicked', 'log');
@@ -10544,10 +10556,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('openCheckboxSelectProgressPanel: creating progress panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'cb-select-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'cb-select-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cb-select-progress-title');
@@ -10558,22 +10570,22 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'cb-select-progress-title';
         title.textContent = CB_SELECT_LABELS.progressTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span');
         statusBadge.id = 'cb-select-status-badge';
         statusBadge.textContent = 'In Progress';
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(title);
         titleContainer.appendChild(statusBadge);
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('openCheckboxSelectProgressPanel: closed by user', 'warn');
@@ -10593,7 +10605,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var summaryFooter = document.createElement('div');
         summaryFooter.id = 'cb-select-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Selection summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var summaryItems = [
             { id: 'cb-select-summary-total', label: 'Total', value: '0' },
             { id: 'cb-select-summary-selected', label: 'Selected', value: '0' },
@@ -10610,10 +10622,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var vSpan = document.createElement('span');
             vSpan.id = summaryItems[si].id;
             vSpan.textContent = summaryItems[si].value;
-            vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             var lSpan = document.createElement('span');
             lSpan.textContent = summaryItems[si].label;
-            lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             sItem.appendChild(vSpan);
             sItem.appendChild(lSpan);
             summaryFooter.appendChild(sItem);
@@ -10941,26 +10953,26 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 var badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = newStatus;
-                    var badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    var badgeColor = '#6b7280';
+                    var badgeBg = '#f3f4f6';
                     if (newStatus === CB_SELECT_LABELS.statusPending) {
-                        badgeColor = '#ffd93d';
-                        badgeBg = 'rgba(255, 217, 61, 0.2)';
+                        badgeColor = '#d97706';
+                        badgeBg = '#fef3c7';
                     } else if (newStatus === CB_SELECT_LABELS.statusSelected) {
-                        badgeColor = '#6bcf7f';
-                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                        badgeColor = '#15803d';
+                        badgeBg = '#dcfce7';
                     } else if (newStatus === CB_SELECT_LABELS.statusAlready) {
-                        badgeColor = '#64b5f6';
-                        badgeBg = 'rgba(100, 181, 246, 0.2)';
+                        badgeColor = '#2563eb';
+                        badgeBg = '#eff6ff';
                     } else if (newStatus === CB_SELECT_LABELS.statusNotInTable) {
-                        badgeColor = '#ff6b6b';
-                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                        badgeColor = '#dc2626';
+                        badgeBg = '#fee2e2';
                     } else if (newStatus === CB_SELECT_LABELS.statusFailed) {
-                        badgeColor = '#ff6b6b';
-                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                        badgeColor = '#dc2626';
+                        badgeBg = '#fee2e2';
                     } else if (newStatus === CB_SELECT_LABELS.statusStopped) {
-                        badgeColor = '#ffa500';
-                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                        badgeColor = '#92400e';
+                        badgeBg = '#fde68a';
                     }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
@@ -11145,7 +11157,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var badge = document.getElementById('cb-select-status-badge');
             if (badge) {
                 badge.textContent = 'Error';
-                badge.style.color = '#ff6b6b';
+                badge.style.color = '#dc2626';
+                badge.style.background = '#fee2e2';
             }
             cbUpdateAriaLive('Grid table not found');
             return;
@@ -11381,7 +11394,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var badge = document.getElementById('cb-select-status-badge');
             if (badge) {
                 badge.textContent = CB_SELECT_LABELS.done;
-                badge.style.color = '#6bcf7f';
+                badge.style.color = '#15803d';
+                badge.style.background = '#dcfce7';
             }
             var titleEl = document.getElementById('cb-select-progress-title');
             if (titleEl) {
@@ -11920,32 +11934,32 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 var badge = item.querySelector('.elog-status-badge');
                 if (badge) {
                     badge.textContent = newStatus;
-                    var badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    var badgeColor = '#374151';
+                    var badgeBg = '#f3f4f6';
                     if (newStatus === SSIG_LABELS.statusPending) {
-                        badgeColor = '#ffd93d';
-                        badgeBg = 'rgba(255, 217, 61, 0.2)';
+                        badgeColor = '#d97706';
+                        badgeBg = '#fef3c7';
                     } else if (newStatus === SSIG_LABELS.statusSelected) {
-                        badgeColor = '#6bcf7f';
-                        badgeBg = 'rgba(107, 207, 127, 0.2)';
+                        badgeColor = '#15803d';
+                        badgeBg = '#dcfce7';
                     } else if (newStatus === SSIG_LABELS.statusAlready) {
-                        badgeColor = '#64b5f6';
-                        badgeBg = 'rgba(100, 181, 246, 0.2)';
+                        badgeColor = '#2563eb';
+                        badgeBg = '#dbeafe';
                     } else if (newStatus === SSIG_LABELS.statusPISigned) {
-                        badgeColor = '#ffa500';
-                        badgeBg = 'rgba(255, 165, 0, 0.2)';
+                        badgeColor = '#d97706';
+                        badgeBg = '#fef3c7';
                     } else if (newStatus === SSIG_LABELS.statusNotEligible) {
-                        badgeColor = '#aaa';
-                        badgeBg = 'rgba(170, 170, 170, 0.2)';
+                        badgeColor = '#6b7280';
+                        badgeBg = '#e5e7eb';
                     } else if (newStatus === SSIG_LABELS.statusStrikethrough) {
-                        badgeColor = '#ce93d8';
-                        badgeBg = 'rgba(206, 147, 216, 0.2)';
+                        badgeColor = '#9333ea';
+                        badgeBg = '#f3e8ff';
                     } else if (newStatus === SSIG_LABELS.statusFailed) {
-                        badgeColor = '#ff6b6b';
-                        badgeBg = 'rgba(255, 107, 107, 0.2)';
+                        badgeColor = '#dc2626';
+                        badgeBg = '#fee2e2';
                     } else if (newStatus === SSIG_LABELS.statusStopped) {
-                        badgeColor = '#aaa';
-                        badgeBg = 'rgba(170, 170, 170, 0.2)';
+                        badgeColor = '#6b7280';
+                        badgeBg = '#e5e7eb';
                     }
                     badge.style.color = badgeColor;
                     badge.style.background = badgeBg;
@@ -12005,10 +12019,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showSelectSignedCheckboxProgressPanel: creating progress panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'ssig-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'ssig-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'ssig-progress-title');
@@ -12019,23 +12033,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'ssig-progress-title';
         title.textContent = SSIG_LABELS.progressTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span');
         statusBadge.id = 'ssig-status-badge';
         statusBadge.textContent = 'In Progress';
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(title);
         titleContainer.appendChild(statusBadge);
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.id = 'ssig-close-btn';
         closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showSelectSignedCheckboxProgressPanel: closed by user', 'warn');
@@ -12052,7 +12068,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var summaryFooter = document.createElement('div');
         summaryFooter.id = 'ssig-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Selection summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var summaryItems = [
             { id: 'ssig-summary-total', label: 'Total', value: '0' },
             { id: 'ssig-summary-selected', label: 'Selected', value: '0' },
@@ -12070,10 +12086,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var vSpan = document.createElement('span');
             vSpan.id = summaryItems[si].id;
             vSpan.textContent = summaryItems[si].value;
-            vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             var lSpan = document.createElement('span');
             lSpan.textContent = summaryItems[si].label;
-            lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             sItem.appendChild(vSpan);
             sItem.appendChild(lSpan);
             summaryFooter.appendChild(sItem);
@@ -12535,7 +12551,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var badge = document.getElementById('ssig-status-badge');
         if (badge) {
             badge.textContent = SSIG_LABELS.done;
-            badge.style.color = '#6bcf7f';
+            badge.style.color = '#15803d';
+            badge.style.background = '#dcfce7';
         }
         var titleEl = document.getElementById('ssig-progress-title');
         if (titleEl) {
@@ -12568,9 +12585,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showSsigWarning: creating warning popup', 'log');
         var modal = document.createElement('div');
         modal.id = 'ssig-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'ssig-warning-title');
@@ -12580,16 +12597,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'ssig-warning-title';
         title.textContent = 'Document Log Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
         };
         var closeWarning = function() {
             if (modal.parentNode) {
@@ -12603,15 +12622,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var messageDiv = document.createElement('p');
         messageDiv.id = 'ssig-warning-message';
         messageDiv.textContent = 'You are not on the Document Log page. Please navigate to a page with the Document Log Entries grid before using this feature.';
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
         okButton.onmouseover = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#fecaca';
         };
         okButton.onmouseout = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            okButton.style.background = '#fee2e2';
         };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) {
@@ -12848,21 +12867,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function tlogShowWarning(message) {
         var modal = document.createElement('div');
         modal.id = 'tlog-scan-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         var header = document.createElement('div');
         header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
         var title = document.createElement('h3');
         title.textContent = 'List Not Found';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeBtn = document.createElement('button');
         closeBtn.innerHTML = '\u2715';
-        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = '#f3f4f6'; closeBtn.style.color = '#dc2626'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#6b7280'; };
         var closeWarning = function() {
             if (modal.parentNode) document.body.removeChild(modal);
             stopTlog();
@@ -12872,12 +12891,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(closeBtn);
         var msgP = document.createElement('p');
         msgP.textContent = message;
-        msgP.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        msgP.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okBtn = document.createElement('button');
         okBtn.textContent = 'OK';
-        okBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
-        okBtn.onmouseover = function() { okBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        okBtn.onmouseout = function() { okBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okBtn.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
+        okBtn.onmouseover = function() { okBtn.style.background = '#fecaca'; };
+        okBtn.onmouseout = function() { okBtn.style.background = '#fee2e2'; };
         okBtn.onclick = closeWarning;
         container.appendChild(header);
         container.appendChild(msgP);
@@ -12898,13 +12917,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('tlogShowScanProgress: creating scan progress panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'tlog-scan-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 36px 48px; max-width: 480px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); text-align: center;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 36px 48px; max-width: 480px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); text-align: center;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         var spinner = document.createElement('div');
-        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: white; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
+        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
         var styleTag = document.getElementById('collecting-spinner-style');
         if (!styleTag) {
             styleTag = document.createElement('style');
@@ -12914,16 +12933,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
         var title = document.createElement('h3');
         title.textContent = TLOG_LABELS.progressTitle;
-        title.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0 0 8px 0; color: #111827; font-size: 18px; font-weight: 600;';
         var countLabel = document.createElement('p');
         countLabel.id = 'tlog-scan-count';
         countLabel.textContent = 'Discovered: 0 items';
-        countLabel.style.cssText = 'margin: 0; color: rgba(255, 255, 255, 0.85); font-size: 15px; font-weight: 400;';
+        countLabel.style.cssText = 'margin: 0; color: #6b7280; font-size: 15px; font-weight: 400;';
         var cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease; margin-top: 18px;';
-        cancelBtn.onmouseover = function() { cancelBtn.style.background = 'rgba(255, 67, 54, 0.6)'; };
-        cancelBtn.onmouseout = function() { cancelBtn.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        cancelBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease; margin-top: 18px;';
+        cancelBtn.onmouseover = function() { cancelBtn.style.background = '#e5e7eb'; cancelBtn.style.color = '#dc2626'; };
+        cancelBtn.onmouseout = function() { cancelBtn.style.background = '#f3f4f6'; cancelBtn.style.color = '#374151'; };
         cancelBtn.onclick = function() { stopTlog(); };
         container.appendChild(spinner);
         container.appendChild(title);
@@ -13042,21 +13061,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('tlogShowSelectionGUI: showing selection panel with ' + tlogState.discoveredItems.length + ' items', 'log');
         var modal = document.createElement('div');
         modal.id = 'tlog-selection-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 700px; max-width: 95%; max-height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 700px; max-width: 95%; max-height: 85vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         var header = document.createElement('div');
         header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
         var title = document.createElement('h3');
         title.textContent = TLOG_LABELS.selectionTitle + ' (' + tlogState.discoveredItems.length + ')';
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var closeBtn = document.createElement('button');
         closeBtn.innerHTML = '\u2715';
-        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = '#f3f4f6'; closeBtn.style.color = '#dc2626'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#6b7280'; };
         closeBtn.onclick = function() { stopTlog(); };
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -13065,45 +13084,45 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var selectAllCb = document.createElement('input');
         selectAllCb.type = 'checkbox';
         selectAllCb.id = 'tlog-select-all';
-        selectAllCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #6bcf7f;';
+        selectAllCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #22c55e;';
         var selectAllLabel = document.createElement('label');
         selectAllLabel.htmlFor = 'tlog-select-all';
         selectAllLabel.textContent = 'Select All';
-        selectAllLabel.style.cssText = 'color: white; font-size: 14px; font-weight: 500; cursor: pointer;';
+        selectAllLabel.style.cssText = 'color: #374151; font-size: 14px; font-weight: 500; cursor: pointer;';
         var selectedCount = document.createElement('span');
         selectedCount.id = 'tlog-selected-count';
         selectedCount.textContent = '(0 selected)';
-        selectedCount.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 13px; margin-left: auto;';
+        selectedCount.style.cssText = 'color: #6b7280; font-size: 13px; margin-left: auto;';
         selectAllContainer.appendChild(selectAllCb);
         selectAllContainer.appendChild(selectAllLabel);
         var doaCb = document.createElement('input');
         doaCb.type = 'checkbox';
         doaCb.id = 'tlog-doa-mode';
-        doaCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #ffd93d; margin-left: 16px;';
+        doaCb.style.cssText = 'width: 18px; height: 18px; cursor: pointer; accent-color: #f59e0b; margin-left: 16px;';
         var doaLabel = document.createElement('label');
         doaLabel.htmlFor = 'tlog-doa-mode';
         doaLabel.textContent = 'DoA';
-        doaLabel.style.cssText = 'color: white; font-size: 14px; font-weight: 500; cursor: pointer;';
+        doaLabel.style.cssText = 'color: #374151; font-size: 14px; font-weight: 500; cursor: pointer;';
         selectAllContainer.appendChild(doaCb);
         selectAllContainer.appendChild(doaLabel);
         selectAllContainer.appendChild(selectedCount);
         var listContainer = document.createElement('div');
-        listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 200px; max-height: 50vh; background: rgba(0, 0, 0, 0.15); border-radius: 8px; padding: 8px;';
+        listContainer.style.cssText = 'flex: 1; overflow-y: auto; min-height: 200px; max-height: 50vh; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px;';
         var checkboxes = [];
         for (var i = 0; i < tlogState.discoveredItems.length; i++) {
             var item = tlogState.discoveredItems[i];
             var row = document.createElement('div');
-            row.style.cssText = 'display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 3px 0; background: rgba(255, 255, 255, 0.06); border-radius: 6px; transition: background 0.2s ease; cursor: pointer;';
-            row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.12)'; };
-            row.onmouseout = function() { this.style.background = 'rgba(255, 255, 255, 0.06)'; };
+            row.style.cssText = 'display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; margin: 3px 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; transition: background 0.15s ease; cursor: pointer;';
+            row.onmouseover = function() { this.style.background = '#f3f4f6'; };
+            row.onmouseout = function() { this.style.background = '#ffffff'; };
             var cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.setAttribute('data-tlog-index', String(i));
-            cb.style.cssText = 'width: 16px; height: 16px; cursor: pointer; accent-color: #6bcf7f; flex-shrink: 0; margin-top: 2px;';
+            cb.style.cssText = 'width: 16px; height: 16px; cursor: pointer; accent-color: #22c55e; flex-shrink: 0; margin-top: 2px;';
             checkboxes.push(cb);
             var labelSpan = document.createElement('span');
             labelSpan.textContent = item.ariaLabel;
-            labelSpan.style.cssText = 'color: white; font-size: 13px; line-height: 1.4; word-break: break-word;';
+            labelSpan.style.cssText = 'color: #374151; font-size: 13px; line-height: 1.4; word-break: break-word;';
             row.appendChild(cb);
             row.appendChild(labelSpan);
             row.onclick = (function(checkbox) {
@@ -13119,7 +13138,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var continueBtn = document.createElement('button');
         continueBtn.textContent = 'Continue';
         continueBtn.disabled = true;
-        continueBtn.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 600; transition: all 0.25s ease; opacity: 0.5; margin-top: 16px; flex-shrink: 0;';
+        continueBtn.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 12px 24px; border-radius: 8px; cursor: not-allowed; font-size: 14px; font-weight: 600; transition: all 0.15s ease; opacity: 0.5; margin-top: 16px; flex-shrink: 0;';
         function updateSelectionState() {
             var count = 0;
             for (var ci = 0; ci < checkboxes.length; ci++) {
@@ -13150,8 +13169,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             updateSelectionState();
         });
-        continueBtn.onmouseover = function() { if (!continueBtn.disabled) continueBtn.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; };
-        continueBtn.onmouseout = function() { continueBtn.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueBtn.onmouseover = function() { if (!continueBtn.disabled) { continueBtn.style.background = '#16a34a'; continueBtn.style.borderColor = '#16a34a'; } };
+        continueBtn.onmouseout = function() { continueBtn.style.background = '#22c55e'; continueBtn.style.borderColor = '#22c55e'; };
         continueBtn.onclick = function() {
             addLogMessage('tlogShowSelectionGUI: Continue clicked', 'log');
             var selected = [];
@@ -13248,9 +13267,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modal.id = 'tlog-processing-modal';
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 36px 48px; max-width: 520px; width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); text-align: center;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 36px 48px; max-width: 520px; width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15); text-align: center;';
         var spinner = document.createElement('div');
-        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: white; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
+        spinner.style.cssText = 'width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; margin: 0 auto 20px; animation: collectingSpin 0.8s linear infinite;';
         var styleTag = document.getElementById('collecting-spinner-style');
         if (!styleTag) {
             styleTag = document.createElement('style');
@@ -13260,34 +13279,34 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
         var title = document.createElement('h3');
         title.textContent = TLOG_LABELS.processingTitle;
-        title.style.cssText = 'margin: 0 0 8px 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0 0 8px 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusLabel = document.createElement('p');
         statusLabel.id = 'tlog-processing-status';
         statusLabel.textContent = 'Processing page 1 of ' + tlogState.selectedItems.length + '...';
-        statusLabel.style.cssText = 'margin: 0 0 6px 0; color: rgba(255, 255, 255, 0.85); font-size: 14px;';
+        statusLabel.style.cssText = 'margin: 0 0 6px 0; color: #374151; font-size: 14px;';
         var itemLabel = document.createElement('p');
         itemLabel.id = 'tlog-processing-item';
         itemLabel.textContent = '';
-        itemLabel.style.cssText = 'margin: 0 0 10px 0; color: rgba(255, 255, 255, 0.6); font-size: 12px; word-break: break-word;';
+        itemLabel.style.cssText = 'margin: 0 0 10px 0; color: #6b7280; font-size: 12px; word-break: break-word;';
         var collectionLabel = document.createElement('p');
         collectionLabel.id = 'tlog-collection-count';
         collectionLabel.textContent = 'Waiting for page to load...';
-        collectionLabel.style.cssText = 'margin: 0 0 4px 0; color: rgba(255, 255, 255, 0.75); font-size: 13px; font-weight: 500;';
+        collectionLabel.style.cssText = 'margin: 0 0 4px 0; color: #374151; font-size: 13px; font-weight: 500;';
         var progressBarOuter = document.createElement('div');
-        progressBarOuter.style.cssText = 'width: 100%; height: 6px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; margin: 0 0 6px 0; overflow: hidden;';
+        progressBarOuter.style.cssText = 'width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; margin: 0 0 6px 0; overflow: hidden;';
         var progressBarInner = document.createElement('div');
         progressBarInner.id = 'tlog-collection-bar';
-        progressBarInner.style.cssText = 'width: 0%; height: 100%; background: linear-gradient(90deg, #6bcf7f, #4ecdc4); border-radius: 3px; transition: width 0.3s ease;';
+        progressBarInner.style.cssText = 'width: 0%; height: 100%; background: linear-gradient(90deg, #22c55e, #10b981); border-radius: 3px; transition: width 0.3s ease;';
         progressBarOuter.appendChild(progressBarInner);
         var totalLabel = document.createElement('p');
         totalLabel.id = 'tlog-collection-total';
         totalLabel.textContent = 'Total collected: 0 rows';
-        totalLabel.style.cssText = 'margin: 0; color: rgba(255, 255, 255, 0.55); font-size: 11px;';
+        totalLabel.style.cssText = 'margin: 0; color: #6b7280; font-size: 11px;';
         var cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.25s ease; margin-top: 18px;';
-        cancelBtn.onmouseover = function() { cancelBtn.style.background = 'rgba(255, 67, 54, 0.6)'; };
-        cancelBtn.onmouseout = function() { cancelBtn.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        cancelBtn.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease; margin-top: 18px;';
+        cancelBtn.onmouseover = function() { cancelBtn.style.background = '#fecaca'; };
+        cancelBtn.onmouseout = function() { cancelBtn.style.background = '#fee2e2'; };
         cancelBtn.onclick = function() { stopTlog(); };
         container.appendChild(spinner);
         container.appendChild(title);
@@ -13677,7 +13696,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'tlog-final-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #1e2a3a 0%, #2d1b4e 100%); border-radius: 12px; padding: 20px; width: 98vw; max-width: 1800px; height: 85vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; width: 98vw; max-width: 1800px; height: 85vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         var isFullscreen = false;
@@ -13685,34 +13704,40 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-shrink: 0;';
         var titleEl = document.createElement('h3');
         titleEl.textContent = TLOG_LABELS.finalTitle;
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var headerBtns = document.createElement('div');
         headerBtns.style.cssText = 'display: flex; gap: 6px;';
         var fullscreenBtn = document.createElement('button');
         fullscreenBtn.innerHTML = '\u26F6';
         fullscreenBtn.title = 'Toggle fullscreen';
-        fullscreenBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        fullscreenBtn.onmouseover = function() { fullscreenBtn.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        fullscreenBtn.onmouseout = function() { fullscreenBtn.style.background = 'rgba(255, 255, 255, 0.15)'; };
+        fullscreenBtn.style.cssText = 'background: #f3f4f6; border: none; color: #374151; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        fullscreenBtn.onmouseover = function() { fullscreenBtn.style.background = '#e5e7eb'; fullscreenBtn.style.color = '#111827'; };
+        fullscreenBtn.onmouseout = function() { fullscreenBtn.style.background = '#f3f4f6'; fullscreenBtn.style.color = '#374151'; };
         fullscreenBtn.onclick = function() {
             isFullscreen = !isFullscreen;
             if (isFullscreen) {
-                container.style.width = '100vw';
+                container.style.width = 'calc(100vw - 360px)';
                 container.style.height = '100vh';
-                container.style.maxWidth = '100vw';
+                container.style.maxWidth = 'calc(100vw - 360px)';
                 container.style.borderRadius = '0';
+                container.style.left = '360px';
+                container.style.top = '0';
+                container.style.transform = 'none';
             } else {
                 container.style.width = '98vw';
                 container.style.height = '85vh';
                 container.style.maxWidth = '1800px';
                 container.style.borderRadius = '12px';
+                container.style.left = '50%';
+                container.style.top = '50%';
+                container.style.transform = 'translate(-50%, -50%)';
             }
         };
         var closeBtn = document.createElement('button');
         closeBtn.innerHTML = '\u2715';
-        closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeBtn.onmouseover = function() { closeBtn.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255, 255, 255, 0.15)'; };
+        closeBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeBtn.onmouseover = function() { closeBtn.style.background = '#f3f4f6'; closeBtn.style.color = '#dc2626'; };
+        closeBtn.onmouseout = function() { closeBtn.style.background = 'transparent'; closeBtn.style.color = '#6b7280'; };
         closeBtn.onclick = function() { stopTlog(); };
         headerBtns.appendChild(fullscreenBtn);
         headerBtns.appendChild(closeBtn);
@@ -13746,9 +13771,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     function tlogCreateDivider() {
         var divider = document.createElement('div');
-        divider.style.cssText = 'width: 6px; background: rgba(255, 255, 255, 0.08); cursor: col-resize; flex-shrink: 0; border-radius: 3px; transition: background 0.2s;';
-        divider.onmouseover = function() { divider.style.background = 'rgba(255, 255, 255, 0.25)'; };
-        divider.onmouseout = function() { divider.style.background = 'rgba(255, 255, 255, 0.08)'; };
+        divider.style.cssText = 'width: 6px; background: #e5e7eb; cursor: col-resize; flex-shrink: 0; border-radius: 3px; transition: background 0.2s;';
+        divider.onmouseover = function() { divider.style.background = '#d1d5db'; };
+        divider.onmouseout = function() { divider.style.background = '#e5e7eb'; };
         divider.addEventListener('mousedown', function(e) {
             e.preventDefault();
             var prev = divider.previousElementSibling;
@@ -13784,15 +13809,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panelTitle.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-shrink: 0;';
         var h4 = document.createElement('h4');
         h4.textContent = isDoA ? 'DoA Log Data' : 'Combined Training Data';
-        h4.style.cssText = 'margin: 0; color: white; font-size: 14px; font-weight: 600;';
+        h4.style.cssText = 'margin: 0; color: #111827; font-size: 14px; font-weight: 600;';
         var titleBtns = document.createElement('div');
         titleBtns.style.cssText = 'display: flex; gap: 6px; align-items: center;';
         var exportBtn1 = document.createElement('button');
         exportBtn1.textContent = '\u2913 Export';
         exportBtn1.title = 'Export to Excel (.xls)';
-        exportBtn1.style.cssText = 'background: rgba(107, 207, 127, 0.25); border: 1px solid rgba(107, 207, 127, 0.5); color: #6bcf7f; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
-        exportBtn1.onmouseover = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.4)'; };
-        exportBtn1.onmouseout = function() { exportBtn1.style.background = 'rgba(107, 207, 127, 0.25)'; };
+        exportBtn1.style.cssText = 'background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;';
+        exportBtn1.onmouseover = function() { exportBtn1.style.background = '#bbf7d0'; };
+        exportBtn1.onmouseout = function() { exportBtn1.style.background = '#dcfce7'; };
         exportBtn1.onclick = function() {
             var hdrs, rows = [];
             if (isDoA) {
@@ -13813,14 +13838,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var dupBtn = document.createElement('button');
         dupBtn.textContent = 'Show Duplicate';
         dupBtn.title = 'Show only duplicate staff names (excludes strikethrough)';
-        dupBtn.style.cssText = 'background: rgba(255, 217, 61, 0.15); border: 1px solid rgba(255, 217, 61, 0.4); color: #ffd93d; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s;';
-        dupBtn.onmouseover = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.5)' : 'rgba(255, 217, 61, 0.3)'; };
-        dupBtn.onmouseout = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.4)' : 'rgba(255, 217, 61, 0.15)'; };
+        dupBtn.style.cssText = 'background: #fef3c7; border: 1px solid #fde68a; color: #d97706; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease;';
+        dupBtn.onmouseover = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? '#fde68a' : '#fde68a'; };
+        dupBtn.onmouseout = function() { dupBtn.style.background = _tlogShowDuplicatesOnly ? '#fef3c7' : '#fef3c7'; };
         dupBtn.onclick = function() {
             _tlogShowDuplicatesOnly = !_tlogShowDuplicatesOnly;
             dupBtn.textContent = _tlogShowDuplicatesOnly ? 'Show All' : 'Show Duplicate';
-            dupBtn.style.background = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.4)' : 'rgba(255, 217, 61, 0.15)';
-            dupBtn.style.borderColor = _tlogShowDuplicatesOnly ? 'rgba(255, 217, 61, 0.7)' : 'rgba(255, 217, 61, 0.4)';
+            dupBtn.style.background = _tlogShowDuplicatesOnly ? '#fde68a' : '#fef3c7';
+            dupBtn.style.borderColor = _tlogShowDuplicatesOnly ? '#fcd34d' : '#fde68a';
             tlogRefreshPanel1Table(data, items);
         };
         titleBtns.appendChild(exportBtn1);
@@ -13829,14 +13854,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
         filterDropdown.style.cssText = 'position: relative;';
         var filterBtn = document.createElement('button');
         filterBtn.textContent = 'Filter Items \u25BC';
-        filterBtn.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 500;';
+        filterBtn.style.cssText = 'background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s ease;';
         var filterMenu = document.createElement('div');
         filterMenu.id = 'tlog-filter-menu';
-        filterMenu.style.cssText = 'display: none; position: absolute; top: 100%; right: 0; background: #2a2a3e; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 8px; z-index: 10; max-height: 250px; overflow-y: auto; min-width: 280px; box-shadow: 0 8px 20px rgba(0,0,0,0.4);';
+        filterMenu.style.cssText = 'display: none; position: absolute; top: 100%; right: 0; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; z-index: 10; max-height: 250px; overflow-y: auto; min-width: 280px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);';
         for (var fi = 0; fi < items.length; fi++) {
             var frow = document.createElement('label');
             frow.style.cssText = 'display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; cursor: pointer; border-radius: 4px;';
-            frow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.06)'; };
+            frow.onmouseover = function() { this.style.background = '#f3f4f6'; };
             frow.onmouseout = function() { this.style.background = 'transparent'; };
             var fcb = document.createElement('input');
             fcb.type = 'checkbox';
@@ -13845,7 +13870,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             fcb.style.cssText = 'width: 14px; height: 14px; accent-color: #6bcf7f; flex-shrink: 0; margin-top: 2px;';
             var ftext = document.createElement('span');
             ftext.textContent = items[fi].ariaLabel;
-            ftext.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 11px; line-height: 1.3; word-break: break-word;';
+            ftext.style.cssText = 'color: #374151; font-size: 11px; line-height: 1.3; word-break: break-word;';
             fcb.addEventListener('change', function() {
                 tlogRefreshPanel1Table(data, items);
             });
@@ -13866,9 +13891,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         searchInput.type = 'text';
         searchInput.id = 'tlog-panel1-search';
         searchInput.placeholder = isDoA ? 'Search by name, role, date, signature...' : 'Search by name, status, date, or file name...';
-        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 12px; outline: none; box-sizing: border-box; margin-bottom: 6px; flex-shrink: 0;';
-        searchInput.onfocus = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
-        searchInput.onblur = function() { searchInput.style.borderColor = 'rgba(255, 255, 255, 0.15)'; };
+        searchInput.style.cssText = 'width: 100%; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 12px; outline: none; box-sizing: border-box; margin-bottom: 6px; flex-shrink: 0; transition: all 0.15s ease;';
+        searchInput.onfocus = function() { searchInput.style.borderColor = '#2563eb'; searchInput.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'; };
+        searchInput.onblur = function() { searchInput.style.borderColor = '#d1d5db'; searchInput.style.boxShadow = 'none'; };
         searchInput.addEventListener('input', function() {
             tlogRefreshPanel1Table(data, items);
         });
@@ -13878,13 +13903,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var tableMinWidth = isDoA ? 'min-width: 1120px;' : '';
         var tableHeader = document.createElement('div');
         tableHeader.id = 'tlog-panel1-header';
-        tableHeader.style.cssText = 'display: grid; grid-template-columns: ' + _tlogPanel1ColTemplate + '; gap: 4px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 1; ' + tableMinWidth;
+        tableHeader.style.cssText = 'display: grid; grid-template-columns: ' + _tlogPanel1ColTemplate + '; gap: 4px; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px 6px 0 0; position: sticky; top: 0; z-index: 1; ' + tableMinWidth;
         var headers = isDoA ? ['Staff Name', 'Study Role', 'Responsibilities', 'Start Date', 'Staff Sig.', 'PI Sig. (Start)', 'End Date', 'PI Sig. (End)'] : ['Staff Name', 'File Name', 'Status', 'Date Signed'];
         var sortState = { col: -1, asc: true };
         for (var hi = 0; hi < headers.length; hi++) {
             var th = document.createElement('div');
             th.textContent = headers[hi] + ' \u2195';
-            th.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 11px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+            th.style.cssText = 'color: #6b7280; font-size: 11px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none; transition: color 0.15s ease;';
+            th.onmouseover = function() { th.style.color = '#111827'; };
+            th.onmouseout = function() { th.style.color = '#6b7280'; };
             th.setAttribute('data-tlog-sort-col', String(hi));
             th.onclick = (function(colIdx, thEl) {
                 return function() {
@@ -13914,7 +13941,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.appendChild(scrollWrapper);
         var summaryBar = document.createElement('div');
         summaryBar.id = 'tlog-panel1-summary';
-        summaryBar.style.cssText = 'display: flex; justify-content: space-around; padding: 8px 10px; background: rgba(0, 0, 0, 0.2); border-radius: 0 0 6px 6px; flex-shrink: 0; flex-wrap: wrap; gap: 4px;';
+        summaryBar.style.cssText = 'display: flex; justify-content: space-around; padding: 8px 10px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 6px 6px; flex-shrink: 0; flex-wrap: wrap; gap: 4px;';
         panel.appendChild(summaryBar);
         return panel;
     }
@@ -13989,16 +14016,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         body.innerHTML = '';
         body.style.cssText = tableMinWidth;
         var fragment = document.createDocumentFragment();
-        var cellStyle = 'color: rgba(255, 255, 255, 0.8); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+        var cellStyle = 'color: #374151; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
         for (var ri = 0; ri < filtered.length; ri++) {
             var rec = filtered[ri];
             var row = document.createElement('div');
-            row.style.cssText = 'display: grid; grid-template-columns: ' + colTemplate + '; gap: 4px; padding: 6px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); align-items: center;' + (rec.isStrikethrough ? ' opacity: 0.4; text-decoration: line-through;' : '');
-            row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
+            row.style.cssText = 'display: grid; grid-template-columns: ' + colTemplate + '; gap: 4px; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; align-items: center;' + (rec.isStrikethrough ? ' opacity: 0.4; text-decoration: line-through;' : '');
+            row.onmouseover = function() { this.style.background = '#f9fafb'; };
             row.onmouseout = function() { this.style.background = 'transparent'; };
             var nameSpan = document.createElement('div');
             nameSpan.textContent = rec.staffName;
-            nameSpan.style.cssText = 'color: white; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            nameSpan.style.cssText = 'color: #111827; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
             row.appendChild(nameSpan);
             if (isDoA) {
                 var doaCols = [rec.studyRole, rec.responsibilities, rec.startDate, rec.staffSignature, rec.piSignatureStart, rec.endDate, rec.piSignatureEnd];
@@ -14012,15 +14039,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
             } else {
                 var fileSpan = document.createElement('div');
                 fileSpan.textContent = rec.trainingItem;
-                fileSpan.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                fileSpan.style.cssText = 'color: #6b7280; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
                 fileSpan.title = rec.trainingItem;
                 var statusSpan = document.createElement('div');
                 statusSpan.textContent = rec.status;
-                var sColor = rec.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : rec.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                var sColor = rec.status === TLOG_LABELS.statusSigned ? '#15803d' : rec.status === TLOG_LABELS.statusPending ? '#d97706' : '#6b7280';
                 statusSpan.style.cssText = 'color: ' + sColor + '; font-size: 12px; font-weight: 600;';
                 var dateSpan = document.createElement('div');
                 dateSpan.textContent = rec.dateSigned || '';
-                dateSpan.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                dateSpan.style.cssText = 'color: #6b7280; font-size: 12px;';
                 row.appendChild(fileSpan);
                 row.appendChild(statusSpan);
                 row.appendChild(dateSpan);
@@ -14073,10 +14100,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 sDiv.style.cssText = 'text-align: center;';
                 var sv = document.createElement('div');
                 sv.textContent = String(stats[sti].value);
-                sv.style.cssText = 'color: white; font-size: 15px; font-weight: 700;';
+                sv.style.cssText = 'color: #111827; font-size: 15px; font-weight: 700;';
                 var sl = document.createElement('div');
                 sl.textContent = stats[sti].label;
-                sl.style.cssText = 'color: rgba(255, 255, 255, 0.5); font-size: 10px; font-weight: 500; margin-top: 1px;';
+                sl.style.cssText = 'color: #6b7280; font-size: 10px; font-weight: 500; margin-top: 1px;';
                 sDiv.appendChild(sv);
                 sDiv.appendChild(sl);
                 summaryEl.appendChild(sDiv);
@@ -14089,20 +14116,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.style.cssText = 'flex: 1; display: flex; flex-direction: column; min-width: 150px; overflow: hidden;';
         var h4 = document.createElement('h4');
         h4.textContent = 'Paste Staff Names';
-        h4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+        h4.style.cssText = 'margin: 0 0 10px 0; color: #111827; font-size: 14px; font-weight: 600; flex-shrink: 0;';
         panel.appendChild(h4);
         var textarea = document.createElement('textarea');
         textarea.id = 'tlog-panel2-textarea';
         textarea.placeholder = 'Paste names here, one per line...';
-        textarea.style.cssText = 'flex: 1; width: 100%; padding: 10px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 13px; font-family: Segoe UI, sans-serif; resize: none; outline: none; box-sizing: border-box;';
-        textarea.onfocus = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.4)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.2)'; };
+        textarea.style.cssText = 'flex: 1; width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; background: #ffffff; color: #111827; font-size: 13px; font-family: Segoe UI, sans-serif; resize: none; outline: none; box-sizing: border-box; transition: all 0.15s ease;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; textarea.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; textarea.style.boxShadow = 'none'; };
         panel.appendChild(textarea);
         var combineBtn = document.createElement('button');
         combineBtn.id = 'tlog-combine-btn';
         combineBtn.textContent = 'Combined';
         combineBtn.disabled = true;
-        combineBtn.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px; border-radius: 8px; cursor: not-allowed; font-size: 13px; font-weight: 600; opacity: 0.5; margin-top: 10px; flex-shrink: 0; transition: all 0.25s ease;';
+        combineBtn.style.cssText = 'background: #3b82f6; border: 1px solid #3b82f6; color: #ffffff; padding: 10px; border-radius: 8px; cursor: not-allowed; font-size: 13px; font-weight: 600; opacity: 0.5; margin-top: 10px; flex-shrink: 0; transition: all 0.15s ease;';
         textarea.addEventListener('input', function() {
             var val = textarea.value.trim();
             if (val.length > 0) {
@@ -14115,8 +14142,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 combineBtn.style.cursor = 'not-allowed';
             }
         });
-        combineBtn.onmouseover = function() { if (!combineBtn.disabled) combineBtn.style.background = 'linear-gradient(135deg, #5a6fd6 0%, #6a4299 100%)'; };
-        combineBtn.onmouseout = function() { combineBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'; };
+        combineBtn.onmouseover = function() { if (!combineBtn.disabled) combineBtn.style.background = '#2563eb'; };
+        combineBtn.onmouseout = function() { combineBtn.style.background = '#3b82f6'; };
         combineBtn.onclick = function() {
             var text = textarea.value.trim();
             if (!text) return;
@@ -14134,12 +14161,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.style.cssText = 'flex: 2.5; display: flex; flex-direction: column; min-width: 200px; overflow: hidden;';
         var h4 = document.createElement('h4');
         h4.textContent = 'Combined Results';
-        h4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+        h4.style.cssText = 'margin: 0 0 10px 0; color: #111827; font-size: 14px; font-weight: 600; flex-shrink: 0;';
         panel.appendChild(h4);
         var placeholder = document.createElement('div');
         placeholder.id = 'tlog-panel3-placeholder';
         placeholder.textContent = 'Paste staff names in the middle panel and click "Combined" to generate results.';
-        placeholder.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.35); font-size: 13px; text-align: center; padding: 20px;';
+        placeholder.style.cssText = 'flex: 1; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 13px; text-align: center; padding: 20px;';
         panel.appendChild(placeholder);
         return panel;
     }
@@ -14156,7 +14183,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         else {
             var newH4 = document.createElement('h4');
             newH4.textContent = 'Combined Results';
-            newH4.style.cssText = 'margin: 0 0 10px 0; color: white; font-size: 14px; font-weight: 600; flex-shrink: 0;';
+            newH4.style.cssText = 'margin: 0 0 10px 0; color: #111827; font-size: 14px; font-weight: 600; flex-shrink: 0;';
             panel.appendChild(newH4);
         }
         var toolsRow = document.createElement('div');
@@ -14164,21 +14191,23 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var p3Search = document.createElement('input');
         p3Search.type = 'text';
         p3Search.placeholder = isDoAMode ? 'Search name, file, or status...' : 'Search name, file, status, or date...';
-        p3Search.style.cssText = 'flex: 1; padding: 5px 8px; border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: white; font-size: 11px; outline: none; box-sizing: border-box;';
+        p3Search.style.cssText = 'flex: 1; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: #ffffff; color: #111827; font-size: 11px; outline: none; box-sizing: border-box; transition: all 0.15s ease;';
+        p3Search.onfocus = function() { p3Search.style.borderColor = '#2563eb'; p3Search.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)'; };
+        p3Search.onblur = function() { p3Search.style.borderColor = '#d1d5db'; p3Search.style.boxShadow = 'none'; };
         var exportBtn3 = document.createElement('button');
         exportBtn3.textContent = '\u2913 Export';
         exportBtn3.title = 'Export to Excel (.xls)';
-        exportBtn3.style.cssText = 'background: rgba(107, 207, 127, 0.25); border: 1px solid rgba(107, 207, 127, 0.5); color: #6bcf7f; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; flex-shrink: 0;';
-        exportBtn3.onmouseover = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.4)'; };
-        exportBtn3.onmouseout = function() { exportBtn3.style.background = 'rgba(107, 207, 127, 0.25)'; };
+        exportBtn3.style.cssText = 'background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0;';
+        exportBtn3.onmouseover = function() { exportBtn3.style.background = '#bbf7d0'; };
+        exportBtn3.onmouseout = function() { exportBtn3.style.background = '#dcfce7'; };
         if (isDoAMode) {
             var filterBtn3 = document.createElement('button');
             filterBtn3.textContent = 'Filter \u25BC';
             filterBtn3.title = 'Filter by status';
             filterBtn3.id = 'tlog-panel3-filter-btn';
-            filterBtn3.style.cssText = 'background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.8); padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; position: relative;';
-            filterBtn3.onmouseover = function() { filterBtn3.style.background = 'rgba(255, 255, 255, 0.2)'; };
-            filterBtn3.onmouseout = function() { filterBtn3.style.background = 'rgba(255, 255, 255, 0.12)'; };
+            filterBtn3.style.cssText = 'background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 3px 10px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s ease; flex-shrink: 0; position: relative;';
+            filterBtn3.onmouseover = function() { filterBtn3.style.background = '#e5e7eb'; };
+            filterBtn3.onmouseout = function() { filterBtn3.style.background = '#f3f4f6'; };
             toolsRow.appendChild(p3Search);
             toolsRow.appendChild(filterBtn3);
             toolsRow.appendChild(exportBtn3);
@@ -14189,14 +14218,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         panel.appendChild(toolsRow);
         var colHeader = document.createElement('div');
         colHeader.id = 'tlog-panel3-header';
-        colHeader.style.cssText = 'display: grid; grid-template-columns: ' + p3ColTemplate + '; gap: 4px; padding: 6px 8px; background: rgba(255, 255, 255, 0.08); border-radius: 4px 4px 0 0; flex-shrink: 0;';
+        colHeader.style.cssText = 'display: grid; grid-template-columns: ' + p3ColTemplate + '; gap: 4px; padding: 6px 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px 4px 0 0; flex-shrink: 0;';
         var p3Headers = isDoAMode ? ['Name', 'File Name', 'Status'] : ['Name', 'File Name', 'Status', 'Date Signed'];
         var p3Sort = { col: -1, asc: true };
         var p3Heads = [];
         for (var phi = 0; phi < p3Headers.length; phi++) {
             var chEl = document.createElement('div');
             chEl.textContent = p3Headers[phi] + ' \u2195';
-            chEl.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none;';
+            chEl.style.cssText = 'color: #6b7280; font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none; transition: color 0.15s ease;';
+            chEl.onmouseover = function() { chEl.style.color = '#111827'; };
+            chEl.onmouseout = function() { chEl.style.color = '#6b7280'; };
             chEl.setAttribute('data-tlog-p3-sort-col', String(phi));
             chEl.onclick = (function(ci) { return function() { if (p3Sort.col === ci) { p3Sort.asc = !p3Sort.asc; } else { p3Sort.col = ci; p3Sort.asc = true; } for (var u = 0; u < p3Heads.length; u++) { p3Heads[u].textContent = p3Headers[u] + ' \u2195'; } p3Heads[ci].textContent = p3Headers[ci] + (p3Sort.asc ? ' \u25B2' : ' \u25BC'); renderPanel3(p3Search.value); }; })(phi);
             p3Heads.push(chEl);
@@ -14324,25 +14355,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 if (statuses.length === 0) { return; }
                 var dropdown = document.createElement('div');
                 dropdown.id = 'tlog-panel3-filter-dropdown';
-                dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);';
+                dropdown.style.cssText = 'position: absolute; top: 100%; right: 0; margin-top: 6px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0; z-index: 10000; min-width: 220px; max-height: 400px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.15);';
                 for (var si = 0; si < statuses.length; si++) {
                     if (!p3StatusFilter.hasOwnProperty(statuses[si])) {
                         p3StatusFilter[statuses[si]] = true;
                     }
                 }
                 var header = document.createElement('div');
-                header.style.cssText = 'padding: 12px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08);';
+                header.style.cssText = 'padding: 12px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;';
                 var headerTitle = document.createElement('div');
                 headerTitle.textContent = 'Filter by Status';
-                headerTitle.style.cssText = 'color: white; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
+                headerTitle.style.cssText = 'color: #111827; font-size: 12px; font-weight: 600; margin-bottom: 10px; letter-spacing: 0.3px;';
                 header.appendChild(headerTitle);
                 var selectAllRow = document.createElement('div');
                 selectAllRow.style.cssText = 'display: flex; gap: 6px;';
                 var selectAllBtn = document.createElement('button');
                 selectAllBtn.textContent = 'All';
-                selectAllBtn.style.cssText = 'flex: 1; background: rgba(107, 207, 127, 0.15); border: 1px solid rgba(107, 207, 127, 0.3); color: #6bcf7f; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
-                selectAllBtn.onmouseover = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.25)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.5)'; };
-                selectAllBtn.onmouseout = function() { selectAllBtn.style.background = 'rgba(107, 207, 127, 0.15)'; selectAllBtn.style.borderColor = 'rgba(107, 207, 127, 0.3)'; };
+                selectAllBtn.style.cssText = 'flex: 1; background: #dcfce7; border: 1px solid #86efac; color: #15803d; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s ease; text-transform: uppercase; letter-spacing: 0.5px;';
+                selectAllBtn.onmouseover = function() { selectAllBtn.style.background = '#bbf7d0'; };
+                selectAllBtn.onmouseout = function() { selectAllBtn.style.background = '#dcfce7'; };
                 selectAllBtn.onclick = function() {
                     for (var si2 = 0; si2 < statuses.length; si2++) {
                         p3StatusFilter[statuses[si2]] = true;
@@ -14355,9 +14386,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 };
                 var deselectAllBtn = document.createElement('button');
                 deselectAllBtn.textContent = 'None';
-                deselectAllBtn.style.cssText = 'flex: 1; background: rgba(255, 107, 107, 0.15); border: 1px solid rgba(255, 107, 107, 0.3); color: #ff6b6b; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;';
-                deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.25)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.5)'; };
-                deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = 'rgba(255, 107, 107, 0.15)'; deselectAllBtn.style.borderColor = 'rgba(255, 107, 107, 0.3)'; };
+                deselectAllBtn.style.cssText = 'flex: 1; background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 5px 8px; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s ease; text-transform: uppercase; letter-spacing: 0.5px;';
+                deselectAllBtn.onmouseover = function() { deselectAllBtn.style.background = '#fecaca'; };
+                deselectAllBtn.onmouseout = function() { deselectAllBtn.style.background = '#fee2e2'; };
                 deselectAllBtn.onclick = function() {
                     for (var si3 = 0; si3 < statuses.length; si3++) {
                         p3StatusFilter[statuses[si3]] = false;
@@ -14377,13 +14408,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 for (var si4 = 0; si4 < statuses.length; si4++) {
                     var statusRow = document.createElement('div');
                     statusRow.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 14px; cursor: pointer; transition: background 0.15s ease; user-select: none;';
-                    statusRow.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.08)'; };
+                    statusRow.onmouseover = function() { this.style.background = '#f9fafb'; };
                     statusRow.onmouseout = function() { this.style.background = 'transparent'; };
                     var checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.checked = p3StatusFilter[statuses[si4]];
                     checkbox.setAttribute('data-status', statuses[si4]);
-                    checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #6bcf7f; flex-shrink: 0; cursor: pointer; margin: 0;';
+                    checkbox.style.cssText = 'width: 16px; height: 16px; accent-color: #22c55e; flex-shrink: 0; cursor: pointer; margin: 0;';
                     checkbox.onclick = function(e) { e.stopPropagation(); };
                     checkbox.onchange = (function(status) {
                         return function(e) {
@@ -14394,7 +14425,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     })(statuses[si4]);
                     var label = document.createElement('span');
                     label.textContent = statuses[si4];
-                    label.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
+                    label.style.cssText = 'color: #374151; font-size: 12px; line-height: 1.4; flex: 1; cursor: pointer;';
                     statusRow.onclick = (function(cb) {
                         return function(e) {
                             if (e.target !== cb) {
@@ -14445,31 +14476,31 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 }
                 visible.push(r);
                 var row = document.createElement('div');
-                row.style.cssText = 'display: grid; grid-template-columns: ' + ct + '; gap: 4px; padding: 5px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); align-items: center;';
-                row.onmouseover = function() { this.style.background = 'rgba(255, 255, 255, 0.04)'; };
+                row.style.cssText = 'display: grid; grid-template-columns: ' + ct + '; gap: 4px; padding: 5px 8px; border-bottom: 1px solid #e5e7eb; align-items: center;';
+                row.onmouseover = function() { this.style.background = '#f9fafb'; };
                 row.onmouseout = function() { this.style.background = 'transparent'; };
                 var c1 = document.createElement('div');
                 c1.textContent = r.name;
-                c1.style.cssText = 'color: white; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                c1.style.cssText = 'color: #111827; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
                 var c2 = document.createElement('div');
                 c2.textContent = r.fileName;
-                c2.style.cssText = 'color: rgba(255, 255, 255, 0.6); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+                c2.style.cssText = 'color: #6b7280; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
                 c2.title = r.fileName;
                 var c3 = document.createElement('div');
                 c3.textContent = displayStatus;
-                var sc = '#aaa';
+                var sc = '#6b7280';
                 if (isDoAMode) {
                     if (displayStatus === 'Not in DoA Log') {
-                        sc = '#ff6b6b';
+                        sc = '#dc2626';
                     } else if (displayStatus === 'Not in Pasted Staff Name') {
-                        sc = '#ffa500';
+                        sc = '#d97706';
                     } else if (r.status === TLOG_LABELS.statusSigned) {
-                        sc = '#6bcf7f';
+                        sc = '#15803d';
                     } else if (r.status === TLOG_LABELS.statusPending) {
-                        sc = '#ffd93d';
+                        sc = '#d97706';
                     }
                 } else {
-                    sc = r.status === TLOG_LABELS.statusSigned ? '#6bcf7f' : r.status === TLOG_LABELS.statusPending ? '#ffd93d' : '#aaa';
+                    sc = r.status === TLOG_LABELS.statusSigned ? '#15803d' : r.status === TLOG_LABELS.statusPending ? '#d97706' : '#6b7280';
                 }
                 c3.style.cssText = 'color: ' + sc + '; font-size: 12px; font-weight: 600;';
                 row.appendChild(c1);
@@ -14478,7 +14509,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 if (!isDoAMode) {
                     var c4 = document.createElement('div');
                     c4.textContent = r.date || '';
-                    c4.style.cssText = 'color: rgba(255, 255, 255, 0.7); font-size: 12px;';
+                    c4.style.cssText = 'color: #6b7280; font-size: 12px;';
                     row.appendChild(c4);
                 }
                 frag.appendChild(row);
@@ -14896,9 +14927,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showStartDateWarning: creating warning popup', 'log');
         var modal = document.createElement('div');
         modal.id = 'startdate-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'startdate-warning-title');
@@ -14908,16 +14939,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var title = document.createElement('h3');
         title.id = 'startdate-warning-title';
         title.textContent = STARTDATE_LABELS.warningTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         var closeWarning = function() {
             addLogMessage('showStartDateWarning: closing warning', 'log');
@@ -14934,15 +14965,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var messageDiv = document.createElement('p');
         messageDiv.id = 'startdate-warning-message';
         messageDiv.textContent = STARTDATE_LABELS.warningMessage;
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button');
         okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
         okButton.onmouseover = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#fecaca';
         };
         okButton.onmouseout = function() {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            okButton.style.background = '#fee2e2';
         };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) {
@@ -14972,9 +15003,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showStartDateInputPanel: creating input panel', 'log');
         var modal = document.createElement('div');
         modal.id = 'startdate-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 550px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'startdate-input-title');
@@ -14983,16 +15014,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var titleEl = document.createElement('h3');
         titleEl.id = 'startdate-input-title';
         titleEl.textContent = STARTDATE_LABELS.inputTitle;
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showStartDateInputPanel: closed by user', 'warn');
@@ -15004,7 +15035,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(titleEl);
         header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append('Rules:');
         description.appendChild(document.createElement('br'));
         var lines = [
@@ -15021,47 +15052,43 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var namesLabel = document.createElement('label');
         namesLabel.setAttribute('for', 'startdate-names-input');
         namesLabel.textContent = 'Staff Names';
-        namesLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        namesLabel.style.cssText = 'display: block; color: #374151; font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
         var textarea = document.createElement('textarea');
         textarea.id = 'startdate-names-input';
         textarea.placeholder = 'John Smith, Jane Doe\nor\nJohn Smith\nJane Doe';
         textarea.setAttribute('aria-label', 'Staff names input');
-        textarea.style.cssText = 'width: 100%; height: 140px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        textarea.style.cssText = 'width: 100%; height: 140px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         textarea.onfocus = function() {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
         };
         textarea.onblur = function() {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#d1d5db';
         };
         var dateLabel = document.createElement('label');
         dateLabel.setAttribute('for', 'startdate-date-input');
         dateLabel.textContent = 'Start Date';
-        dateLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        dateLabel.style.cssText = 'display: block; color: #374151; font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
         var dateInput = document.createElement('input');
         dateInput.type = 'text';
         dateInput.id = 'startdate-date-input';
         dateInput.placeholder = 'MM-DD-YYYY or 15Jan2025';
         dateInput.setAttribute('aria-label', 'Start date input');
-        dateInput.style.cssText = 'width: 100%; padding: 10px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box;';
+        dateInput.style.cssText = 'width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 14px; font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif; outline: none; transition: all 0.15s ease; box-sizing: border-box;';
         dateInput.onfocus = function() {
-            dateInput.style.borderColor = '#8ea0ff';
-            dateInput.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            dateInput.style.borderColor = '#2563eb';
         };
         dateInput.onblur = function() {
-            dateInput.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            dateInput.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            dateInput.style.borderColor = '#d1d5db';
         };
         var continueButton = document.createElement('button');
         continueButton.textContent = 'Continue';
         continueButton.disabled = true;
         continueButton.setAttribute('aria-label', 'Continue with start date assignment');
-        continueButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        continueButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var dateStatusDiv = document.createElement('div');
         dateStatusDiv.id = 'startdate-date-status';
         dateStatusDiv.setAttribute('aria-live', 'polite');
-        dateStatusDiv.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 12px; margin-top: 4px; min-height: 18px;';
+        dateStatusDiv.style.cssText = 'color: #6b7280; font-size: 12px; margin-top: 4px; min-height: 18px;';
         var updateContinueState = function() {
             var parsedNames = parseNamesInputForStartDate(textarea.value);
             var parsedDate = parseStartDateValue(dateInput.value);
@@ -15069,10 +15096,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var hasValidDate = parsedDate !== null;
             if (hasValidDate) {
                 dateStatusDiv.textContent = 'Parsed: ' + parsedDate.displayMonthName + ' ' + parsedDate.day + ', ' + parsedDate.year;
-                dateStatusDiv.style.color = '#6bcf7f';
+                dateStatusDiv.style.color = '#15803d';
             } else if (dateInput.value.trim().length > 0) {
                 dateStatusDiv.textContent = 'Invalid date format';
-                dateStatusDiv.style.color = '#ffd93d';
+                dateStatusDiv.style.color = '#d97706';
             } else {
                 dateStatusDiv.textContent = '';
             }
@@ -15092,11 +15119,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         startDateState.eventListeners.push({ element: dateInput, type: 'input', handler: updateContinueState });
         continueButton.onmouseover = function() {
             if (!continueButton.disabled) {
-                continueButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+                continueButton.style.background = '#16a34a'; continueButton.style.borderColor = '#16a34a';
             }
         };
         continueButton.onmouseout = function() {
-            continueButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            continueButton.style.background = '#22c55e'; continueButton.style.borderColor = '#22c55e';
         };
         continueButton.onclick = function() {
             if (continueButton.disabled) {
@@ -15124,12 +15151,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
         clearButton.setAttribute('aria-label', 'Clear all inputs');
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease; backdrop-filter: blur(2px);';
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
         clearButton.onmouseover = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#e5e7eb';
         };
         clearButton.onmouseout = function() {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#f3f4f6';
         };
         clearButton.onclick = function() {
             addLogMessage('showStartDateInputPanel: Clear All clicked', 'log');
@@ -15537,10 +15564,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         startDateState.isRunning = true;
         var modal = document.createElement('div');
         modal.id = 'startdate-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
         container.id = 'startdate-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'startdate-progress-title');
@@ -15551,22 +15578,22 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var titleEl = document.createElement('h3');
         titleEl.id = 'startdate-progress-title';
         titleEl.textContent = STARTDATE_LABELS.featureButton + ' - Processing';
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span');
         statusBadge.id = 'startdate-status-badge';
         statusBadge.textContent = STARTDATE_LABELS.progressInProgress;
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(titleEl);
         titleContainer.appendChild(statusBadge);
         var closeButton = document.createElement('button');
         closeButton.innerHTML = '\u2715';
         closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         closeButton.onmouseover = function() {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = function() {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = function() {
             addLogMessage('showStartDateProgressPanel: closed by user', 'warn');
@@ -15575,9 +15602,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         header.appendChild(titleContainer);
         header.appendChild(closeButton);
         var dateInfoBar = document.createElement('div');
-        dateInfoBar.style.cssText = 'margin-bottom: 12px; padding: 8px 12px; background: rgba(0, 0, 0, 0.15); border-radius: 8px; flex-shrink: 0;';
+        dateInfoBar.style.cssText = 'margin-bottom: 12px; padding: 8px 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; flex-shrink: 0;';
         var dateInfoText = document.createElement('span');
-        dateInfoText.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px;';
+        dateInfoText.style.cssText = 'color: #1e40af; font-size: 13px;';
         dateInfoText.textContent = 'Setting Start Date: ' + startDateState.parsedDate.displayMonthName + ' ' + startDateState.parsedDate.day + ', ' + startDateState.parsedDate.year;
         dateInfoBar.appendChild(dateInfoText);
         var panelsContainer = document.createElement('div');
@@ -15590,7 +15617,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var summaryFooter = document.createElement('div');
         summaryFooter.id = 'startdate-summary-footer';
         summaryFooter.setAttribute('aria-label', 'Processing summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var nonDuplicateCount = 0;
         for (var ndi = 0; ndi < startDateState.parsedNames.length; ndi++) {
             if (!startDateState.parsedNames[ndi].isDuplicate) {
@@ -15621,10 +15648,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var vSpan = document.createElement('span');
             vSpan.id = summaryItems[si].id;
             vSpan.textContent = summaryItems[si].value;
-            vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
+            vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
             var lSpan = document.createElement('span');
             lSpan.textContent = summaryItems[si].label;
-            lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             sItem.appendChild(vSpan);
             sItem.appendChild(lSpan);
             summaryFooter.appendChild(sItem);
@@ -15718,38 +15745,38 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var badge = item.querySelector('.elog-status-badge');
             if (badge) {
                 badge.textContent = newStatus;
-                var badgeColor = 'rgba(255, 255, 255, 0.7)';
-                var badgeBg = 'rgba(255, 255, 255, 0.1)';
+                var badgeColor = '#6b7280';
+                var badgeBg = '#f3f4f6';
                 if (newStatus === STARTDATE_LABELS.statusSaved || newStatus === STARTDATE_LABELS.statusCompleted) {
-                    badgeColor = '#6bcf7f';
-                    badgeBg = 'rgba(107, 207, 127, 0.2)';
+                    badgeColor = '#15803d';
+                    badgeBg = '#dcfce7';
                 } else if (newStatus === STARTDATE_LABELS.statusAlreadySet) {
-                    badgeColor = '#81c784';
-                    badgeBg = 'rgba(129, 199, 132, 0.2)';
+                    badgeColor = '#15803d';
+                    badgeBg = '#dcfce7';
                 } else if (newStatus === STARTDATE_LABELS.statusNotFound) {
-                    badgeColor = '#ffa500';
-                    badgeBg = 'rgba(255, 165, 0, 0.2)';
+                    badgeColor = '#d97706';
+                    badgeBg = '#fef3c7';
                 } else if (newStatus === STARTDATE_LABELS.statusFailed ||
                     newStatus === STARTDATE_LABELS.statusSaveFailed ||
                     newStatus === STARTDATE_LABELS.statusEditFailed ||
                     newStatus === STARTDATE_LABELS.statusMenuFailed ||
                     newStatus === STARTDATE_LABELS.statusDatepickerFailed) {
-                    badgeColor = '#ff6b6b';
-                    badgeBg = 'rgba(255, 107, 107, 0.2)';
+                    badgeColor = '#dc2626';
+                    badgeBg = '#fee2e2';
                 } else if (newStatus === STARTDATE_LABELS.statusStopped ||
                     newStatus === STARTDATE_LABELS.statusDuplicate) {
-                    badgeColor = '#aaa';
-                    badgeBg = 'rgba(170, 170, 170, 0.2)';
+                    badgeColor = '#6b7280';
+                    badgeBg = '#f3f4f6';
                 } else if (newStatus === STARTDATE_LABELS.statusSettingDate ||
                     newStatus === STARTDATE_LABELS.statusSaving ||
                     newStatus === STARTDATE_LABELS.statusLocating ||
                     newStatus === STARTDATE_LABELS.statusEditing ||
                     newStatus === STARTDATE_LABELS.statusEnteringReason) {
-                    badgeColor = '#64b5f6';
-                    badgeBg = 'rgba(100, 181, 246, 0.2)';
+                    badgeColor = '#2563eb';
+                    badgeBg = '#eff6ff';
                 } else if (newStatus === STARTDATE_LABELS.statusPending) {
-                    badgeColor = '#ffd93d';
-                    badgeBg = 'rgba(255, 217, 61, 0.2)';
+                    badgeColor = '#d97706';
+                    badgeBg = '#fef3c7';
                 }
                 badge.style.color = badgeColor;
                 badge.style.background = badgeBg;
@@ -17210,14 +17237,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
         if (badge) {
             badge.textContent = statusText;
             if (statusType === 'complete') {
-                badge.style.background = 'rgba(107, 207, 127, 0.3)';
-                badge.style.color = '#6bcf7f';
+                badge.style.background = '#dcfce7';
+                badge.style.color = '#15803d';
             } else if (statusType === 'stopped') {
-                badge.style.background = 'rgba(170, 170, 170, 0.3)';
-                badge.style.color = '#aaa';
+                badge.style.background = '#f3f4f6';
+                badge.style.color = '#6b7280';
             } else {
-                badge.style.background = 'rgba(255, 217, 61, 0.3)';
-                badge.style.color = '#ffd93d';
+                badge.style.background = '#fef3c7';
+                badge.style.color = '#d97706';
             }
         }
         if (titleEl) {
@@ -17350,25 +17377,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function showUpdateRoleWarning() {
         addLogMessage('showUpdateRoleWarning: creating warning popup', 'log');
         var modal = document.createElement('div'); modal.id = 'updaterole-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-warning-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
         var title = document.createElement('h3'); title.id = 'updaterole-warning-title'; title.textContent = UPDATEROLE_LABELS.warningTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         var closeWarning = function() { if (modal.parentNode) { document.body.removeChild(modal); } if (updateRoleState.focusReturnElement) { updateRoleState.focusReturnElement.focus(); } };
         closeButton.onclick = closeWarning; header.appendChild(title); header.appendChild(closeButton);
         var messageDiv = document.createElement('p'); messageDiv.textContent = UPDATEROLE_LABELS.warningMessage;
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button'); okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
-        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() { okButton.style.background = '#fecaca'; };
+        okButton.onmouseout = function() { okButton.style.background = '#fee2e2'; };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
         document.addEventListener('keydown', keyHandler); updateRoleState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
@@ -17380,53 +17407,53 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function showUpdateRoleInputPanel() {
         addLogMessage('showUpdateRoleInputPanel: creating input panel', 'log');
         var modal = document.createElement('div'); modal.id = 'updaterole-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-input-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
         var titleEl = document.createElement('h3'); titleEl.id = 'updaterole-input-title'; titleEl.textContent = UPDATEROLE_LABELS.inputTitle;
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateRole(); };
         header.appendChild(titleEl); header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append('Rules:'); description.appendChild(document.createElement('br'));
         var lines = ['Paste tab-separated data with three columns: Staff Name, Study Role, Responsibilities.', 'Each row must be on a separate line. Responsibilities can be numbers separated by commas, spaces, or ranges (e.g. 1-5).', 'Role abbreviations (RN, RA, QA, PI) and keyword matching are supported.', 'After clicking Continue, do not click anywhere else on the page.'];
         for (var i = 0; i < lines.length; i++) { description.appendChild(document.createTextNode('\u2022 ' + lines[i])); if (i < lines.length - 1) { description.appendChild(document.createElement('br')); } }
         var namesLabel = document.createElement('label'); namesLabel.setAttribute('for', 'updaterole-data-input');
         namesLabel.textContent = 'Staff Name \u2003 Study Role \u2003 Responsibilities (tab-separated)';
-        namesLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        namesLabel.style.cssText = 'display: block; color: #374151; font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
         var textarea = document.createElement('textarea'); textarea.id = 'updaterole-data-input';
         textarea.placeholder = 'John Smith\tResearch Nurse\t1, 2, 3\nJane Doe\tPI\t1-10';
         textarea.setAttribute('aria-label', 'Staff data input with tab-separated columns');
-        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box; tab-size: 16;';
-        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box; tab-size: 16;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; };
         var parseStatusDiv = document.createElement('div'); parseStatusDiv.id = 'updaterole-parse-status';
         parseStatusDiv.setAttribute('aria-live', 'polite');
-        parseStatusDiv.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 12px; margin-top: 4px; min-height: 18px;';
+        parseStatusDiv.style.cssText = 'color: #6b7280; font-size: 12px; margin-top: 4px; min-height: 18px;';
         var continueButton = document.createElement('button'); continueButton.textContent = 'Continue'; continueButton.disabled = true;
         continueButton.setAttribute('aria-label', 'Continue with role update');
-        continueButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        continueButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var updateContinueState = function() {
             var parsed = parseUpdateRoleInput(textarea.value);
             var validCount = 0; for (var vi = 0; vi < parsed.length; vi++) { if (!parsed[vi].isDuplicate) { validCount++; } }
             if (validCount > 0) {
-                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#6bcf7f';
+                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#15803d';
                 continueButton.disabled = false; continueButton.style.opacity = '1'; continueButton.style.cursor = 'pointer';
             } else if (textarea.value.trim().length > 0) {
-                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#ffd93d';
+                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#d97706';
                 continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed';
             } else { parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed'; }
         };
         textarea.addEventListener('input', updateContinueState); updateRoleState.eventListeners.push({ element: textarea, type: 'input', handler: updateContinueState });
-        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
-        continueButton.onmouseout = function() { continueButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = '#16a34a'; continueButton.style.borderColor = '#16a34a'; } };
+        continueButton.onmouseout = function() { continueButton.style.background = '#22c55e'; continueButton.style.borderColor = '#22c55e'; };
         continueButton.onclick = function() {
             if (continueButton.disabled) { return; }
             var parsed = parseUpdateRoleInput(textarea.value);
@@ -17438,9 +17465,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
             showCollectingDataPanel('updaterole', UPDATEROLE_LABELS.featureButton); startUpdateRoleScan();
         };
         var clearButton = document.createElement('button'); clearButton.textContent = 'Clear All'; clearButton.setAttribute('aria-label', 'Clear all inputs');
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
-        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
-        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = '#e5e7eb'; };
+        clearButton.onmouseout = function() { clearButton.style.background = '#f3f4f6'; };
         clearButton.onclick = function() { textarea.value = ''; parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; textarea.focus(); };
         var keyHandler = function(e) { if (e.key === 'Escape') { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateRole(); } };
         document.addEventListener('keydown', keyHandler); updateRoleState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
@@ -17557,20 +17584,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showUpdateRoleProgressPanel: creating progress panel', 'log');
         updateRoleState.isRunning = true;
         var modal = document.createElement('div'); modal.id = 'updaterole-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div'); container.id = 'updaterole-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updaterole-progress-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
         var titleContainer = document.createElement('div'); titleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px;';
-        var titleEl = document.createElement('h3'); titleEl.id = 'updaterole-progress-title'; titleEl.textContent = UPDATEROLE_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updaterole-progress-title'; titleEl.textContent = UPDATEROLE_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span'); statusBadge.id = 'updaterole-status-badge'; statusBadge.textContent = UPDATEROLE_LABELS.progressInProgress;
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(titleEl); titleContainer.appendChild(statusBadge);
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() { stopUpdateRole(); };
         header.appendChild(titleContainer); header.appendChild(closeButton);
         var panelsContainer = document.createElement('div'); panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
@@ -17579,7 +17606,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addSortToggleToSubpanel(rightPanel, 'updaterole-right-panel', 'updaterole-sort-toggle', 'updaterole-failure-filter', [UPDATEROLE_LABELS.statusNotFound, UPDATEROLE_LABELS.statusFailed, UPDATEROLE_LABELS.statusSaveFailed, UPDATEROLE_LABELS.statusEditFailed, UPDATEROLE_LABELS.statusMenuFailed, UPDATEROLE_LABELS.statusRoleFailed, UPDATEROLE_LABELS.statusTasksFailed]);
         panelsContainer.appendChild(leftPanel); panelsContainer.appendChild(rightPanel);
         var summaryFooter = document.createElement('div'); summaryFooter.id = 'updaterole-summary-footer'; summaryFooter.setAttribute('aria-label', 'Processing summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var nonDuplicateCount = 0;
         for (var ndi = 0; ndi < updateRoleState.parsedCandidates.length; ndi++) { if (!updateRoleState.parsedCandidates[ndi].isDuplicate) { nonDuplicateCount++; } }
         updateRoleState.counters = { total: nonDuplicateCount, saved: 0, notFound: 0, failures: 0, pending: nonDuplicateCount };
@@ -17590,8 +17617,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         ];
         for (var si = 0; si < summaryItems.length; si++) {
             var sItem = document.createElement('div'); sItem.style.cssText = 'text-align: center;';
-            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
-            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
+            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             sItem.appendChild(vSpan); sItem.appendChild(lSpan); summaryFooter.appendChild(sItem);
         }
         var ariaLiveRegion = document.createElement('div'); ariaLiveRegion.id = 'updaterole-aria-live'; ariaLiveRegion.setAttribute('aria-live', 'polite'); ariaLiveRegion.setAttribute('aria-atomic', 'true');
@@ -17633,13 +17660,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var item = items[i]; if (item.getAttribute('data-pairkey') !== pairKey) { continue; } if (item.getAttribute('data-duplicate') === 'true') { continue; }
             var badge = item.querySelector('.elog-status-badge');
             if (badge) {
-                badge.textContent = newStatus; var badgeColor = 'rgba(255, 255, 255, 0.7)'; var badgeBg = 'rgba(255, 255, 255, 0.1)';
-                if (newStatus === UPDATEROLE_LABELS.statusSaved || newStatus === UPDATEROLE_LABELS.statusCompleted) { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
-                else if (newStatus === UPDATEROLE_LABELS.statusNotFound) { badgeColor = '#ffa500'; badgeBg = 'rgba(255, 165, 0, 0.2)'; }
-                else if (newStatus === UPDATEROLE_LABELS.statusFailed || newStatus === UPDATEROLE_LABELS.statusSaveFailed || newStatus === UPDATEROLE_LABELS.statusEditFailed || newStatus === UPDATEROLE_LABELS.statusMenuFailed || newStatus === UPDATEROLE_LABELS.statusRoleFailed || newStatus === UPDATEROLE_LABELS.statusTasksFailed) { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
-                else if (newStatus === UPDATEROLE_LABELS.statusStopped || newStatus === UPDATEROLE_LABELS.statusDuplicate) { badgeColor = '#aaa'; badgeBg = 'rgba(170, 170, 170, 0.2)'; }
-                else if (newStatus === UPDATEROLE_LABELS.statusLocating || newStatus === UPDATEROLE_LABELS.statusEditing || newStatus === UPDATEROLE_LABELS.statusSettingRole || newStatus === UPDATEROLE_LABELS.statusSettingTasks || newStatus === UPDATEROLE_LABELS.statusSaving || newStatus === UPDATEROLE_LABELS.statusEnteringReason) { badgeColor = '#64b5f6'; badgeBg = 'rgba(100, 181, 246, 0.2)'; }
-                else if (newStatus === UPDATEROLE_LABELS.statusPending) { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                badge.textContent = newStatus; var badgeColor = '#374151'; var badgeBg = '#f3f4f6';
+                if (newStatus === UPDATEROLE_LABELS.statusSaved || newStatus === UPDATEROLE_LABELS.statusCompleted) { badgeColor = '#15803d'; badgeBg = '#dcfce7'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusNotFound) { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusFailed || newStatus === UPDATEROLE_LABELS.statusSaveFailed || newStatus === UPDATEROLE_LABELS.statusEditFailed || newStatus === UPDATEROLE_LABELS.statusMenuFailed || newStatus === UPDATEROLE_LABELS.statusRoleFailed || newStatus === UPDATEROLE_LABELS.statusTasksFailed) { badgeColor = '#dc2626'; badgeBg = '#fee2e2'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusStopped || newStatus === UPDATEROLE_LABELS.statusDuplicate) { badgeColor = '#6b7280'; badgeBg = '#e5e7eb'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusLocating || newStatus === UPDATEROLE_LABELS.statusEditing || newStatus === UPDATEROLE_LABELS.statusSettingRole || newStatus === UPDATEROLE_LABELS.statusSettingTasks || newStatus === UPDATEROLE_LABELS.statusSaving || newStatus === UPDATEROLE_LABELS.statusEnteringReason) { badgeColor = '#2563eb'; badgeBg = '#dbeafe'; }
+                else if (newStatus === UPDATEROLE_LABELS.statusPending) { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
                 badge.style.color = badgeColor; badge.style.background = badgeBg;
                 if (detailsOptional) { badge.setAttribute('title', detailsOptional); }
             }
@@ -17658,7 +17685,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     function updateUpdateRoleProgressBadge(statusText, statusType) {
         var badge = document.getElementById('updaterole-status-badge'); var titleEl = document.getElementById('updaterole-progress-title');
-        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; } else if (statusType === 'stopped') { badge.style.background = 'rgba(170, 170, 170, 0.3)'; badge.style.color = '#aaa'; } else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; } }
+        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; } else if (statusType === 'stopped') { badge.style.background = '#f3f4f6'; badge.style.color = '#6b7280'; } else { badge.style.background = '#fef3c7'; badge.style.color = '#d97706'; } }
         if (titleEl) { titleEl.textContent = UPDATEROLE_LABELS.featureButton + ' - ' + statusText; }
         updateRoleState.isRunning = false;
     }
@@ -18134,25 +18161,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function showUpdateDoaWarning() {
         addLogMessage('showUpdateDoaWarning: creating warning popup', 'log');
         var modal = document.createElement('div'); modal.id = 'updatedoa-warning-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 30000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 24px; width: 450px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'alertdialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-warning-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;';
         var title = document.createElement('h3'); title.id = 'updatedoa-warning-title'; title.textContent = UPDATEDOA_LABELS.warningTitle;
-        title.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        title.style.cssText = 'margin: 0; color: #dc2626; font-size: 18px; font-weight: 600;';
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close warning');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         var closeWarning = function() { if (modal.parentNode) { document.body.removeChild(modal); } if (updateDoaState.focusReturnElement) { updateDoaState.focusReturnElement.focus(); } };
         closeButton.onclick = closeWarning; header.appendChild(title); header.appendChild(closeButton);
         var messageDiv = document.createElement('p'); messageDiv.textContent = UPDATEDOA_LABELS.warningMessage;
-        messageDiv.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 14px; line-height: 1.5;';
+        messageDiv.style.cssText = 'color: #374151; margin: 0; font-size: 14px; line-height: 1.5;';
         var okButton = document.createElement('button'); okButton.textContent = 'OK';
-        okButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; margin-top: 20px; width: 100%;';
-        okButton.onmouseover = function() { okButton.style.background = 'rgba(255, 255, 255, 0.3)'; };
-        okButton.onmouseout = function() { okButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        okButton.style.cssText = 'background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease; margin-top: 20px; width: 100%;';
+        okButton.onmouseover = function() { okButton.style.background = '#fecaca'; };
+        okButton.onmouseout = function() { okButton.style.background = '#fee2e2'; };
         okButton.onclick = closeWarning;
         var keyHandler = function(e) { if (e.key === 'Escape') { closeWarning(); } };
         document.addEventListener('keydown', keyHandler); updateDoaState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
@@ -18164,56 +18191,56 @@ function showResponsibilitiesProgressPanel(rolesData) {
     function showUpdateDoaInputPanel() {
         addLogMessage('showUpdateDoaInputPanel: creating input panel', 'log');
         var modal = document.createElement('div'); modal.id = 'updatedoa-input-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 650px; max-width: 90%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative;';
         container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-input-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
         var titleEl = document.createElement('h3'); titleEl.id = 'updatedoa-input-title'; titleEl.textContent = UPDATEDOA_LABELS.inputTitle;
-        titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close panel');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateDoa(); };
         header.appendChild(titleEl); header.appendChild(closeButton);
         var description = document.createElement('p');
-        description.style.cssText = 'color: rgba(255, 255, 255, 0.9); margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
+        description.style.cssText = 'color: #6b7280; margin: 0 0 12px 0; font-size: 14px; line-height: 1.4;';
         description.append('Rules:'); description.appendChild(document.createElement('br'));
         var lines = ['Paste tab-separated data with three columns: Staff Name, Study Role, Responsibilities.', 'Each row must be on a separate line. Responsibilities can be numbers separated by commas, spaces, or ranges (e.g. 1-5).', 'Role abbreviations (RN, RA, QA, PI) and keyword matching are supported.', 'After clicking Continue, do not click anywhere else on the page.'];
         for (var i = 0; i < lines.length; i++) { description.appendChild(document.createTextNode('\u2022 ' + lines[i])); if (i < lines.length - 1) { description.appendChild(document.createElement('br')); } }
         var membersInfo = document.createElement('p');
-        membersInfo.style.cssText = 'color: rgba(255, 255, 255, 0.75); margin: 8px 0 12px 0; font-size: 12px; background: rgba(0,0,0,0.2); padding: 8px 12px; border-radius: 6px;';
+        membersInfo.style.cssText = 'color: #2563eb; margin: 8px 0 12px 0; font-size: 12px; background: #eff6ff; border: 1px solid #dbeafe; padding: 8px 12px; border-radius: 6px;';
         membersInfo.textContent = '\u2139 ' + updateDoaState.collectedMembers.length + ' team member' + (updateDoaState.collectedMembers.length !== 1 ? 's' : '') + ' collected from the DOA automation panel.';
         var namesLabel = document.createElement('label'); namesLabel.setAttribute('for', 'updatedoa-data-input');
         namesLabel.textContent = 'Staff Name \u2003 Study Role \u2003 Responsibilities (tab-separated)';
-        namesLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.85); font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
+        namesLabel.style.cssText = 'display: block; color: #374151; font-size: 13px; font-weight: 600; margin-bottom: 6px; margin-top: 12px;';
         var textarea = document.createElement('textarea'); textarea.id = 'updatedoa-data-input';
         textarea.placeholder = 'John Smith\tResearch Nurse\t1, 2, 3\nJane Doe\tPI\t1-10';
         textarea.setAttribute('aria-label', 'Staff data input with tab-separated columns');
-        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 10px; background: rgba(255, 255, 255, 0.95); color: #1e293b; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.25s ease; box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset; box-sizing: border-box; tab-size: 16;';
-        textarea.onfocus = function() { textarea.style.borderColor = '#8ea0ff'; textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)'; };
-        textarea.onblur = function() { textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)'; textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset'; };
+        textarea.style.cssText = 'width: 100%; height: 200px; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 10px; background: #ffffff; color: #111827; font-size: 13px; font-family: Consolas, Monaco, monospace; resize: vertical; outline: none; transition: all 0.15s ease; box-sizing: border-box; tab-size: 16;';
+        textarea.onfocus = function() { textarea.style.borderColor = '#2563eb'; };
+        textarea.onblur = function() { textarea.style.borderColor = '#d1d5db'; };
         var parseStatusDiv = document.createElement('div'); parseStatusDiv.id = 'updatedoa-parse-status';
         parseStatusDiv.setAttribute('aria-live', 'polite');
-        parseStatusDiv.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 12px; margin-top: 4px; min-height: 18px;';
+        parseStatusDiv.style.cssText = 'color: #6b7280; font-size: 12px; margin-top: 4px; min-height: 18px;';
         var continueButton = document.createElement('button'); continueButton.textContent = 'Continue'; continueButton.disabled = true;
         continueButton.setAttribute('aria-label', 'Continue with role update');
-        continueButton.style.cssText = 'background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.25s ease; opacity: 0.5;';
+        continueButton.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; letter-spacing: 0.2px; transition: all 0.15s ease; opacity: 0.5;';
         var updateContinueState = function() {
             var parsed = parseUpdateRoleInput(textarea.value);
             var validCount = 0; for (var vi = 0; vi < parsed.length; vi++) { if (!parsed[vi].isDuplicate) { validCount++; } }
             if (validCount > 0) {
-                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#6bcf7f';
+                parseStatusDiv.textContent = 'Parsed: ' + validCount + ' staff member' + (validCount > 1 ? 's' : ''); parseStatusDiv.style.color = '#15803d';
                 continueButton.disabled = false; continueButton.style.opacity = '1'; continueButton.style.cursor = 'pointer';
             } else if (textarea.value.trim().length > 0) {
-                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#ffd93d';
+                parseStatusDiv.textContent = 'No valid entries. Ensure tab-separated columns: Name, Role, Responsibilities.'; parseStatusDiv.style.color = '#d97706';
                 continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed';
             } else { parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; continueButton.style.cursor = 'not-allowed'; }
         };
         textarea.addEventListener('input', updateContinueState); updateDoaState.eventListeners.push({ element: textarea, type: 'input', handler: updateContinueState });
-        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)'; } };
-        continueButton.onmouseout = function() { continueButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)'; };
+        continueButton.onmouseover = function() { if (!continueButton.disabled) { continueButton.style.background = '#16a34a'; continueButton.style.borderColor = '#16a34a'; } };
+        continueButton.onmouseout = function() { continueButton.style.background = '#22c55e'; continueButton.style.borderColor = '#22c55e'; };
         continueButton.onclick = function() {
             if (continueButton.disabled) { return; }
             var parsed = parseUpdateRoleInput(textarea.value);
@@ -18225,9 +18252,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
             showUpdateDoaProgressPanel();
         };
         var clearButton = document.createElement('button'); clearButton.textContent = 'Clear All'; clearButton.setAttribute('aria-label', 'Clear all inputs');
-        clearButton.style.cssText = 'background: rgba(255, 255, 255, 0.18); border: 2px solid rgba(255, 255, 255, 0.35); color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.25s ease;';
-        clearButton.onmouseover = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.28)'; };
-        clearButton.onmouseout = function() { clearButton.style.background = 'rgba(255, 255, 255, 0.18)'; };
+        clearButton.style.cssText = 'background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s ease;';
+        clearButton.onmouseover = function() { clearButton.style.background = '#e5e7eb'; };
+        clearButton.onmouseout = function() { clearButton.style.background = '#f3f4f6'; };
         clearButton.onclick = function() { textarea.value = ''; parseStatusDiv.textContent = ''; continueButton.disabled = true; continueButton.style.opacity = '0.5'; textarea.focus(); };
         var keyHandler = function(e) { if (e.key === 'Escape') { if (modal.parentNode) { document.body.removeChild(modal); } stopUpdateDoa(); } };
         document.addEventListener('keydown', keyHandler); updateDoaState.eventListeners.push({ element: document, type: 'keydown', handler: keyHandler });
@@ -18242,20 +18269,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addLogMessage('showUpdateDoaProgressPanel: creating progress panel', 'log');
         updateDoaState.isRunning = true;
         var modal = document.createElement('div'); modal.id = 'updatedoa-progress-modal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 20000; display: flex; align-items: center; justify-content: center;';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 20000; display: flex; align-items: center; justify-content: center;';
         var container = document.createElement('div'); container.id = 'updatedoa-progress-container';
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); position: relative; display: flex; flex-direction: column;';
+        container.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; width: 900px; max-width: 95%; max-height: 80vh; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; display: flex; flex-direction: column;';
         container.setAttribute('role', 'dialog'); container.setAttribute('aria-modal', 'true'); container.setAttribute('aria-labelledby', 'updatedoa-progress-title');
         var header = document.createElement('div'); header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-shrink: 0;';
         var titleContainer = document.createElement('div'); titleContainer.style.cssText = 'display: flex; align-items: center; gap: 12px;';
-        var titleEl = document.createElement('h3'); titleEl.id = 'updatedoa-progress-title'; titleEl.textContent = UPDATEDOA_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: white; font-size: 18px; font-weight: 600;';
+        var titleEl = document.createElement('h3'); titleEl.id = 'updatedoa-progress-title'; titleEl.textContent = UPDATEDOA_LABELS.featureButton + ' - Processing'; titleEl.style.cssText = 'margin: 0; color: #111827; font-size: 18px; font-weight: 600;';
         var statusBadge = document.createElement('span'); statusBadge.id = 'updatedoa-status-badge'; statusBadge.textContent = UPDATEDOA_LABELS.progressInProgress;
-        statusBadge.style.cssText = 'background: rgba(255, 255, 255, 0.3); color: #ffd93d; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
+        statusBadge.style.cssText = 'background: #fef3c7; color: #d97706; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;';
         titleContainer.appendChild(titleEl); titleContainer.appendChild(statusBadge);
         var closeButton = document.createElement('button'); closeButton.innerHTML = '\u2715'; closeButton.setAttribute('aria-label', 'Close and stop');
-        closeButton.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        closeButton.onmouseover = function() { closeButton.style.background = 'rgba(255, 67, 54, 0.8)'; };
-        closeButton.onmouseout = function() { closeButton.style.background = 'rgba(255, 255, 255, 0.2)'; };
+        closeButton.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        closeButton.onmouseover = function() { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = function() { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = function() { stopUpdateDoa(); };
         header.appendChild(titleContainer); header.appendChild(closeButton);
         var panelsContainer = document.createElement('div'); panelsContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 0; overflow: hidden;';
@@ -18264,7 +18291,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         addSortToggleToSubpanel(rightPanel, 'updatedoa-right-panel', 'updatedoa-sort-toggle', 'updatedoa-failure-filter', [UPDATEDOA_LABELS.statusNotFound, UPDATEDOA_LABELS.statusFailed, UPDATEDOA_LABELS.statusRoleFailed, UPDATEDOA_LABELS.statusTasksFailed]);
         panelsContainer.appendChild(leftPanel); panelsContainer.appendChild(rightPanel);
         var summaryFooter = document.createElement('div'); summaryFooter.id = 'updatedoa-summary-footer'; summaryFooter.setAttribute('aria-label', 'Processing summary');
-        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: rgba(0, 0, 0, 0.2); border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
+        summaryFooter.style.cssText = 'display: flex; justify-content: space-around; align-items: center; padding: 10px 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 12px; flex-shrink: 0;';
         var nonDuplicateCount = 0;
         for (var ndi = 0; ndi < updateDoaState.parsedCandidates.length; ndi++) { if (!updateDoaState.parsedCandidates[ndi].isDuplicate) { nonDuplicateCount++; } }
         updateDoaState.counters = { total: nonDuplicateCount, saved: 0, notFound: 0, failures: 0, pending: nonDuplicateCount };
@@ -18275,8 +18302,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         ];
         for (var si = 0; si < summaryItems.length; si++) {
             var sItem = document.createElement('div'); sItem.style.cssText = 'text-align: center;';
-            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: white; font-size: 16px; font-weight: 700;';
-            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.6); font-size: 11px; font-weight: 500; margin-top: 2px;';
+            var vSpan = document.createElement('span'); vSpan.id = summaryItems[si].id; vSpan.textContent = summaryItems[si].value; vSpan.style.cssText = 'display: block; color: #111827; font-size: 16px; font-weight: 700;';
+            var lSpan = document.createElement('span'); lSpan.textContent = summaryItems[si].label; lSpan.style.cssText = 'display: block; color: #6b7280; font-size: 11px; font-weight: 500; margin-top: 2px;';
             sItem.appendChild(vSpan); sItem.appendChild(lSpan); summaryFooter.appendChild(sItem);
         }
         var ariaLiveRegion = document.createElement('div'); ariaLiveRegion.id = 'updatedoa-aria-live'; ariaLiveRegion.setAttribute('aria-live', 'polite'); ariaLiveRegion.setAttribute('aria-atomic', 'true');
@@ -18317,13 +18344,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
             var item = items[i]; if (item.getAttribute('data-pairkey') !== pairKey) { continue; } if (item.getAttribute('data-duplicate') === 'true') { continue; }
             var badge = item.querySelector('.elog-status-badge');
             if (badge) {
-                badge.textContent = newStatus; var badgeColor = 'rgba(255, 255, 255, 0.7)'; var badgeBg = 'rgba(255, 255, 255, 0.1)';
-                if (newStatus === UPDATEDOA_LABELS.statusCompleted) { badgeColor = '#6bcf7f'; badgeBg = 'rgba(107, 207, 127, 0.2)'; }
-                else if (newStatus === UPDATEDOA_LABELS.statusNotFound) { badgeColor = '#ffa500'; badgeBg = 'rgba(255, 165, 0, 0.2)'; }
-                else if (newStatus === UPDATEDOA_LABELS.statusFailed || newStatus === UPDATEDOA_LABELS.statusRoleFailed || newStatus === UPDATEDOA_LABELS.statusTasksFailed) { badgeColor = '#ff6b6b'; badgeBg = 'rgba(255, 107, 107, 0.2)'; }
-                else if (newStatus === UPDATEDOA_LABELS.statusStopped || newStatus === UPDATEDOA_LABELS.statusDuplicate) { badgeColor = '#aaa'; badgeBg = 'rgba(170, 170, 170, 0.2)'; }
-                else if (newStatus === UPDATEDOA_LABELS.statusLocating || newStatus === UPDATEDOA_LABELS.statusSettingRole || newStatus === UPDATEDOA_LABELS.statusSettingTasks) { badgeColor = '#64b5f6'; badgeBg = 'rgba(100, 181, 246, 0.2)'; }
-                else if (newStatus === UPDATEDOA_LABELS.statusPending) { badgeColor = '#ffd93d'; badgeBg = 'rgba(255, 217, 61, 0.2)'; }
+                badge.textContent = newStatus; var badgeColor = '#374151'; var badgeBg = '#f3f4f6';
+                if (newStatus === UPDATEDOA_LABELS.statusCompleted) { badgeColor = '#15803d'; badgeBg = '#dcfce7'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusNotFound) { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusFailed || newStatus === UPDATEDOA_LABELS.statusRoleFailed || newStatus === UPDATEDOA_LABELS.statusTasksFailed) { badgeColor = '#dc2626'; badgeBg = '#fee2e2'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusStopped || newStatus === UPDATEDOA_LABELS.statusDuplicate) { badgeColor = '#6b7280'; badgeBg = '#e5e7eb'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusLocating || newStatus === UPDATEDOA_LABELS.statusSettingRole || newStatus === UPDATEDOA_LABELS.statusSettingTasks) { badgeColor = '#2563eb'; badgeBg = '#dbeafe'; }
+                else if (newStatus === UPDATEDOA_LABELS.statusPending) { badgeColor = '#d97706'; badgeBg = '#fef3c7'; }
                 badge.style.color = badgeColor; badge.style.background = badgeBg;
                 if (detailsOptional) { badge.setAttribute('title', detailsOptional); }
             }
@@ -18342,7 +18369,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     function updateUpdateDoaProgressBadge(statusText, statusType) {
         var badge = document.getElementById('updatedoa-status-badge'); var titleEl = document.getElementById('updatedoa-progress-title');
-        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = 'rgba(107, 207, 127, 0.3)'; badge.style.color = '#6bcf7f'; } else if (statusType === 'stopped') { badge.style.background = 'rgba(170, 170, 170, 0.3)'; badge.style.color = '#aaa'; } else { badge.style.background = 'rgba(255, 217, 61, 0.3)'; badge.style.color = '#ffd93d'; } }
+        if (badge) { badge.textContent = statusText; if (statusType === 'complete') { badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; } else if (statusType === 'stopped') { badge.style.background = '#f3f4f6'; badge.style.color = '#6b7280'; } else { badge.style.background = '#fef3c7'; badge.style.color = '#d97706'; } }
         if (titleEl) { titleEl.textContent = UPDATEDOA_LABELS.featureButton + ' - ' + statusText; }
         updateDoaState.isRunning = false;
     }
@@ -18682,7 +18709,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     let guiVisible = localStorage.getItem('florence-gui-visible') === 'true';
-    let guiScale = parseFloat(localStorage.getItem('florence-gui-scale')) || 1;
     let isDragging = false;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
@@ -19020,14 +19046,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 const button = document.createElement('button');
                 button.id = def.id;
                 button.textContent = def.label;
-                button.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid rgba(255, 255, 255, 0.3); color: white; padding: 12px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);';
+                button.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; color: #374151; padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease; text-align: center; line-height: 1.3; user-select: none;';
                 button.onmouseover = () => {
-                    button.style.transform = 'translateY(-2px)';
-                    button.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
+                    button.style.background = '#f3f4f6';
+                    button.style.borderColor = '#d1d5db';
                 }
-                button.onmouseout = () => { 
-                    button.style.transform = 'translateY(0)';
-                    button.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.2)';
+                button.onmouseout = () => {
+                    button.style.background = '#ffffff';
+                    button.style.borderColor = '#e5e7eb';
+                }
+                button.onfocus = () => {
+                    button.style.outline = '2px solid #bfdbfe';
+                    button.style.outlineOffset = '2px';
+                }
+                button.onblur = () => {
+                    button.style.outline = 'none';
                 }
                 button.onclick = def.handler;
                 container.appendChild(button);
@@ -19159,15 +19192,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
         configBtn.setAttribute(CFG_SELECTORS.configTooltipAttr, CFG_LABELS.configTooltip + ' (current: ' + cfgState.currentLabel + ')');
         configBtn.setAttribute('type', 'button');
         configBtn.innerHTML = '\u2699';
-        configBtn.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; margin-right: 6px; flex-shrink: 0;';
+        configBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; margin-right: 6px; flex-shrink: 0;';
         configBtn.onmouseover = function() {
-            configBtn.style.background = 'rgba(255, 255, 255, 0.35)';
+            configBtn.style.background = '#f3f4f6';
+            configBtn.style.color = '#111827';
         };
         configBtn.onmouseout = function() {
-            configBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+            configBtn.style.background = 'transparent';
+            configBtn.style.color = '#6b7280';
         };
         configBtn.onfocus = function() {
-            configBtn.style.outline = '2px solid rgba(255, 255, 255, 0.6)';
+            configBtn.style.outline = '2px solid #bfdbfe';
             configBtn.style.outlineOffset = '2px';
         };
         configBtn.onblur = function() {
@@ -19219,33 +19254,35 @@ function showResponsibilitiesProgressPanel(rolesData) {
         container.setAttribute('role', 'dialog');
         container.setAttribute('aria-modal', 'true');
         container.setAttribute('aria-labelledby', 'cfg-modal-title');
-        container.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 0; width: 520px; max-width: 94%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4); position: relative; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; max-height: 92vh;';
+        container.style.cssText = 'background: #ffffff; border-radius: 12px; padding: 0; width: 520px; max-width: 94%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); position: relative; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; flex-direction: column; max-height: 92vh; border: 1px solid #e5e7eb;';
 
         var modalHeader = document.createElement('div');
-        modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); border-radius: 12px 12px 0 0; flex-shrink: 0;';
+        modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid #e5e7eb; background: #ffffff; border-radius: 12px 12px 0 0; flex-shrink: 0;';
 
         var modalTitle = document.createElement('h3');
         modalTitle.id = 'cfg-modal-title';
         modalTitle.textContent = CFG_LABELS.modalTitle;
-        modalTitle.style.cssText = 'margin: 0; color: white; font-size: 16px; font-weight: 600;';
+        modalTitle.style.cssText = 'margin: 0; color: #111827; font-size: 16px; font-weight: 600;';
 
         var modalClose = document.createElement('button');
         modalClose.innerHTML = '\u2715';
         modalClose.setAttribute('aria-label', 'Close configuration');
         modalClose.setAttribute('type', 'button');
-        modalClose.style.cssText = 'background: rgba(255, 255, 255, 0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
+        modalClose.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
         modalClose.onmouseover = function() {
-            modalClose.style.background = 'rgba(255, 67, 54, 0.8)';
+            modalClose.style.background = '#f3f4f6';
+            modalClose.style.color = '#111827';
         };
         modalClose.onmouseout = function() {
-            modalClose.style.background = 'rgba(255, 255, 255, 0.2)';
+            modalClose.style.background = 'transparent';
+            modalClose.style.color = '#6b7280';
         };
 
         modalHeader.appendChild(modalTitle);
         modalHeader.appendChild(modalClose);
 
         var modalBody = document.createElement('div');
-        modalBody.style.cssText = 'padding: 16px; overflow-y: auto; flex: 1;';
+        modalBody.style.cssText = 'padding: 16px; overflow-y: auto; flex: 1; color: #374151;';
 
         var pendingHideLogs = loadHideLogs();
         var pendingLayout = JSON.parse(JSON.stringify(getEffectiveButtonLayout()));
@@ -19265,7 +19302,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var fieldLabel = document.createElement('label');
         fieldLabel.setAttribute('for', CFG_SELECTORS.keyCaptureFieldId);
         fieldLabel.textContent = CFG_LABELS.keybindLabel;
-        fieldLabel.style.cssText = 'display: block; color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 500; margin-bottom: 8px;';
+        fieldLabel.style.cssText = 'display: block; color: #374151; font-size: 13px; font-weight: 500; margin-bottom: 8px;';
 
         var keyCaptureField = document.createElement('input');
         keyCaptureField.id = CFG_SELECTORS.keyCaptureFieldId;
@@ -19274,67 +19311,41 @@ function showResponsibilitiesProgressPanel(rolesData) {
         keyCaptureField.value = cfgState.currentLabel;
         keyCaptureField.setAttribute('aria-label', CFG_LABELS.keybindLabel);
         keyCaptureField.setAttribute('placeholder', CFG_LABELS.keybindPlaceholder);
-        keyCaptureField.style.cssText = 'width: 100%; box-sizing: border-box; padding: 10px 12px; background: rgba(15, 10, 40, 0.7); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; color: #e0e0ff; font-size: 14px; font-weight: 500; outline: none; cursor: pointer; text-align: center; letter-spacing: 0.5px; transition: border-color 0.3s ease; font-family: monospace; -webkit-text-fill-color: #e0e0ff;';
+        keyCaptureField.style.cssText = 'width: 100%; box-sizing: border-box; padding: 10px 12px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; font-size: 14px; font-weight: 500; outline: none; cursor: pointer; text-align: center; letter-spacing: 0.5px; transition: border-color 0.15s ease; font-family: monospace; -webkit-text-fill-color: #111827;';
         keyCaptureField.onfocus = function() {
-            keyCaptureField.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+            keyCaptureField.style.borderColor = '#2563eb';
             keyCaptureField.value = '';
             keyCaptureField.setAttribute('placeholder', CFG_LABELS.keybindPlaceholder);
             cfgAnnounce(CFG_LABELS.captureOn);
             addLogMessage('openConfigModal: key capture field focused, awaiting key press', 'log');
         };
         keyCaptureField.onblur = function() {
-            keyCaptureField.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            keyCaptureField.style.borderColor = '#d1d5db';
             if (!cfgState.capturedLabel) {
                 keyCaptureField.value = cfgState.currentLabel;
             }
         };
 
         var validationMsg = document.createElement('div');
-        validationMsg.style.cssText = 'color: #ff6b6b; font-size: 12px; min-height: 18px; margin-top: 6px; transition: opacity 0.2s ease;';
+        validationMsg.style.cssText = 'color: #dc2626; font-size: 12px; min-height: 18px; margin-top: 6px; transition: opacity 0.2s ease;';
         validationMsg.textContent = '';
 
-                var displaySection = document.createElement('div');
-        displaySection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);';
-        var displayTitle = document.createElement('div');
-        displayTitle.textContent = 'Display';
-        displayTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;';
-        displaySection.appendChild(displayTitle);
-
-        var hideLogsRow = document.createElement('label');
-        hideLogsRow.style.cssText = 'display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.15); transition: background 0.2s ease;';
-        hideLogsRow.onmouseover = function() { hideLogsRow.style.background = 'rgba(0, 0, 0, 0.25)'; };
-        hideLogsRow.onmouseout = function() { hideLogsRow.style.background = 'rgba(0, 0, 0, 0.15)'; };
-        var hideLogsCheckbox = document.createElement('input');
-        hideLogsCheckbox.type = 'checkbox';
-        hideLogsCheckbox.checked = pendingHideLogs;
-        hideLogsCheckbox.setAttribute('aria-label', 'Hide Logs');
-        hideLogsCheckbox.style.cssText = 'width: 16px; height: 16px; cursor: pointer; accent-color: #764ba2; flex-shrink: 0;';
-        hideLogsCheckbox.onchange = function() {
-            pendingHideLogs = hideLogsCheckbox.checked;
-            checkDirty();
-        };
-        var hideLogsLabel = document.createElement('span');
-        hideLogsLabel.textContent = 'Hide Logs';
-        hideLogsLabel.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 500;';
-        hideLogsRow.appendChild(hideLogsCheckbox);
-        hideLogsRow.appendChild(hideLogsLabel);
-        displaySection.appendChild(hideLogsRow);
-
                 var btnSection = document.createElement('div');
-        btnSection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15);';
+        btnSection.style.cssText = 'margin-top: 18px; padding-top: 14px; border-top: 1px solid #e5e7eb;';
         var btnSectionTitle = document.createElement('div');
         btnSectionTitle.textContent = 'Feature Buttons';
-        btnSectionTitle.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;';
+        btnSectionTitle.style.cssText = 'color: #374151; font-size: 13px; font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;';
         btnSection.appendChild(btnSectionTitle);
         var btnSectionHint = document.createElement('div');
         btnSectionHint.textContent = 'Drag buttons to reorder. Dropped button inserts at that cell; others shift right.';
-        btnSectionHint.style.cssText = 'font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 10px; font-style: italic;';
+        btnSectionHint.style.cssText = 'font-size: 11px; color: #9ca3af; margin-bottom: 10px; font-style: italic;';
         btnSection.appendChild(btnSectionHint);
 
         var btnGridContainer = document.createElement('div');
-        btnGridContainer.style.cssText = 'max-height: 480px; overflow-y: auto; border-radius: 6px; background: rgba(0, 0, 0, 0.15); padding: 6px;';
+        btnGridContainer.style.cssText = 'max-height: 480px; overflow-y: auto; border-radius: 6px; background: #f9fafb; padding: 6px;';
         btnGridContainer.setAttribute('role', 'grid');
         btnGridContainer.setAttribute('aria-label', 'Feature button order and visibility');
+
         var defMap = buildDefMap();
         var dragSrcPos = null;
 
@@ -19428,27 +19439,27 @@ function showResponsibilitiesProgressPanel(rolesData) {
                     cell.setAttribute('draggable', 'true');
                     cell.setAttribute('tabindex', '0');
                     cell.dataset.pos = String(entry.position);
-                    cell.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 5px; cursor: grab; transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease; background: rgba(255,255,255,0.07); opacity: ' + (entry.visible ? '1' : '0.4') + '; border: 1px solid transparent; min-height: 36px; user-select: none;';
-                    cell.onmouseover = function() { if (dragSrcPos === null) cell.style.background = 'rgba(255,255,255,0.14)'; };
-                    cell.onmouseout = function() { if (dragSrcPos === null) cell.style.background = 'rgba(255,255,255,0.07)'; };
+                    cell.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 5px; cursor: grab; transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease; background: #ffffff; opacity: ' + (entry.visible ? '1' : '0.45') + '; border: 1px solid #e5e7eb; min-height: 36px; user-select: none;';
+                    cell.onmouseover = function() { if (dragSrcPos === null) cell.style.background = '#f3f4f6'; };
+                    cell.onmouseout = function() { if (dragSrcPos === null) cell.style.background = '#ffffff'; };
 
                     var posLabel = document.createElement('span');
                     posLabel.textContent = String(entry.position + 1);
-                    posLabel.style.cssText = 'color: rgba(255,255,255,0.35); font-size: 10px; min-width: 16px; text-align: center; flex-shrink: 0; font-weight: 600;';
+                    posLabel.style.cssText = 'color: #9ca3af; font-size: 10px; min-width: 16px; text-align: center; flex-shrink: 0; font-weight: 600;';
 
                     var nameLabel = document.createElement('span');
                     nameLabel.textContent = def.label;
-                    nameLabel.style.cssText = 'color: white; font-size: 11px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (entry.visible ? '' : ' text-decoration: line-through; color: rgba(255,255,255,0.45);');
+                    nameLabel.style.cssText = 'color: #374151; font-size: 11px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' + (entry.visible ? '' : ' text-decoration: line-through; color: #9ca3af;');
 
                     var toggleBtn = document.createElement('button');
                     toggleBtn.textContent = entry.visible ? '\u2713' : '\u2715';
                     toggleBtn.setAttribute('aria-label', (entry.visible ? 'Hide ' : 'Show ') + def.label);
                     toggleBtn.setAttribute('type', 'button');
                     toggleBtn.title = entry.visible ? 'Hide' : 'Show';
-                    var toggleBg = entry.visible ? 'rgba(107,207,127,0.35)' : 'rgba(255,100,100,0.3)';
-                    var toggleBorder = entry.visible ? 'rgba(107,207,127,0.5)' : 'rgba(255,100,100,0.5)';
-                    var toggleColor = entry.visible ? '#6bcf7f' : '#ff8a8a';
-                    toggleBtn.style.cssText = 'background: ' + toggleBg + '; border: 1px solid ' + toggleBorder + '; color: ' + toggleColor + '; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; flex-shrink: 0; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;';
+                    var toggleBg = entry.visible ? '#dcfce7' : '#fee2e2';
+                    var toggleBorder = entry.visible ? '#86efac' : '#fca5a5';
+                    var toggleColor = entry.visible ? '#059669' : '#dc2626';
+                    toggleBtn.style.cssText = 'background: ' + toggleBg + '; border: 1px solid ' + toggleBorder + '; color: ' + toggleColor + '; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; flex-shrink: 0; transition: all 0.15s ease; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;';
                     toggleBtn.onclick = function(e) {
                         e.stopPropagation();
                         for (var ti = 0; ti < pendingLayout.length; ti++) {
@@ -19465,11 +19476,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         dragSrcPos = entry.position;
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', String(entry.position));
-                        setTimeout(function() { cell.style.opacity = '0.25'; cell.style.background = 'rgba(255,255,255,0.03)'; }, 0);
+                        setTimeout(function() { cell.style.opacity = '0.25'; cell.style.background = '#f9fafb'; }, 0);
                     });
                     cell.addEventListener('dragend', function() {
-                        cell.style.opacity = entry.visible ? '1' : '0.4';
-                        cell.style.background = 'rgba(255,255,255,0.07)';
+                        cell.style.opacity = entry.visible ? '1' : '0.45';
+                        cell.style.background = '#ffffff';
                         cell.style.border = '1px solid transparent';
                         dragSrcPos = null;
                         stopAutoScroll();
@@ -19478,19 +19489,19 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = 'move';
                         if (dragSrcPos !== null && dragSrcPos !== entry.position) {
-                            cell.style.background = 'rgba(118,75,162,0.45)';
-                            cell.style.border = '1px solid rgba(180,140,255,0.5)';
+                            cell.style.background = '#eff6ff';
+                            cell.style.border = '1px solid #93c5fd';
                         }
                     });
                     cell.addEventListener('dragleave', function() {
-                        cell.style.background = 'rgba(255,255,255,0.07)';
-                        cell.style.border = '1px solid transparent';
+                        cell.style.background = '#ffffff';
+                        cell.style.border = '1px solid #e5e7eb';
                     });
                     cell.addEventListener('drop', function(e) {
                         e.preventDefault();
                         e.stopPropagation();
-                        cell.style.background = 'rgba(255,255,255,0.07)';
-                        cell.style.border = '1px solid transparent';
+                        cell.style.background = '#ffffff';
+                        cell.style.border = '1px solid #e5e7eb';
                         var fromPos = parseInt(e.dataTransfer.getData('text/plain'), 10);
                         if (isNaN(fromPos) || fromPos === entry.position) return;
                         moveButtonToPosition(fromPos, entry.position);
@@ -19552,18 +19563,18 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
 
         var modalFooter = document.createElement('div');
-        modalFooter.style.cssText = 'padding: 12px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.15); flex-shrink: 0;';
+        modalFooter.style.cssText = 'padding: 12px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid #e5e7eb; flex-shrink: 0;';
 
         var cancelBtn = document.createElement('button');
         cancelBtn.id = CFG_SELECTORS.cancelBtnId;
         cancelBtn.textContent = CFG_LABELS.cancel;
         cancelBtn.setAttribute('type', 'button');
-        cancelBtn.style.cssText = 'background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white; padding: 8px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.3s ease;';
+        cancelBtn.style.cssText = 'background: #ffffff; border: 1px solid #d1d5db; color: #374151; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s ease;';
         cancelBtn.onmouseover = function() {
-            cancelBtn.style.background = 'rgba(255, 255, 255, 0.25)';
+            cancelBtn.style.background = '#f3f4f6';
         };
         cancelBtn.onmouseout = function() {
-            cancelBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+            cancelBtn.style.background = '#ffffff';
         };
 
         var saveBtn = document.createElement('button');
@@ -19571,31 +19582,36 @@ function showResponsibilitiesProgressPanel(rolesData) {
         saveBtn.textContent = CFG_LABELS.save;
         saveBtn.setAttribute('type', 'button');
         saveBtn.disabled = true;
-        saveBtn.style.cssText = 'background: rgba(40, 167, 69, 0.6); border: 1px solid rgba(40, 167, 69, 0.8); color: white; padding: 8px 18px; border-radius: 8px; cursor: not-allowed; font-size: 13px; font-weight: 600; transition: all 0.3s ease; opacity: 0.5;';
+        saveBtn.style.cssText = 'background: #22c55e; border: 1px solid #22c55e; color: #ffffff; padding: 8px 18px; border-radius: 6px; cursor: not-allowed; font-size: 13px; font-weight: 600; transition: all 0.15s ease; opacity: 0.5;';
 
         function updateSaveBtnState(enabled) {
             saveBtn.disabled = !enabled;
             if (enabled) {
                 saveBtn.style.cursor = 'pointer';
                 saveBtn.style.opacity = '1';
-                saveBtn.style.background = 'rgba(40, 167, 69, 0.8)';
+                saveBtn.style.background = '#16a34a';
+                saveBtn.style.borderColor = '#16a34a';
             } else {
                 saveBtn.style.cursor = 'not-allowed';
                 saveBtn.style.opacity = '0.5';
-                saveBtn.style.background = 'rgba(40, 167, 69, 0.6)';
+                saveBtn.style.background = '#22c55e';
+                saveBtn.style.borderColor = '#22c55e';
             }
         }
 
         saveBtn.onmouseover = function() {
             if (!saveBtn.disabled) {
-                saveBtn.style.background = 'rgba(40, 167, 69, 1)';
+                saveBtn.style.background = '#15803d';
+                saveBtn.style.borderColor = '#15803d';
             }
         };
         saveBtn.onmouseout = function() {
             if (!saveBtn.disabled) {
-                saveBtn.style.background = 'rgba(40, 167, 69, 0.8)';
+                saveBtn.style.background = '#16a34a';
+                saveBtn.style.borderColor = '#16a34a';
             } else {
-                saveBtn.style.background = 'rgba(40, 167, 69, 0.6)';
+                saveBtn.style.background = '#22c55e';
+                saveBtn.style.borderColor = '#22c55e';
             }
         };
 
@@ -19719,7 +19735,6 @@ function showResponsibilitiesProgressPanel(rolesData) {
         modalBody.appendChild(fieldLabel);
         modalBody.appendChild(keyCaptureField);
         modalBody.appendChild(validationMsg);
-        modalBody.appendChild(displaySection);
         modalBody.appendChild(btnSection);
 
         modalFooter.appendChild(cancelBtn);
@@ -19865,7 +19880,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 30000;
             display: flex;
             align-items: center;
@@ -19874,12 +19889,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const container = document.createElement('div');
         container.style.cssText = `
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            background: #ffffff;
+            border: 1px solid #fecaca;
             border-radius: 12px;
             padding: 24px;
-            width: 400px;
+            width: 450px;
             max-width: 90%;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
             position: relative;
         `;
 
@@ -19895,7 +19911,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         title.textContent = 'Warning';
         title.style.cssText = `
             margin: 0;
-            color: white;
+            color: #dc2626;
             font-size: 18px;
             font-weight: 600;
         `;
@@ -19903,9 +19919,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
+            background: transparent;
             border: none;
-            color: white;
+            color: #6b7280;
             width: 28px;
             height: 28px;
             border-radius: 50%;
@@ -19914,10 +19930,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
         `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
-        closeButton.onmouseout = () => closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        closeButton.onmouseover = () => { closeButton.style.background = '#f3f4f6'; closeButton.style.color = '#dc2626'; };
+        closeButton.onmouseout = () => { closeButton.style.background = 'transparent'; closeButton.style.color = '#6b7280'; };
         closeButton.onclick = () => document.body.removeChild(modal);
 
         header.appendChild(title);
@@ -19926,7 +19942,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const messageDiv = document.createElement('p');
         messageDiv.textContent = message;
         messageDiv.style.cssText = `
-            color: rgba(255, 255, 255, 0.9);
+            color: #374151;
             margin: 0;
             font-size: 14px;
             line-height: 1.5;
@@ -19935,20 +19951,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const okButton = document.createElement('button');
         okButton.textContent = 'OK';
         okButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white;
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
             padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
             margin-top: 20px;
             width: 100%;
         `;
-        okButton.onmouseover = () => okButton.style.background = 'rgba(255, 255, 255, 0.3)';
-        okButton.onmouseout = () => okButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        okButton.onmouseover = () => okButton.style.background = '#fecaca';
+        okButton.onmouseout = () => okButton.style.background = '#fee2e2';
         okButton.onclick = () => document.body.removeChild(modal);
 
         container.appendChild(header);
@@ -20072,37 +20088,37 @@ function showResponsibilitiesProgressPanel(rolesData) {
         ];
 
         var overlay = document.createElement('div');
-        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);';
+        overlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99999; display: flex; align-items: center; justify-content: center;';
 
         var modal = document.createElement('div');
-        modal.style.cssText = 'background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border-radius: 16px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); width: 90vw; max-width: 720px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(102,126,234,0.4);';
+        modal.style.cssText = 'background: #ffffff; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); width: 90vw; max-width: 720px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e5e7eb;';
 
         var mHeader = document.createElement('div');
-        mHeader.style.cssText = 'padding: 20px 24px; background: rgba(102,126,234,0.15); border-bottom: 1px solid rgba(102,126,234,0.3); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;';
+        mHeader.style.cssText = 'padding: 16px 20px; background: #ffffff; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;';
 
         var mTitle = document.createElement('div');
-        mTitle.innerHTML = '<span style="font-size:20px;font-weight:700;color:white;font-family:Segoe UI,sans-serif;">Florence Automator</span><span style="font-size:14px;color:rgba(255,255,255,0.6);margin-left:10px;">Help Guide</span>';
+        mTitle.innerHTML = '<span style="font-size:18px;font-weight:600;color:#111827;font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;">Florence Automator</span><span style="font-size:14px;color:#6b7280;margin-left:10px;">Help Guide</span>';
 
         var closeX = document.createElement('button');
         closeX.textContent = '\u2715';
-        closeX.style.cssText = 'background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; transition: background 0.2s; flex-shrink: 0;';
-        closeX.onmouseover = function() { closeX.style.background = 'rgba(255,67,54,0.7)'; };
-        closeX.onmouseout = function() { closeX.style.background = 'rgba(255,255,255,0.1)'; };
+        closeX.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: all 0.15s ease; flex-shrink: 0;';
+        closeX.onmouseover = function() { closeX.style.background = '#f3f4f6'; closeX.style.color = '#111827'; };
+        closeX.onmouseout = function() { closeX.style.background = 'transparent'; closeX.style.color = '#6b7280'; };
         closeX.onclick = function() { closeHelpModal(); };
         mHeader.appendChild(mTitle);
         mHeader.appendChild(closeX);
 
         var searchWrap = document.createElement('div');
-        searchWrap.style.cssText = 'padding: 16px 24px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;';
+        searchWrap.style.cssText = 'padding: 14px 20px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;';
 
         var searchInput = document.createElement('input');
         searchInput.type = 'text';
         searchInput.placeholder = 'Search features\u2026';
-        searchInput.style.cssText = 'width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.08); border: 1px solid rgba(102,126,234,0.4); color: white; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-family: Segoe UI,sans-serif; outline: none;';
+        searchInput.style.cssText = 'width: 100%; box-sizing: border-box; background: #ffffff; border: 1px solid #d1d5db; color: #111827; border-radius: 8px; padding: 10px 14px; font-size: 14px; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; outline: none;';
         searchWrap.appendChild(searchInput);
 
         var body = document.createElement('div');
-        body.style.cssText = 'overflow-y: auto; padding: 20px 24px; flex: 1;';
+        body.style.cssText = 'overflow-y: auto; padding: 18px 20px; flex: 1; background: #ffffff;';
 
         function renderSections(filter) {
             body.innerHTML = '';
@@ -20117,22 +20133,22 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 anyVisible = true;
                 var secTitle = document.createElement('div');
                 secTitle.textContent = sec.title;
-                secTitle.style.cssText = 'color: rgba(120,140,255,1); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px; font-family: Segoe UI,sans-serif;';
+                secTitle.style.cssText = 'color: #2563eb; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;';
                 body.appendChild(secTitle);
                 var grid = document.createElement('div');
                 grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 12px; margin-bottom: 24px;';
                 for (var fi = 0; fi < visFeatures.length; fi++) {
                     (function(feat) {
                         var card = document.createElement('div');
-                        card.style.cssText = 'background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 14px 16px; transition: border-color 0.2s;';
-                        card.onmouseover = function() { card.style.borderColor = 'rgba(102,126,234,0.6)'; };
-                        card.onmouseout = function() { card.style.borderColor = 'rgba(255,255,255,0.12)'; };
+                        card.style.cssText = 'background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; transition: border-color 0.15s ease, box-shadow 0.15s ease;';
+                        card.onmouseover = function() { card.style.borderColor = '#bfdbfe'; card.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)'; };
+                        card.onmouseout = function() { card.style.borderColor = '#e5e7eb'; card.style.boxShadow = 'none'; };
                         var fl = document.createElement('div');
                         fl.textContent = feat.label;
-                        fl.style.cssText = 'color: white; font-size: 14px; font-weight: 600; margin-bottom: 6px; font-family: Segoe UI,sans-serif;';
+                        fl.style.cssText = 'color: #111827; font-size: 14px; font-weight: 600; margin-bottom: 4px; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;';
                         var fd = document.createElement('div');
                         fd.textContent = feat.desc;
-                        fd.style.cssText = 'color: rgba(255,255,255,0.65); font-size: 12px; line-height: 1.5; font-family: Segoe UI,sans-serif;';
+                        fd.style.cssText = 'color: #6b7280; font-size: 12px; line-height: 1.5; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;';
                         card.appendChild(fl);
                         card.appendChild(fd);
                         grid.appendChild(card);
@@ -20143,7 +20159,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             if (!anyVisible) {
                 var noRes = document.createElement('div');
                 noRes.textContent = 'No features match your search.';
-                noRes.style.cssText = 'color: rgba(255,255,255,0.5); text-align: center; padding: 40px; font-family: Segoe UI,sans-serif;';
+                noRes.style.cssText = 'color: #9ca3af; text-align: center; padding: 40px; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;';
                 body.appendChild(noRes);
             }
         }
@@ -20152,11 +20168,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
         searchInput.oninput = function() { renderSections(searchInput.value); };
 
         var mFooter = document.createElement('div');
-        mFooter.style.cssText = 'padding: 14px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.08); text-align: right; flex-shrink: 0;';
+        mFooter.style.cssText = 'padding: 12px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: right; flex-shrink: 0;';
 
         var closeFooter = document.createElement('button');
         closeFooter.textContent = 'Close';
-        closeFooter.style.cssText = 'background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border: none; color: white; padding: 10px 28px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: Segoe UI,sans-serif;';
+        closeFooter.style.cssText = 'background: #2563eb; border: 1px solid #2563eb; color: #ffffff; padding: 8px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; font-family: system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif; transition: all 0.15s ease;';
+        closeFooter.onmouseover = function() { closeFooter.style.background = '#1d4ed8'; closeFooter.style.borderColor = '#1d4ed8'; };
+        closeFooter.onmouseout = function() { closeFooter.style.background = '#2563eb'; closeFooter.style.borderColor = '#2563eb'; };
         closeFooter.onclick = function() { closeHelpModal(); };
         mFooter.appendChild(closeFooter);
 
@@ -20201,12 +20219,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         right: 0;
         bottom: 0;
         width: 360px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff;
         border-radius: 0;
-        border-left: 1px solid rgba(255, 255, 255, 0.15);
-        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
+        border-left: 1px solid #e5e7eb;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
         z-index: 2147483646;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         display: none;
         flex-direction: column;
         overflow: hidden;
@@ -20215,9 +20233,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const header = document.createElement('div');
         header.style.cssText = `
-        background: rgba(255, 255, 255, 0.1);
+        background: #ffffff;
         padding: 12px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        border-bottom: 1px solid #e5e7eb;
         cursor: default;
         display: flex;
         justify-content: space-between;
@@ -20229,29 +20247,36 @@ function showResponsibilitiesProgressPanel(rolesData) {
         title.textContent = 'Florence Automator';
         title.style.cssText = `
         margin: 0;
-        color: white;
-        font-size: 16px;
+        color: #111827;
+        font-size: 14px;
         font-weight: 600;
+        letter-spacing: -0.2px;
     `;
 
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.style.cssText = `
-        background: rgba(255, 255, 255, 0.2);
+        background: transparent;
         border: none;
-        color: white;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
+        color: #6b7280;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.3s ease;
+        transition: all 0.15s ease;
     `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
-        closeButton.onmouseout = () => closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        closeButton.onmouseover = () => {
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#111827';
+        };
+        closeButton.onmouseout = () => {
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
+        };
         closeButton.onclick = () => toggleGUI();
 
         var headerRight = document.createElement('div');
@@ -20259,9 +20284,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var helpBtn = document.createElement('button');
         helpBtn.textContent = '?';
         helpBtn.title = 'Help Guide';
-        helpBtn.style.cssText = 'background: rgba(255,255,255,0.2); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;';
-        helpBtn.onmouseover = function() { helpBtn.style.background = 'rgba(255,255,255,0.4)'; };
-        helpBtn.onmouseout = function() { helpBtn.style.background = 'rgba(255,255,255,0.2)'; };
+        helpBtn.style.cssText = 'background: transparent; border: none; color: #6b7280; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;';
+        helpBtn.onmouseover = function() { helpBtn.style.background = '#f3f4f6'; helpBtn.style.color = '#111827'; };
+        helpBtn.onmouseout = function() { helpBtn.style.background = 'transparent'; helpBtn.style.color = '#6b7280'; };
         helpBtn.onclick = function() { openHelpPopup(); };
         headerRight.appendChild(helpBtn);
         headerRight.appendChild(closeButton);
@@ -20276,48 +20301,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        background: rgba(255, 255, 255, 0.05);
+        background: #ffffff;
+        flex-shrink: 0;
     `;
         renderButtonsInto(buttonsContainer);
-        const scaleContainer = document.createElement('div');
-        scaleContainer.style.cssText = `
-        padding: 12px 16px;
-        background: rgba(255, 255, 255, 0.05);
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-    `;
-
-        const scaleLabel = document.createElement('div');
-        scaleLabel.textContent = `Scale: ${guiScale.toFixed(2)}x`;
-        scaleLabel.style.cssText = `
-        color: white;
-        font-size: 12px;
-        margin-bottom: 8px;
-        font-weight: 500;
-    `;
-
-        const scaleSlider = document.createElement('input');
-        scaleSlider.type = 'range';
-        scaleSlider.min = '0.75';
-        scaleSlider.max = '1';
-        scaleSlider.step = '0.05';
-        scaleSlider.value = guiScale;
-        scaleSlider.style.cssText = `
-        width: 100%;
-        height: 6px;
-        border-radius: 3px;
-        background: rgba(255, 255, 255, 0.3);
-        outline: none;
-        -webkit-appearance: none;
-    `;
-
-        scaleSlider.oninput = (e) => {
-            const newScale = parseFloat(e.target.value);
-            localStorage.setItem('florence-gui-scale', newScale);
-            scaleLabel.textContent = `Scale: ${newScale.toFixed(2)}x (refresh to apply)`;
-        };
-
-        scaleContainer.appendChild(scaleLabel);
-        scaleContainer.appendChild(scaleSlider);
 
         const clearLogsBtn = document.createElement('button');
         clearLogsBtn.id = 'florence-clear-logs-btn';
@@ -20325,61 +20312,108 @@ function showResponsibilitiesProgressPanel(rolesData) {
         clearLogsBtn.style.cssText = `
         margin-top: 8px;
         width: 100%;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: rgba(255, 255, 255, 0.8);
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #6b7280;
         padding: 6px 12px;
         border-radius: 6px;
         cursor: pointer;
         font-size: 12px;
         font-weight: 500;
-        transition: all 0.3s ease;
+        transition: all 0.15s ease;
     `;
         clearLogsBtn.onmouseover = () => {
-            clearLogsBtn.style.background = 'rgba(255, 67, 54, 0.4)';
-            clearLogsBtn.style.borderColor = 'rgba(255, 67, 54, 0.6)';
-            clearLogsBtn.style.color = 'white';
+            clearLogsBtn.style.background = '#fef2f2';
+            clearLogsBtn.style.borderColor = '#fecaca';
+            clearLogsBtn.style.color = '#dc2626';
         };
         clearLogsBtn.onmouseout = () => {
-            clearLogsBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-            clearLogsBtn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            clearLogsBtn.style.color = 'rgba(255, 255, 255, 0.8)';
+            clearLogsBtn.style.background = '#ffffff';
+            clearLogsBtn.style.borderColor = '#e5e7eb';
+            clearLogsBtn.style.color = '#6b7280';
         };
         clearLogsBtn.onclick = () => {
             logMessages.length = 0;
             updateLogBox();
         };
-        scaleContainer.appendChild(clearLogsBtn);
+
+        const hideLogsBtn = document.createElement('button');
+        hideLogsBtn.id = 'florence-hide-logs-btn';
+        hideLogsBtn.textContent = 'Hide Logs';
+        hideLogsBtn.style.cssText = `
+        margin-top: 8px;
+        width: 100%;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #6b7280;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    `;
+        hideLogsBtn.onmouseover = () => {
+            hideLogsBtn.style.background = '#f3f4f6';
+            hideLogsBtn.style.borderColor = '#d1d5db';
+            hideLogsBtn.style.color = '#111827';
+        };
+        hideLogsBtn.onmouseout = () => {
+            hideLogsBtn.style.background = '#ffffff';
+            hideLogsBtn.style.borderColor = '#e5e7eb';
+            hideLogsBtn.style.color = '#6b7280';
+        };
+        hideLogsBtn.onclick = () => {
+            const logBox = document.getElementById('florence-log-box');
+            const isHidden = logBox.style.display === 'none';
+            if (isHidden) {
+                logBox.style.display = 'block';
+                clearLogsBtn.style.display = 'block';
+                hideLogsBtn.textContent = 'Hide Logs';
+                localStorage.setItem('florence-hide-logs', 'false');
+            } else {
+                logBox.style.display = 'none';
+                clearLogsBtn.style.display = 'none';
+                hideLogsBtn.textContent = 'Show Logs';
+                localStorage.setItem('florence-hide-logs', 'true');
+            }
+        };
+
+        const buttonsContainerDiv = document.createElement('div');
+        buttonsContainerDiv.style.cssText = 'padding: 12px 16px; background: #ffffff; border-top: 1px solid #e5e7eb; flex-shrink: 0;';
+        buttonsContainerDiv.appendChild(clearLogsBtn);
+        buttonsContainerDiv.appendChild(hideLogsBtn);
 
         const logBox = document.createElement('div');
         logBox.id = 'florence-log-box';
         logBox.style.cssText = `
         padding: 12px;
-        background: rgba(0, 0, 0, 0.3);
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
         overflow-y: auto;
-        font-family: 'Consolas', 'Monaco', monospace;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
         font-size: 11px;
-        line-height: 1.4;
-        height: 150px;
-        min-height: 60px;
-        max-height: 500px;
+        line-height: 1.5;
+        flex: 1 1 auto;
+        min-height: 120px;
         resize: vertical;
         box-sizing: border-box;
+        color: #374151;
     `;
 
         guiContainer.appendChild(header);
         guiContainer.appendChild(buttonsContainer);
-        guiContainer.appendChild(scaleContainer);
+        guiContainer.appendChild(buttonsContainerDiv);
         guiContainer.appendChild(logBox);
 
         if (loadHideLogs()) {
             clearLogsBtn.style.display = 'none';
             logBox.style.display = 'none';
+            hideLogsBtn.textContent = 'Show Logs';
             guiContainer.style.minHeight = 'auto';
         }
         document.body.appendChild(guiContainer);
         addLogMessage('Florence Automator GUI initialized', 'log');
-        updateGUIScale();
     }
 
     function updateLogBox() {
@@ -20390,20 +20424,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var html = '';
         for (var i = startIdx; i < logMessages.length; i++) {
             var msg = logMessages[i];
-            var color = msg.type === 'error' ? '#ff6b6b' :
-                msg.type === 'warn' ? '#ffd93d' : '#6bcf7f';
-            html += '<div style="color: ' + color + '; margin-bottom: 4px;"><span style="opacity: 0.7;">[' + msg.timestamp + ']</span> ' + msg.message + '</div>';
+            var color = msg.type === 'error' ? '#dc2626' :
+                msg.type === 'warn' ? '#d97706' : '#059669';
+            html += '<div style="color: ' + color + '; margin-bottom: 4px;"><span style="color: #9ca3af;">[' + msg.timestamp + ']</span> ' + msg.message + '</div>';
         }
         logBox.innerHTML = html;
         logBox.scrollTop = logBox.scrollHeight;
-    }
-
-    function updateGUIScale() {
-        const gui = document.getElementById('florence-gui');
-        if (!gui) return;
-
-        gui.style.transform = `scale(${guiScale})`;
-        gui.style.transformOrigin = 'top right';
     }
 
     const FLORENCE_SIDEBAR_WIDTH = 360;
@@ -20443,12 +20469,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const container = document.createElement('div');
         container.style.cssText = `
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
         border-radius: 12px;
         padding: 24px;
         width: 450px;
         max-width: 90%;
-        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
         position: relative;
     `;
 
@@ -20464,7 +20491,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         title.textContent = 'Add Signatures';
         title.style.cssText = `
         margin: 0;
-        color: white;
+        color: #111827;
         font-size: 18px;
         font-weight: 600;
         letter-spacing: 0.2px;
@@ -20473,9 +20500,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.style.cssText = `
-        background: rgba(255, 255, 255, 0.2);
+        background: transparent;
         border: none;
-        color: white;
+        color: #6b7280;
         width: 28px;
         height: 28px;
         border-radius: 50%;
@@ -20484,13 +20511,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.3s ease;
+        transition: all 0.15s ease;
     `;
         closeButton.onmouseover = () => {
-            closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#dc2626';
         };
         closeButton.onmouseout = () => {
-            closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
         };
         closeButton.onclick = () => {
             addLogMessage('openSignaturesInputGUI: modal closed by user', 'warn');
@@ -20503,7 +20532,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const description = document.createElement('p');
         description.textContent = 'Paste or type the full list of signers. Separate names with commas or place each name on a new line.';
         description.style.cssText = `
-        color: rgba(255, 255, 255, 0.9);
+        color: #374151;
         margin: 0 0 12px 0;
         font-size: 14px;
         line-height: 1.4;
@@ -20515,24 +20544,23 @@ function showResponsibilitiesProgressPanel(rolesData) {
         width: 100%;
         height: 140px;
         padding: 12px 14px;
-        border: 2px solid rgba(255, 255, 255, 0.35);
+        border: 1px solid #e5e7eb;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.95);
+        background: #ffffff;
         color: #1e293b;
         font-size: 14px;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         resize: vertical;
         outline: none;
-        transition: all 0.25s ease;
-        box-shadow: 0 2px 0 rgba(0,0,0,0.04) inset;
+        transition: all 0.15s ease;
     `;
         textarea.onfocus = () => {
-            textarea.style.borderColor = '#8ea0ff';
-            textarea.style.boxShadow = '0 0 0 4px rgba(102, 126, 234, 0.25)';
+            textarea.style.borderColor = '#2563eb';
+            textarea.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
         };
         textarea.onblur = () => {
-            textarea.style.borderColor = 'rgba(255, 255, 255, 0.35)';
-            textarea.style.boxShadow = '0 2px 0 rgba(0,0,0,0.04) inset';
+            textarea.style.borderColor = '#e5e7eb';
+            textarea.style.boxShadow = 'none';
         };
 
         const buttonContainer = document.createElement('div');
@@ -20546,22 +20574,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const clearButton = document.createElement('button');
         clearButton.textContent = 'Clear All';
         clearButton.style.cssText = `
-        background: rgba(255, 255, 255, 0.18);
-        border: 2px solid rgba(255, 255, 255, 0.35);
-        color: white;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        color: #6b7280;
         padding: 10px 20px;
         border-radius: 8px;
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-        transition: all 0.25s ease;
-        backdrop-filter: blur(2px);
+        transition: all 0.15s ease;
     `;
         clearButton.onmouseover = () => {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.28)';
+            clearButton.style.background = '#f3f4f6';
+            clearButton.style.borderColor = '#d1d5db';
+            clearButton.style.color = '#111827';
         };
         clearButton.onmouseout = () => {
-            clearButton.style.background = 'rgba(255, 255, 255, 0.18)';
+            clearButton.style.background = '#ffffff';
+            clearButton.style.borderColor = '#e5e7eb';
+            clearButton.style.color = '#6b7280';
         };
         clearButton.onclick = () => {
             addLogMessage('openSignaturesInputGUI: Clear All clicked', 'log');
@@ -20571,8 +20602,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const confirmButton = document.createElement('button');
         confirmButton.textContent = 'Confirm';
         confirmButton.style.cssText = `
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        border: 2px solid rgba(255, 255, 255, 0.35);
+        background: #22c55e;
+        border: 1px solid #16a34a;
         color: white;
         padding: 10px 20px;
         border-radius: 8px;
@@ -20580,13 +20611,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
         font-size: 14px;
         font-weight: 600;
         letter-spacing: 0.2px;
-        transition: all 0.25s ease;
+        transition: all 0.15s ease;
     `;
         confirmButton.onmouseover = () => {
-            confirmButton.style.background = 'linear-gradient(135deg, #218838 0%, #1ea085 100%)';
+            confirmButton.style.background = '#16a34a';
         };
         confirmButton.onmouseout = () => {
-            confirmButton.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            confirmButton.style.background = '#22c55e';
         };
         confirmButton.onclick = () => {
             addLogMessage('openSignaturesInputGUI: Confirm clicked', 'log');
@@ -20722,12 +20753,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const container = document.createElement('div');
         container.style.cssText = `
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
             border-radius: 12px;
             padding: 24px;
             width: 500px;
             max-width: 90%;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
             position: relative;
         `;
 
@@ -20743,7 +20775,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         title.textContent = 'Processing Signatures';
         title.style.cssText = `
             margin: 0;
-            color: white;
+            color: #111827;
             font-size: 18px;
             font-weight: 600;
         `;
@@ -20751,9 +20783,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
+            background: transparent;
             border: none;
-            color: white;
+            color: #6b7280;
             width: 28px;
             height: 28px;
             border-radius: 50%;
@@ -20762,10 +20794,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
         `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
-        closeButton.onmouseout = () => closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        closeButton.onmouseover = () => {
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#dc2626';
+        };
+        closeButton.onmouseout = () => {
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
+        };
         closeButton.onclick = () => {
             window.signatureProcessStopped = true;
             document.body.removeChild(modal);
@@ -20778,8 +20816,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         spinner.style.cssText = `
             width: 40px;
             height: 40px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #2563eb;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 20px auto;
@@ -20799,7 +20837,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         statusContainer.style.cssText = `
             max-height: 300px;
             overflow-y: auto;
-            background: rgba(0, 0, 0, 0.2);
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             padding: 12px;
         `;
@@ -20809,12 +20848,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const warningMessage = document.createElement('div');
         warningMessage.style.cssText = `
-            background: rgba(255, 193, 7, 0.2);
-            border-left: 4px solid #ffc107;
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
             border-radius: 6px;
             padding: 12px 16px;
             margin-bottom: 16px;
-            color: white;
+            color: #92400e;
             font-size: 13px;
             line-height: 1.5;
         `;
@@ -20838,14 +20877,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
             const statusDiv = document.createElement('div');
             statusDiv.id = `status-${name.replace(/\s+/g, '-')}`;
             statusDiv.style.cssText = `
-                color: white;
+                color: #374151;
                 padding: 8px;
                 margin: 4px 0;
-                background: rgba(255, 255, 255, 0.1);
+                background: #f9fafb;
+                border: 1px solid #e5e7eb;
                 border-radius: 4px;
                 font-size: 14px;
             `;
-            statusDiv.innerHTML = `<strong>${name}:</strong> <span style="color: #ffd93d;">Processing...</span>`;
+            statusDiv.innerHTML = `<strong>${name}:</strong> <span style="color: #d97706;">Processing...</span>`;
             statusContainer.appendChild(statusDiv);
         });
     }
@@ -21632,12 +21672,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const container = document.createElement('div');
         container.style.cssText = `
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
             border-radius: 12px;
             padding: 24px;
             width: 520px;
             max-width: 90%;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
             position: relative;
         `;
 
@@ -21655,7 +21696,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const checkIcon = document.createElement('span');
         checkIcon.innerHTML = '✓';
         checkIcon.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
+            background: #dcfce7;
             width: 32px;
             height: 32px;
             border-radius: 50%;
@@ -21663,14 +21704,14 @@ function showResponsibilitiesProgressPanel(rolesData) {
             align-items: center;
             justify-content: center;
             font-size: 18px;
-            color: #6bcf7f;
+            color: #16a34a;
         `;
 
         const title = document.createElement('h3');
         title.textContent = 'Process Complete';
         title.style.cssText = `
             margin: 0;
-            color: white;
+            color: #111827;
             font-size: 18px;
             font-weight: 600;
         `;
@@ -21681,9 +21722,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const closeButton = document.createElement('button');
         closeButton.innerHTML = '✕';
         closeButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
+            background: transparent;
             border: none;
-            color: white;
+            color: #6b7280;
             width: 28px;
             height: 28px;
             border-radius: 50%;
@@ -21692,10 +21733,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
         `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255, 67, 54, 0.8)';
-        closeButton.onmouseout = () => closeButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        closeButton.onmouseover = () => {
+            closeButton.style.background = '#f3f4f6';
+            closeButton.style.color = '#dc2626';
+        };
+        closeButton.onmouseout = () => {
+            closeButton.style.background = 'transparent';
+            closeButton.style.color = '#6b7280';
+        };
         closeButton.onclick = () => document.body.removeChild(summaryModal);
 
         header.appendChild(titleContainer);
@@ -21723,7 +21770,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             valueEl.style.cssText = `
                 font-size: 24px;
                 font-weight: 700;
-                color: white;
+                color: #111827;
                 line-height: 1;
             `;
 
@@ -21731,7 +21778,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             labelEl.textContent = label;
             labelEl.style.cssText = `
                 font-size: 11px;
-                color: rgba(255, 255, 255, 0.85);
+                color: #6b7280;
                 margin-top: 4px;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
@@ -21742,10 +21789,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
             return box;
         };
 
-        statsSection.appendChild(createStatBox('Total', totalProcessed, 'rgba(255, 255, 255, 0.15)'));
-        statsSection.appendChild(createStatBox('Success', successCount, 'rgba(107, 207, 127, 0.3)'));
-        statsSection.appendChild(createStatBox('Duplicate', duplicateCount, 'rgba(255, 217, 61, 0.3)'));
-        statsSection.appendChild(createStatBox('Failed', failureCount, 'rgba(255, 107, 107, 0.3)'));
+        statsSection.appendChild(createStatBox('Total', totalProcessed, '#f3f4f6'));
+        statsSection.appendChild(createStatBox('Success', successCount, '#dcfce7'));
+        statsSection.appendChild(createStatBox('Duplicate', duplicateCount, '#fef3c7'));
+        statsSection.appendChild(createStatBox('Failed', failureCount, '#fee2e2'));
 
         const listHeader = document.createElement('div');
         listHeader.style.cssText = `
@@ -21758,7 +21805,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const listTitle = document.createElement('span');
         listTitle.textContent = 'Detailed Results';
         listTitle.style.cssText = `
-            color: rgba(255, 255, 255, 0.9);
+            color: #374151;
             font-size: 13px;
             font-weight: 600;
             text-transform: uppercase;
@@ -21769,7 +21816,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         const resultsContainer = document.createElement('div');
         resultsContainer.style.cssText = `
-            background: rgba(0, 0, 0, 0.2);
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
             padding: 8px;
             max-height: 250px;
@@ -21782,15 +21830,15 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 width: 6px;
             }
             .completion-results-list::-webkit-scrollbar-track {
-                background: rgba(0, 0, 0, 0.1);
+                background: #f3f4f6;
                 border-radius: 3px;
             }
             .completion-results-list::-webkit-scrollbar-thumb {
-                background: rgba(255, 255, 255, 0.3);
+                background: #d1d5db;
                 border-radius: 3px;
             }
             .completion-results-list::-webkit-scrollbar-thumb:hover {
-                background: rgba(255, 255, 255, 0.5);
+                background: #9ca3af;
             }
         `;
         document.head.appendChild(scrollStyle);
@@ -21804,12 +21852,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 align-items: center;
                 padding: 10px 12px;
                 margin: 4px 0;
-                background: rgba(255, 255, 255, 0.08);
+                background: #ffffff;
+                border: 1px solid #e5e7eb;
                 border-radius: 6px;
                 transition: background 0.2s ease;
             `;
-            row.onmouseover = () => row.style.background = 'rgba(255, 255, 255, 0.12)';
-            row.onmouseout = () => row.style.background = 'rgba(255, 255, 255, 0.08)';
+            row.onmouseover = () => row.style.background = '#f9fafb';
+            row.onmouseout = () => row.style.background = '#ffffff';
 
             const nameSection = document.createElement('div');
             nameSection.style.cssText = `
@@ -21823,8 +21872,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
             const indexBadge = document.createElement('span');
             indexBadge.textContent = index + 1;
             indexBadge.style.cssText = `
-                background: rgba(255, 255, 255, 0.15);
-                color: rgba(255, 255, 255, 0.7);
+                background: #f3f4f6;
+                color: #6b7280;
                 font-size: 11px;
                 font-weight: 600;
                 min-width: 24px;
@@ -21838,7 +21887,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             const nameText = document.createElement('span');
             nameText.textContent = result.name;
             nameText.style.cssText = `
-                color: white;
+                color: #374151;
                 font-size: 14px;
                 font-weight: 500;
                 white-space: nowrap;
@@ -21855,20 +21904,20 @@ function showResponsibilitiesProgressPanel(rolesData) {
             let badgeColor, badgeBg;
             switch (result.statusType) {
                 case 'success':
-                    badgeColor = '#6bcf7f';
-                    badgeBg = 'rgba(107, 207, 127, 0.2)';
+                    badgeColor = '#16a34a';
+                    badgeBg = '#dcfce7';
                     break;
                 case 'duplicate':
-                    badgeColor = '#ffd93d';
-                    badgeBg = 'rgba(255, 217, 61, 0.2)';
+                    badgeColor = '#d97706';
+                    badgeBg = '#fef3c7';
                     break;
                 case 'failure':
-                    badgeColor = '#ff6b6b';
-                    badgeBg = 'rgba(255, 107, 107, 0.2)';
+                    badgeColor = '#dc2626';
+                    badgeBg = '#fee2e2';
                     break;
                 default:
-                    badgeColor = 'rgba(255, 255, 255, 0.7)';
-                    badgeBg = 'rgba(255, 255, 255, 0.1)';
+                    badgeColor = '#6b7280';
+                    badgeBg = '#f3f4f6';
             }
 
             statusBadge.style.cssText = `
@@ -21890,27 +21939,23 @@ function showResponsibilitiesProgressPanel(rolesData) {
         const okButton = document.createElement('button');
         okButton.textContent = 'Close';
         okButton.style.cssText = `
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: #22c55e;
+            border: 1px solid #16a34a;
             color: white;
             padding: 12px 24px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
             margin-top: 16px;
             width: 100%;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         `;
         okButton.onmouseover = () => {
-            okButton.style.background = 'rgba(255, 255, 255, 0.3)';
-            okButton.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+            okButton.style.background = '#16a34a';
         };
         okButton.onmouseout = () => {
-            okButton.style.background = 'rgba(255, 255, 255, 0.2)';
-            okButton.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            okButton.style.background = '#22c55e';
         };
         okButton.onclick = () => document.body.removeChild(summaryModal);
 
