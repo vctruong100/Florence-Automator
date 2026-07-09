@@ -18809,6 +18809,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         todaysLogName: '',
         legends: '',
         matchedStudy: '',
+        matchedStudyData: null,
         detectedAt: ''
     };
 
@@ -18823,6 +18824,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
         lastScannedUrl: '',
         pendingUrl: '',
         stableCancel: null,
+        modalObserver: null,
+        modalAutofillTimer: null,
         latestLog: null,
         selectedTab: 'buttons',
         legendWaiting: false,
@@ -19848,6 +19851,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         florenceCleanupExisting();
         removeSidebarOffset();
         florenceTlogDetachUrlListeners();
+        florenceTlogDetachModalObserver();
         if (trainingLogState.stableCancel) {
             trainingLogState.stableCancel();
             trainingLogState.stableCancel = null;
@@ -20257,7 +20261,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         return florenceStorageGet(TLOG_LATEST_STORAGE_KEY).then(function(result) {
             var data = result && result[TLOG_LATEST_STORAGE_KEY];
             if (data && typeof data === 'object' && data.latestTrainingLog !== undefined) {
-                trainingLogState.persisted = data;
+                trainingLogState.persisted = Object.assign({}, TLOG_PERSISTENCE_DEFAULT, data);
                 addLogMessage('Latest Training Log: restored from storage', 'log');
             } else {
                 trainingLogState.persisted = JSON.parse(JSON.stringify(TLOG_PERSISTENCE_DEFAULT));
@@ -20269,6 +20273,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function saveLatestTrainingLogPersisted(data) {
+        data = Object.assign({}, TLOG_PERSISTENCE_DEFAULT, data || {});
         var payload = {};
         payload[TLOG_LATEST_STORAGE_KEY] = data;
         return florenceStorageSet(payload).then(function() {
@@ -20471,9 +20476,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
     }
 
     function extractVersionNumber(text) {
-        var max = 0;
+        var max = 1;
         if (!text) return max;
-        var re = /[Vv][.]?\s*(\d+(?:\.\d+)?)\b/g;
+        var re = /(?:^|[^A-Za-z0-9])v[.]?\s*(\d+(?:\.\d+)?)(?=$|[^0-9])/gi;
         var match;
         while ((match = re.exec(text)) !== null) {
             var v = parseFloat(match[1]);
@@ -20482,6 +20487,13 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
         }
         return max;
+    }
+
+    function isTrainingLogCandidateName(text) {
+        var normalized = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!normalized) return false;
+        return /(?:^|[^A-Za-z0-9])training(?:$|[^A-Za-z0-9])/i.test(normalized) &&
+            /(?:^|[^A-Za-z0-9])log(?:$|[^A-Za-z0-9])/i.test(normalized);
     }
 
     function isElementTlogVisible(el) {
@@ -20497,6 +20509,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
         if (!text) return null;
         var trimmed = text.replace(/\s+/g, ' ').trim();
         if (!trimmed) return null;
+        if (!isTrainingLogCandidateName(trimmed)) return null;
         var version = extractVersionNumber(trimmed);
         var dates = parseTrainingLogDates(trimmed);
         var date = null;
@@ -20669,6 +20682,237 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
         }
         return best;
+    }
+
+    function normalizeTlogModalText(text) {
+        return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function getTrainingLogMatchedStudyData() {
+        var persisted = trainingLogState.persisted || {};
+        if (persisted.matchedStudyData && typeof persisted.matchedStudyData === 'object') {
+            return persisted.matchedStudyData;
+        }
+        return findStudyForLog(persisted.latestTrainingLog || persisted.todaysLogName || '');
+    }
+
+    function setFlorenceNativeValue(el, value) {
+        if (!el) return false;
+        value = value == null ? '' : String(value);
+        var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        var descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (descriptor && descriptor.set) {
+            descriptor.set.call(el, value);
+        } else {
+            el.value = value;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+        return true;
+    }
+
+    function getPstDateStringDashed() {
+        var d = new Date();
+        var parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Los_Angeles',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).formatToParts(d);
+        var day = '';
+        var month = '';
+        var year = '';
+        for (var i = 0; i < parts.length; i++) {
+            if (parts[i].type === 'day') day = parts[i].value;
+            if (parts[i].type === 'month') month = parts[i].value;
+            if (parts[i].type === 'year') year = parts[i].value;
+        }
+        return day + '-' + month + '-' + year;
+    }
+
+    function getVisibleTrainingLogModalRoots() {
+        var roots = [];
+        var nodes = document.querySelectorAll('.modal-content, .modal-dialog, .modal, [role="dialog"]');
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (!isElementTlogVisible(node)) continue;
+            var root = node.closest('.modal-content') || node.closest('.modal-dialog') || node;
+            if (roots.indexOf(root) === -1) roots.push(root);
+        }
+        return roots;
+    }
+
+    function getTrainingLogModalHeaderText(modal) {
+        if (!modal) return '';
+        var headings = modal.querySelectorAll('.modal-header h1, .modal-header h2, .modal-header h3, h1, h2, h3, h4.test-metadataHeading, .test-metadataHeading');
+        var text = '';
+        for (var i = 0; i < headings.length; i++) {
+            text += ' ' + normalizeTlogModalText(headings[i].textContent);
+        }
+        return normalizeTlogModalText(text);
+    }
+
+    function findInputByLabelText(container, labelText) {
+        var labels = container.querySelectorAll('label');
+        var target = normalizeTlogModalText(labelText).toLowerCase();
+        for (var i = 0; i < labels.length; i++) {
+            var label = labels[i];
+            var text = normalizeTlogModalText(label.textContent).toLowerCase();
+            if (text !== target) continue;
+            var forId = label.getAttribute('for');
+            if (forId) {
+                var byId = null;
+                if (window.CSS && CSS.escape) {
+                    byId = container.querySelector('#' + CSS.escape(forId));
+                }
+                if (!byId) {
+                    var allFields = container.querySelectorAll('input, textarea');
+                    for (var f = 0; f < allFields.length; f++) {
+                        if (allFields[f].id === forId || allFields[f].name === forId) {
+                            byId = allFields[f];
+                            break;
+                        }
+                    }
+                }
+                if (byId && (byId.tagName === 'INPUT' || byId.tagName === 'TEXTAREA')) return byId;
+            }
+            var group = label.closest('.form-group, [formgroupname], div') || label.parentElement;
+            if (group) {
+                var input = group.querySelector('input, textarea');
+                if (input) return input;
+            }
+        }
+        return null;
+    }
+
+    function chooseTrainingLogTemplateName(logName) {
+        var text = String(logName || '');
+        if (/\bgroup\b/i.test(text)) return 'Group with Trainer 3';
+        if (/\bindividual\b/i.test(text)) return 'Individual with Trainer';
+        if (/\bsp\b/i.test(text) || /\bself[-\s]?paced\b/i.test(text)) return 'Self-Paced Training 1';
+        return '';
+    }
+
+    function clickTrainingLogTemplateOption(templateName) {
+        if (!templateName) return false;
+        var options = document.querySelectorAll('.filtered-select__list__item, [role="option"]');
+        for (var i = 0; i < options.length; i++) {
+            var option = options[i];
+            if (!isElementTlogVisible(option)) continue;
+            var text = normalizeTlogModalText(option.getAttribute('aria-label') || option.textContent);
+            if (text === templateName || text.indexOf(templateName) !== -1) {
+                option.click();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function fillCreateLogModal(modal) {
+        var logName = trainingLogState.persisted && trainingLogState.persisted.todaysLogName;
+        if (!logName) return;
+        var nameInput = modal.querySelector('#name-input, input[name="name"], .test-logNameInput') || findInputByLabelText(modal, 'Name (this can be changed later)');
+        if (nameInput && nameInput.value !== logName) {
+            setFlorenceNativeValue(nameInput, logName);
+            addLogMessage('Training Log: filled Create Log name', 'log');
+        }
+        var templateName = chooseTrainingLogTemplateName(logName);
+        if (!templateName) return;
+        var templateInput = modal.querySelector('.filtered-select input[role="combobox"], input[role="combobox"]');
+        if (templateInput && normalizeTlogModalText(templateInput.value) === templateName) return;
+        if (templateInput && templateInput.value !== templateName) {
+            setFlorenceNativeValue(templateInput, templateName);
+            templateInput.focus();
+        }
+        var toggle = modal.querySelector('.filtered-select .test-caret, button[aria-label="Toggle dropdown"]');
+        if (toggle) toggle.click();
+        setTimeout(function() {
+            if (clickTrainingLogTemplateOption(templateName)) {
+                addLogMessage('Training Log: selected template ' + templateName, 'log');
+            }
+        }, 150);
+    }
+
+    function fillEditLogDetailsModal(modal) {
+        var study = getTrainingLogMatchedStudyData();
+        if (!study) return;
+        var mappings = [
+            { label: 'Unique Protocol Number', value: study.protocol },
+            { label: 'Principal Investigator', value: study.pi },
+            { label: 'Site Number', value: study.siteNumber },
+            { label: 'Sponsor', value: study.sponsor },
+            { label: 'Trainer Name', value: study.trainer },
+            { label: 'Date of Training', value: getPstDateStringDashed() }
+        ];
+        var filled = 0;
+        for (var i = 0; i < mappings.length; i++) {
+            var mapping = mappings[i];
+            if (!mapping.value) continue;
+            var input = findInputByLabelText(modal, mapping.label);
+            if (!input) continue;
+            if (input.value !== String(mapping.value)) {
+                setFlorenceNativeValue(input, mapping.value);
+                filled++;
+            }
+        }
+        if (filled) addLogMessage('Training Log: filled Edit Log Details fields (' + filled + ')', 'log');
+    }
+
+    function fillEditLogLegendModal(modal) {
+        var legend = trainingLogState.persisted && trainingLogState.persisted.legends;
+        if (!legend) return;
+        var textarea = modal.querySelector('textarea#legend, textarea.test-metadataInput, textarea');
+        if (!textarea) return;
+        if (textarea.value !== legend) {
+            setFlorenceNativeValue(textarea, legend);
+            addLogMessage('Training Log: filled Edit Log Legend', 'log');
+        }
+    }
+
+    function florenceTlogAutofillActiveModals() {
+        if (!trainingLogState.active) return;
+        var modals = getVisibleTrainingLogModalRoots();
+        for (var i = 0; i < modals.length; i++) {
+            var modal = modals[i];
+            var header = getTrainingLogModalHeaderText(modal);
+            if (/\bCreate\s+Log\b/i.test(header)) {
+                fillCreateLogModal(modal);
+            } else if (/\bEdit\s+Log\s+Details\b/i.test(header)) {
+                fillEditLogDetailsModal(modal);
+            } else if (/\bEdit\s+Log\s+Legend\b/i.test(header)) {
+                fillEditLogLegendModal(modal);
+            }
+        }
+    }
+
+    function scheduleTrainingLogModalAutofill() {
+        if (!trainingLogState.active) return;
+        if (trainingLogState.modalAutofillTimer) clearTimeout(trainingLogState.modalAutofillTimer);
+        trainingLogState.modalAutofillTimer = setTimeout(function() {
+            trainingLogState.modalAutofillTimer = null;
+            florenceTlogAutofillActiveModals();
+        }, 150);
+    }
+
+    function florenceTlogAttachModalObserver() {
+        if (trainingLogState.modalObserver || !document.body) return;
+        trainingLogState.modalObserver = new MutationObserver(function() {
+            scheduleTrainingLogModalAutofill();
+        });
+        trainingLogState.modalObserver.observe(document.body, { childList: true, subtree: true });
+        scheduleTrainingLogModalAutofill();
+    }
+
+    function florenceTlogDetachModalObserver() {
+        if (trainingLogState.modalObserver) {
+            trainingLogState.modalObserver.disconnect();
+            trainingLogState.modalObserver = null;
+        }
+        if (trainingLogState.modalAutofillTimer) {
+            clearTimeout(trainingLogState.modalAutofillTimer);
+            trainingLogState.modalAutofillTimer = null;
+        }
     }
 
     function openHelpPopup() {
@@ -21130,23 +21374,71 @@ function showResponsibilitiesProgressPanel(rolesData) {
         return entries;
     }
 
+    function getFirstXmlChild(el, tagName) {
+        if (!el) return null;
+        var found = el.querySelector(tagName);
+        if (found) return found;
+        var list = el.getElementsByTagName(tagName);
+        if (list && list.length) return list[0];
+        list = el.getElementsByTagNameNS('*', tagName);
+        if (list && list.length) return list[0];
+        return null;
+    }
+
+    function getXmlChildren(el, tagName) {
+        if (!el) return [];
+        var list = el.querySelectorAll(tagName);
+        if (list && list.length) return Array.prototype.slice.call(list);
+        list = el.getElementsByTagName(tagName);
+        if (list && list.length) return Array.prototype.slice.call(list);
+        list = el.getElementsByTagNameNS('*', tagName);
+        if (list && list.length) return Array.prototype.slice.call(list);
+        return [];
+    }
+
     function getXlsxCellText(cell, sharedStrings) {
         var type = cell.getAttribute('t');
         if (type === 'inlineStr') {
-            var isEl = cell.querySelector('is');
+            var isEl = getFirstXmlChild(cell, 'is');
             return isEl ? (isEl.textContent || '') : '';
         }
         if (type === 's') {
-            var v = cell.querySelector('v');
+            var v = getFirstXmlChild(cell, 'v');
             var idx = v ? parseInt(v.textContent || '0', 10) : 0;
             if (sharedStrings && sharedStrings[idx] !== undefined) {
                 return sharedStrings[idx];
             }
             return '';
         }
-        var vNode = cell.querySelector('v');
+        var vNode = getFirstXmlChild(cell, 'v');
         if (vNode) return vNode.textContent || '';
         return cell.textContent || '';
+    }
+
+    function getXlsxCellColumnIndex(cell, fallbackIndex) {
+        var ref = cell ? (cell.getAttribute('r') || '') : '';
+        var match = ref.match(/^([A-Za-z]+)/);
+        if (!match) return fallbackIndex;
+        var letters = match[1].toUpperCase();
+        var index = 0;
+        for (var i = 0; i < letters.length; i++) {
+            index = (index * 26) + (letters.charCodeAt(i) - 64);
+        }
+        return index - 1;
+    }
+
+    function getXlsxRowValues(row, sharedStrings) {
+        var cells = row.querySelectorAll('c');
+        if (!cells || cells.length === 0) cells = row.getElementsByTagName('c');
+        var values = [];
+        for (var i = 0; i < cells.length; i++) {
+            var idx = getXlsxCellColumnIndex(cells[i], i);
+            values[idx] = getXlsxCellText(cells[i], sharedStrings).trim();
+        }
+        for (var j = 0; j < values.length; j++) {
+            if (values[j] === undefined) values[j] = '';
+        }
+        return values;
     }
 
     const STUDY_LIBRARY_HEADER_ALIASES = {
@@ -21294,17 +21586,17 @@ function showResponsibilitiesProgressPanel(rolesData) {
                 ssDoc = null;
             }
             if (ssDoc) {
-                var siList = ssDoc.querySelectorAll('si');
+                var siList = getXmlChildren(ssDoc, 'si');
                 sharedStrings = [];
                 for (var si = 0; si < siList.length; si++) {
-                    var tEl = siList[si].querySelector('t');
+                    var tEl = getFirstXmlChild(siList[si], 't');
                     if (tEl) {
                         sharedStrings.push(tEl.textContent || '');
                     } else {
-                        var runs = siList[si].querySelectorAll('r');
+                        var runs = getXmlChildren(siList[si], 'r');
                         var runText = '';
                         for (var r = 0; r < runs.length; r++) {
-                            var rt = runs[r].querySelector('t');
+                            var rt = getFirstXmlChild(runs[r], 't');
                             if (rt) runText += rt.textContent || '';
                         }
                         sharedStrings.push(runText);
@@ -21325,10 +21617,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         var diagnosticRows = [];
         for (var ri = 0; ri < Math.min(rows.length, 5); ri++) {
-            var diagCells = getXlsxCells(rows[ri]);
             var diagTexts = [];
-            for (var ci = 0; ci < Math.min(diagCells.length, 10); ci++) {
-                diagTexts.push(JSON.stringify(getXlsxCellText(diagCells[ci], sharedStrings).trim()));
+            var diagValues = getXlsxRowValues(rows[ri], sharedStrings);
+            for (var ci = 0; ci < Math.min(diagValues.length, 10); ci++) {
+                diagTexts.push(JSON.stringify(diagValues[ci] || ''));
             }
             diagnosticRows.push('row ' + (ri + 1) + ': ' + diagTexts.join(', '));
         }
@@ -21336,13 +21628,10 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var headerRowIndex = -1;
         var headers = [];
         for (var ri = 0; ri < rows.length; ri++) {
-            var candidateCells = getXlsxCells(rows[ri]);
-            var candidateHeaders = [];
+            var candidateHeaders = getXlsxRowValues(rows[ri], sharedStrings);
             var hasAnyText = false;
-            for (var h = 0; h < candidateCells.length; h++) {
-                var text = getXlsxCellText(candidateCells[h], sharedStrings).trim();
-                if (text) hasAnyText = true;
-                candidateHeaders.push(text);
+            for (var h = 0; h < candidateHeaders.length; h++) {
+                if (candidateHeaders[h]) hasAnyText = true;
             }
             if (!hasAnyText) continue;
             if (findXlsxHeaderIndex(candidateHeaders, STUDY_LIBRARY_HEADER_ALIASES.protocol) === -1) continue;
@@ -21354,13 +21643,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         }
         if (headerRowIndex === -1) {
             for (var ri = 0; ri < rows.length; ri++) {
-                var candidateCells = getXlsxCells(rows[ri]);
-                if (candidateCells.length < 3) continue;
-                var candidateHeaders = [];
+                var candidateHeaders = getXlsxRowValues(rows[ri], sharedStrings);
+                if (candidateHeaders.length < 3) continue;
                 var hasProtocol = false;
-                for (var h = 0; h < candidateCells.length; h++) {
-                    var text = getXlsxCellText(candidateCells[h], sharedStrings).trim();
-                    candidateHeaders.push(text);
+                for (var h = 0; h < candidateHeaders.length; h++) {
+                    var text = candidateHeaders[h] || '';
                     if (normalizeXlsxHeader(text).indexOf('protocol') !== -1) hasProtocol = true;
                 }
                 if (hasProtocol) {
@@ -21387,11 +21674,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         var studies = [];
         for (var ri = headerRowIndex + 1; ri < rows.length; ri++) {
-            var cells = getXlsxCells(rows[ri]);
-            var values = [];
-            for (var ci = 0; ci < cells.length; ci++) {
-                values.push(getXlsxCellText(cells[ci], sharedStrings).trim());
-            }
+            var values = getXlsxRowValues(rows[ri], sharedStrings);
             var protocol = (values[colMap.protocol] || '').trim();
             if (!protocol) continue;
             studies.push({
@@ -21523,10 +21806,19 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         todaysLogName: todayName,
                         legends: trainingLogState.persisted.legends,
                         matchedStudy: formatMatchedStudy(study),
+                        matchedStudyData: study ? {
+                            protocol: study.protocol || '',
+                            siteName: study.siteName || '',
+                            siteNumber: study.siteNumber || '',
+                            trainer: study.trainer || '',
+                            sponsor: study.sponsor || '',
+                            pi: study.pi || ''
+                        } : null,
                         detectedAt: new Date().toISOString()
                     };
                     saveLatestTrainingLogPersisted(trainingLogState.persisted).then(function() {
                         addLogMessage('Training Log: persisted latest log', 'log');
+                        scheduleTrainingLogModalAutofill();
                     }).catch(function(e) {
                         addLogMessage('Training Log: persist failed: ' + e, 'error');
                     });
@@ -21641,9 +21933,11 @@ function showResponsibilitiesProgressPanel(rolesData) {
         saveTrainingLogActive(active);
         if (active) {
             florenceTlogAttachUrlListeners();
+            florenceTlogAttachModalObserver();
             florenceTlogOnUrlChanged();
         } else {
             florenceTlogDetachUrlListeners();
+            florenceTlogDetachModalObserver();
             if (trainingLogState.stableCancel) {
                 trainingLogState.stableCancel();
                 trainingLogState.stableCancel = null;
@@ -24265,4 +24559,3 @@ function showResponsibilitiesProgressPanel(rolesData) {
         init();
     }
 })();
- 
