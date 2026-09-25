@@ -19007,11 +19007,12 @@ function showResponsibilitiesProgressPanel(rolesData) {
         localStorage.setItem(CFG_STORAGE.hideLogs, hidden ? 'true' : 'false');
     }
 
-    function applyHideLogs(hidden) {
-        var hideBtn = document.getElementById('florence-hide-logs-btn');
-        var clearBtn = document.getElementById('florence-clear-logs-btn');
-        var box = document.getElementById('florence-log-box');
-        var gui = document.getElementById(FLORENCE_GUI_ID);
+    function applyHideLogs(hidden, root) {
+        root = root || document;
+        var hideBtn = root.querySelector ? root.querySelector('#florence-hide-logs-btn') : document.getElementById('florence-hide-logs-btn');
+        var clearBtn = root.querySelector ? root.querySelector('#florence-clear-logs-btn') : document.getElementById('florence-clear-logs-btn');
+        var box = root.querySelector ? root.querySelector('#florence-log-box') : document.getElementById('florence-log-box');
+        var gui = root.querySelector ? root.querySelector('#' + FLORENCE_GUI_ID) : document.getElementById(FLORENCE_GUI_ID);
         if (hideBtn) hideBtn.textContent = hidden ? 'Show Logs' : 'Hide Logs';
         if (clearBtn) clearBtn.style.display = hidden ? 'none' : '';
         if (box) box.style.display = hidden ? 'none' : '';
@@ -20489,11 +20490,16 @@ function showResponsibilitiesProgressPanel(rolesData) {
         return max;
     }
 
+    function hasExplicitVersionNumber(text) {
+        if (!text) return false;
+        return /(?:^|[^A-Za-z0-9])v[.]?\s*\d+(?:\.\d+)?(?=$|[^0-9])/i.test(text);
+    }
+
     function isTrainingLogCandidateName(text) {
         var normalized = String(text || '').replace(/\s+/g, ' ').trim();
         if (!normalized) return false;
         return /(?:^|[^A-Za-z0-9])training(?:$|[^A-Za-z0-9])/i.test(normalized) &&
-            /(?:^|[^A-Za-z0-9])log(?:$|[^A-Za-z0-9])/i.test(normalized);
+            /(?:^|[^A-Za-z0-9])logs?(?:$|[^A-Za-z0-9])/i.test(normalized);
     }
 
     function isElementTlogVisible(el) {
@@ -20521,7 +20527,7 @@ function showResponsibilitiesProgressPanel(rolesData) {
             }
             date = mostRecent.date;
             dateText = mostRecent.dateText;
-        } else if (version > 0) {
+        } else if (hasExplicitVersionNumber(trimmed)) {
             date = new Date();
             dateText = getPstDateStringLike('01 Jan 2026');
         }
@@ -20569,15 +20575,25 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
     function findBestTrainingLog() {
         var candidates = [];
-        var selector = 'a[href*="/documents/"], [role="row"] a, .folder-show__item-name-link, a[class*="item-name-link"], a';
+        var seenTexts = {};
+        var selector = '.folder-show__item-name-link, [role="row"][aria-label], a[href*="/documents/"], [role="row"] a, a[class*="item-name-link"], a';
         var elements = document.querySelectorAll(selector);
         for (var i = 0; i < elements.length; i++) {
             var el = elements[i];
             if (!isElementTlogVisible(el)) continue;
             if (isInsideDocumentContent(el)) continue;
             var text = (el.textContent || '').trim();
+            if (!text && el.getAttribute) {
+                text = (el.getAttribute('aria-label') || '').replace(/^Open\s+/i, '').trim();
+            }
+            if (el.getAttribute && el.getAttribute('role') === 'row' && el.getAttribute('aria-label')) {
+                text = el.getAttribute('aria-label').trim();
+            }
             var cand = buildTrainingLogCandidate(text, el, i);
             if (!cand) continue;
+            var key = normalizeTrainingLogName(cand.text).toLowerCase();
+            if (seenTexts[key]) continue;
+            seenTexts[key] = true;
             candidates.push(cand);
         }
         if (candidates.length === 0) return null;
@@ -21396,6 +21412,38 @@ function showResponsibilitiesProgressPanel(rolesData) {
         return [];
     }
 
+    function decodeXmlEntities(text) {
+        return String(text || '')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&amp;/g, '&');
+    }
+
+    function stripXmlTags(text) {
+        return String(text || '').replace(/<[^>]*>/g, '');
+    }
+
+    function parseSharedStringsFromXmlText(xmlText) {
+        var strings = [];
+        if (!xmlText) return strings;
+        var siRe = /<si\b[\s\S]*?<\/si>/gi;
+        var match;
+        while ((match = siRe.exec(xmlText)) !== null) {
+            var siXml = match[0];
+            var text = '';
+            var tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+            var tMatch;
+            while ((tMatch = tRe.exec(siXml)) !== null) {
+                text += decodeXmlEntities(stripXmlTags(tMatch[1]));
+            }
+            if (!text) text = decodeXmlEntities(stripXmlTags(siXml));
+            strings.push(text);
+        }
+        return strings;
+    }
+
     function getXlsxCellText(cell, sharedStrings) {
         var type = cell.getAttribute('t');
         if (type === 'inlineStr') {
@@ -21578,10 +21626,21 @@ function showResponsibilitiesProgressPanel(rolesData) {
         var sharedStrings = null;
         var ssPath = (workbookDirPath ? workbookDirPath + '/' : '') + 'sharedStrings.xml';
         var ssXml = findXlsxEntry(entries, ssPath);
+        if (!ssXml) {
+            for (var ssName in entries) {
+                if (String(ssName).toLowerCase().replace(/\\/g, '/').endsWith('/sharedstrings.xml') ||
+                    String(ssName).toLowerCase().replace(/\\/g, '/') === 'sharedstrings.xml') {
+                    ssXml = entries[ssName];
+                    break;
+                }
+            }
+        }
         if (ssXml) {
             var ssDoc;
+            var ssText = '';
             try {
-                ssDoc = new DOMParser().parseFromString(new TextDecoder().decode(ssXml), 'application/xml');
+                ssText = new TextDecoder().decode(ssXml);
+                ssDoc = new DOMParser().parseFromString(ssText, 'application/xml');
             } catch (e) {
                 ssDoc = null;
             }
@@ -21602,6 +21661,9 @@ function showResponsibilitiesProgressPanel(rolesData) {
                         sharedStrings.push(runText);
                     }
                 }
+            }
+            if (!sharedStrings || sharedStrings.length === 0) {
+                sharedStrings = parseSharedStringsFromXmlText(ssText);
             }
         }
 
@@ -22874,10 +22936,8 @@ function showResponsibilitiesProgressPanel(rolesData) {
 
         florenceLoadAndApplyTabState();
 
-        if (loadHideLogs()) {
-            applyHideLogs(true);
-        }
         document.body.appendChild(guiContainer);
+        applyHideLogs(loadHideLogs(), guiContainer);
         addLogMessage('Florence Automator GUI initialized', 'log');
     }
 

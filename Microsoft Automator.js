@@ -22,7 +22,10 @@
         seenNames: new Set(),
         sortMode: 'page',             // 'page' | 'alpha'
         scanCount: 0,
-        isScrollScanning: false       // true while a scroll-and-scan pass is in progress
+        isScrollScanning: false,      // true while a scroll-and-scan pass is in progress
+        scrollScanTimeoutId: null,
+        scrollScanWrapper: null,
+        scrollScanOriginalTop: 0
     };
 
     // ─── GUI / Config Constants ─────────────────────────────────────────
@@ -152,6 +155,7 @@
                 });
                 newCount++;
                 addLogMessage('scanParticipants: new participant found: ' + name, 'log');
+                console.log('[MSTeams Attendance] New participant added: ' + name);
             }
         });
         attendanceState.scanCount++;
@@ -173,6 +177,11 @@
     }
 
     function scrollAndScanAll(callback) {
+        if (!attendanceState.isRunning) {
+            if (callback) callback(0);
+            return;
+        }
+
         var scrollWrapper = getActiveScrollWrapper();
         if (!scrollWrapper) {
             var n = scanParticipants();
@@ -187,6 +196,8 @@
         attendanceState.isScrollScanning = true;
 
         var originalScrollTop = scrollWrapper.scrollTop;
+        attendanceState.scrollScanWrapper = scrollWrapper;
+        attendanceState.scrollScanOriginalTop = originalScrollTop;
         var stepSize = Math.max(Math.floor((scrollWrapper.clientHeight || 300) * 0.75), 150);
         var SETTLE_MS = 450;
         var totalNew = 0;
@@ -194,9 +205,11 @@
         scrollWrapper.scrollTop = 0;
 
         function step() {
+            attendanceState.scrollScanTimeoutId = null;
             if (!attendanceState.isRunning) {
                 scrollWrapper.scrollTop = originalScrollTop;
                 attendanceState.isScrollScanning = false;
+                attendanceState.scrollScanWrapper = null;
                 if (callback) callback(totalNew);
                 return;
             }
@@ -207,15 +220,16 @@
             if (maxScroll <= 0 || scrollWrapper.scrollTop >= maxScroll - 5) {
                 scrollWrapper.scrollTop = originalScrollTop;
                 attendanceState.isScrollScanning = false;
+                attendanceState.scrollScanWrapper = null;
                 if (callback) callback(totalNew);
                 return;
             }
 
             scrollWrapper.scrollTop = Math.min(scrollWrapper.scrollTop + stepSize, maxScroll);
-            setTimeout(step, SETTLE_MS);
+            attendanceState.scrollScanTimeoutId = setTimeout(step, SETTLE_MS);
         }
 
-        setTimeout(step, SETTLE_MS);
+        attendanceState.scrollScanTimeoutId = setTimeout(step, SETTLE_MS);
     }
 
     function getSortedParticipants() {
@@ -272,6 +286,76 @@
     }
 
     var MANUAL_ADD_SIMILARITY_THRESHOLD = 0.88;
+
+    function normalizeNameForDuplicateCheck(name) {
+        return name.toLowerCase().replace(/[^\w\s'-]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function getNamePartsForDuplicateCheck(name) {
+        var normalized = normalizeNameForDuplicateCheck(name);
+        var parts = normalized ? normalized.split(' ') : [];
+        return {
+            normalized: normalized,
+            first: parts.length ? parts[0] : '',
+            last: parts.length > 1 ? parts[parts.length - 1] : '',
+            partCount: parts.length
+        };
+    }
+
+    function levenshteinDistance(a, b) {
+        if (a === b) return 0;
+        if (!a) return b.length;
+        if (!b) return a.length;
+
+        var prev = [];
+        var curr = [];
+        for (var j = 0; j <= b.length; j++) prev[j] = j;
+
+        for (var i = 1; i <= a.length; i++) {
+            curr[0] = i;
+            for (var j = 1; j <= b.length; j++) {
+                var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                curr[j] = Math.min(
+                    prev[j] + 1,
+                    curr[j - 1] + 1,
+                    prev[j - 1] + cost
+                );
+            }
+            var temp = prev;
+            prev = curr;
+            curr = temp;
+        }
+
+        return prev[b.length];
+    }
+
+    function namePartLooksLikeTypo(inputPart, existingPart) {
+        if (!inputPart || !existingPart) return false;
+        if (inputPart === existingPart) return true;
+        if (inputPart[0] !== existingPart[0]) return false;
+
+        var maxLen = Math.max(inputPart.length, existingPart.length);
+        var lengthDiff = Math.abs(inputPart.length - existingPart.length);
+        var distance = levenshteinDistance(inputPart, existingPart);
+        if (maxLen <= 4) return distance === 1 && lengthDiff <= 1;
+        if (maxLen <= 7) return distance <= 1;
+        return distance <= 2 && lengthDiff <= 1;
+    }
+
+    function namesAreManualAddDuplicates(inputName, existingName) {
+        var input = getNamePartsForDuplicateCheck(inputName);
+        var existing = getNamePartsForDuplicateCheck(existingName);
+        if (!input.normalized || !existing.normalized) return false;
+        if (input.normalized === existing.normalized) return true;
+
+        var fullSimilarity = jaroWinkler(input.normalized, existing.normalized);
+        if (input.partCount > 1 && existing.partCount > 1) {
+            return namePartLooksLikeTypo(input.first, existing.first) &&
+                namePartLooksLikeTypo(input.last, existing.last);
+        }
+
+        return fullSimilarity >= 0.94;
+    }
 
     // ─── Attendance: Manual Add Modal ────────────────────────────────────
     function showManualAddModal() {
@@ -381,13 +465,11 @@
 
         for (var i = 0; i < inputNames.length; i++) {
             var name = inputNames[i];
-            var nameLower = name.toLowerCase();
             var isDuplicate = false;
             var matchedWith = null;
 
             for (var j = 0; j < attendanceState.allParticipants.length; j++) {
-                var sim = jaroWinkler(nameLower, attendanceState.allParticipants[j].name.toLowerCase());
-                if (sim >= MANUAL_ADD_SIMILARITY_THRESHOLD) {
+                if (namesAreManualAddDuplicates(name, attendanceState.allParticipants[j].name)) {
                     isDuplicate = true;
                     matchedWith = attendanceState.allParticipants[j].name;
                     break;
@@ -396,8 +478,7 @@
 
             if (!isDuplicate) {
                 for (var k = 0; k < seenInInput.length; k++) {
-                    var sim2 = jaroWinkler(nameLower, seenInInput[k].toLowerCase());
-                    if (sim2 >= MANUAL_ADD_SIMILARITY_THRESHOLD) {
+                    if (namesAreManualAddDuplicates(name, seenInInput[k])) {
                         isDuplicate = true;
                         matchedWith = seenInInput[k] + ' (same input list)';
                         break;
@@ -755,6 +836,15 @@
             clearInterval(attendanceState.intervalId);
             attendanceState.intervalId = null;
         }
+        if (attendanceState.scrollScanTimeoutId) {
+            clearTimeout(attendanceState.scrollScanTimeoutId);
+            attendanceState.scrollScanTimeoutId = null;
+        }
+        if (attendanceState.isScrollScanning && attendanceState.scrollScanWrapper) {
+            attendanceState.scrollScanWrapper.scrollTop = attendanceState.scrollScanOriginalTop;
+        }
+        attendanceState.isScrollScanning = false;
+        attendanceState.scrollScanWrapper = null;
     }
 
     // ─── Attendance: Persistence ───────────────────────────────────────
@@ -889,6 +979,64 @@
         return name.toLowerCase().replace(/\s+/g, ' ').trim();
     }
 
+    function getComparisonNameParts(name) {
+        var withoutNicknames = name.replace(/"[^"]*"/g, ' ').replace(/'[^']*'/g, ' ');
+        var normalized = withoutNicknames.toLowerCase().replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
+        var parts = normalized ? normalized.split(' ') : [];
+        return {
+            normalized: normalized,
+            first: parts.length ? parts[0] : '',
+            last: parts.length > 1 ? parts[parts.length - 1] : '',
+            partCount: parts.length
+        };
+    }
+
+    function comparisonNamesMatch(rosterName, attendanceName) {
+        var roster = getComparisonNameParts(rosterName);
+        var attendance = getComparisonNameParts(attendanceName);
+        if (!roster.normalized || !attendance.normalized) return false;
+        if (roster.normalized === attendance.normalized) return true;
+
+        if (roster.partCount > 1 && attendance.partCount > 1) {
+            return namePartLooksLikeTypo(roster.first, attendance.first) &&
+                namePartLooksLikeTypo(roster.last, attendance.last);
+        }
+
+        return jaroWinkler(roster.normalized, attendance.normalized) >= 0.94;
+    }
+
+    function findAttendanceMatchForRoster(rosterName) {
+        for (var i = 0; i < attendanceState.allParticipants.length; i++) {
+            if (comparisonNamesMatch(rosterName, attendanceState.allParticipants[i].name)) {
+                return attendanceState.allParticipants[i];
+            }
+        }
+        return null;
+    }
+
+    function attendanceHasRosterMatch(attendanceName) {
+        for (var i = 0; i < comparisonState.inputNames.length; i++) {
+            if (comparisonNamesMatch(comparisonState.inputNames[i].display, attendanceName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getMatchedAttendanceNamesInRosterOrder() {
+        var matchedNames = [];
+        var seenMatchedNames = new Set();
+        for (var i = 0; i < comparisonState.inputNames.length; i++) {
+            var match = findAttendanceMatchForRoster(comparisonState.inputNames[i].display);
+            if (!match) continue;
+            var normalized = normalizeForComparison(match.name);
+            if (seenMatchedNames.has(normalized)) continue;
+            seenMatchedNames.add(normalized);
+            matchedNames.push(match.name);
+        }
+        return matchedNames;
+    }
+
     function buildInputPanel() {
         var wrapper = document.getElementById('msteams-attendance-wrapper');
         if (!wrapper || document.getElementById('msteams-input-panel')) return;
@@ -972,7 +1120,7 @@
         if (existing) { existing.style.display = 'flex'; return; }
         var panel = document.createElement('div');
         panel.id = 'msteams-comparison-panel';
-        panel.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; width: 320px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.3);';
+        panel.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; width: 380px; flex-shrink: 0; display: flex; flex-direction: column; max-height: 85vh; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; pointer-events: auto; box-shadow: 0 15px 35px rgba(0,0,0,0.3);';
         var cpHeader = document.createElement('div');
         cpHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); border-radius: 12px 12px 0 0; flex-shrink: 0;';
         var cpTitle = document.createElement('h3');
@@ -984,19 +1132,43 @@
         cpHeader.appendChild(cpTitle);
         cpHeader.appendChild(statsLabel);
         var searchBar = document.createElement('div');
-        searchBar.style.cssText = 'padding: 8px 16px; background: rgba(0,0,0,0.1); flex-shrink: 0;';
+        searchBar.style.cssText = 'padding: 8px 16px; background: rgba(0,0,0,0.1); flex-shrink: 0; display: flex; gap: 6px; align-items: center;';
         var searchInput = document.createElement('input');
         searchInput.id = 'msteams-comparison-search';
         searchInput.type = 'text';
         searchInput.placeholder = 'Search names…';
-        searchInput.style.cssText = 'width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 12px; padding: 6px 10px; box-sizing: border-box; outline: none; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
+        searchInput.style.cssText = 'flex: 1; min-width: 0; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: white; font-size: 12px; padding: 6px 10px; box-sizing: border-box; outline: none; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;';
         searchInput.onfocus = function () { searchInput.style.borderColor = 'rgba(255,255,255,0.55)'; };
         searchInput.onblur = function () { searchInput.style.borderColor = 'rgba(255,255,255,0.2)'; };
         searchInput.addEventListener('input', function () {
             comparisonState.searchQuery = searchInput.value.toLowerCase().trim();
             refreshComparisonPanel();
         });
+        var copyMatchedBtn = document.createElement('button');
+        copyMatchedBtn.id = 'msteams-copy-matched-attendance-btn';
+        copyMatchedBtn.textContent = 'Copy Matched';
+        copyMatchedBtn.title = 'Copy matched attendance names in roster order';
+        copyMatchedBtn.style.cssText = 'background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.3s ease; white-space: nowrap; flex-shrink: 0;';
+        copyMatchedBtn.onmouseover = function () { copyMatchedBtn.style.background = 'rgba(255,255,255,0.25)'; };
+        copyMatchedBtn.onmouseout = function () { copyMatchedBtn.style.background = 'rgba(255,255,255,0.15)'; };
+        copyMatchedBtn.onclick = function () {
+            var matchedNames = getMatchedAttendanceNamesInRosterOrder();
+            if (matchedNames.length === 0) {
+                copyMatchedBtn.textContent = 'No Matches';
+                addLogMessage('buildComparisonPanel: no matched attendance names to copy', 'warn');
+                setTimeout(function () { copyMatchedBtn.textContent = 'Copy Matched'; }, 1500);
+                return;
+            }
+            navigator.clipboard.writeText(matchedNames.join('\n')).then(function () {
+                copyMatchedBtn.textContent = 'Copied!';
+                addLogMessage('buildComparisonPanel: copied ' + matchedNames.length + ' matched attendance name(s)', 'log');
+                setTimeout(function () { copyMatchedBtn.textContent = 'Copy Matched'; }, 1500);
+            }).catch(function () {
+                addLogMessage('buildComparisonPanel: matched attendance clipboard copy failed', 'error');
+            });
+        };
         searchBar.appendChild(searchInput);
+        searchBar.appendChild(copyMatchedBtn);
         var cpList = document.createElement('div');
         cpList.id = 'msteams-comparison-list';
         cpList.style.cssText = 'flex: 1; overflow-y: auto; padding: 8px 14px;';
@@ -1009,26 +1181,21 @@
     function refreshComparisonPanel() {
         var listEl = document.getElementById('msteams-comparison-list');
         if (!listEl || !comparisonState.active) return;
-        var attendanceNormSet = new Set();
-        for (var i = 0; i < attendanceState.allParticipants.length; i++) {
-            attendanceNormSet.add(normalizeForComparison(attendanceState.allParticipants[i].name));
-        }
-        var inputNormSet = new Set();
-        for (var i = 0; i < comparisonState.inputNames.length; i++) {
-            inputNormSet.add(comparisonState.inputNames[i].normalized);
-        }
         var seenAO = new Set();
         var attendanceOnly = [];
         for (var i = 0; i < attendanceState.allParticipants.length; i++) {
             var n = normalizeForComparison(attendanceState.allParticipants[i].name);
-            if (!inputNormSet.has(n) && !seenAO.has(n)) {
+            if (!attendanceHasRosterMatch(attendanceState.allParticipants[i].name) && !seenAO.has(n)) {
                 seenAO.add(n);
                 attendanceOnly.push({ display: attendanceState.allParticipants[i].name, normalized: n });
             }
         }
         var matchCount = 0;
+        var rosterMatches = [];
         for (var i = 0; i < comparisonState.inputNames.length; i++) {
-            if (attendanceNormSet.has(comparisonState.inputNames[i].normalized)) matchCount++;
+            var match = findAttendanceMatchForRoster(comparisonState.inputNames[i].display);
+            rosterMatches.push(match);
+            if (match) matchCount++;
         }
         var statsEl = document.getElementById('msteams-comparison-stats');
         if (statsEl) statsEl.textContent = matchCount + '⁄' + comparisonState.inputNames.length + ' present';
@@ -1043,10 +1210,11 @@
         }
         for (var i = 0; i < comparisonState.inputNames.length; i++) {
             var item = comparisonState.inputNames[i];
-            var present = attendanceNormSet.has(item.normalized);
+            var present = !!rosterMatches[i];
             if (query && item.display.toLowerCase().indexOf(query) === -1) continue;
             hasVisible = true;
             var row = document.createElement('div');
+            if (present) row.title = 'Matched attendance: ' + rosterMatches[i].name;
             row.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); margin-bottom: 2px;';
             row.onmouseover = function () { this.style.background = 'rgba(255,255,255,0.11)'; };
             row.onmouseout = function () { this.style.background = 'rgba(255,255,255,0.05)'; };
